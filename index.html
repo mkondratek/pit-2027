@@ -23,5 +23,13 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
+
+    <!-- Cloudflare Web Analytics — bez cookies, bez śledzenia między stronami.
+         Token jest identyfikatorem publicznym, nie sekretem. -->
+    <script
+      type="module"
+      src="https://static.cloudflareinsights.com/beacon.min.js"
+      data-cf-beacon='{"token": "c7368253e5844080bc5e697450d07d72"}'
+    ></script>
   </body>
 </html>
