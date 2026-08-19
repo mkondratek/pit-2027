@@ -189,6 +189,7 @@
     max={maxSuwak}
     step="100"
     aria-label="Wynagrodzenie brutto miesięcznie"
+    aria-valuetext="{kwota(brutto)} miesięcznie"
     value={Math.min(brutto, maxSuwak)}
     oninput={(e) => przesun(e.currentTarget.valueAsNumber)}
     onchange={zapisz}
@@ -472,7 +473,11 @@
 
   .suwak {
     width: 100%;
-    margin-top: 1rem;
+    margin-top: 0.5rem;
+    /* Sam element ma ~16 px, a WCAG 2.2 chce 24 px celu dotykowego — brakującą
+       wysokość dokłada padding, więc uchwyt zostaje wizualnie taki sam. */
+    padding-block: 0.5rem;
+    box-sizing: content-box;
     accent-color: var(--akcent);
   }
 
