@@ -493,29 +493,6 @@
   </div>
 </section>
 
-<!-- Wykres jest drugim sterownikiem tej samej kwoty: `onZmiana` odpowiada
-     `oninput` suwaka, a `zakonczone` jego `onchange` (zapis adresu na koniec
-     gestu, nie na każdym drgnięciu). -->
-<!-- Oś pozioma zostaje przy Twoim wynagrodzeniu także we wspólnym rozliczeniu —
-     to nadal ta jedna kwota, którą gest przesuwa, więc przeciąganie znaczy
-     dokładnie to samo co dotąd. Zmienia się treść krzywej: przy włączonym
-     wspólnym rozliczeniu pokazuje łączny zysk pary przy zarobkach małżonka
-     przyjętych za stałe, z dwukrotnie wyższym pułapem i przesuniętymi
-     załamaniami. Osi „łączne zarobki obojga" celowo nie robimy: nie dałoby się
-     jej przeciągać, bo z jednej sumy nie wynika, ile zarabia które z was. -->
-<WykresZysku
-  {brutto}
-  bruttoMalzonka={wspolne ? bruttoMalzonka : null}
-  {ulga}
-  ulgaMalzonka={wspolne && ulgaMalzonka}
-  {progi}
-  maxX={gornaOsi}
-  onZmiana={(wartosc, zakonczone) => {
-    przesun(wartosc);
-    if (zakonczone) zapisz();
-  }}
-/>
-
 <!-- Zapowiedź mówi wyłącznie o progach 120 000, 130 000 i 150 000 zł — a to są
      progi DOCHODU, podczas gdy strona pyta o brutto. Różnica jest ogromna i
      w jedną stronę: przy 11 878 zł brutto roczne wynagrodzenie to 142 536 zł,
@@ -523,16 +500,18 @@
      zestawi je ze 120 000 zł i wyjdzie mu, że próg dawno ma za sobą. Ta sekcja
      podaje więc liczbę w tej samej jednostce, w której napisana jest reforma.
 
-     Świadomie tekst, nie drugi pasek. Wykres wyżej ma już oś „brutto",
-     podpisane załamania i znacznik „tu jesteś"; pasek postawiony pod nim —
+     Świadomie tekst, nie drugi pasek. Wykres niżej ma już oś „brutto",
+     podpisane załamania i znacznik „tu jesteś"; pasek postawiony nad nim —
      w innej jednostce, z innymi progami, ale z tą samą gramatyką obrazka —
      byłby dokładnie tym pomyleniem jednostek, któremu ta sekcja ma zapobiegać.
      Zdania nie da się przy tym odczytać „mniej więcej" — albo mówi, ile
      brakuje, albo o ile próg jest przekroczony.
 
-     Stąd też miejsce: PO wykresie i tuż przed rozbiciem, gdzie ta sama kwota
-     wraca jako „podstawa opodatkowania". Wykres zostaje tam, gdzie był, a
-     sekcja czyta się jako most między obrazkiem a tabelą, nie jako jego rywal. -->
+     Stąd miejsce PRZED wykresem, zaraz pod porównaniem netto: strona czyta się
+     wtedy po kolei — ile zyskasz, ile będziesz mieć na rękę, dlaczego (czyli
+     gdzie leżysz względem progów), jak to wygląda na krzywej, pełne rozbicie.
+     Wyjaśnienie poprzedza ilustrację, zamiast po niej sprzątać, a ta sama
+     kwota wraca niżej w tabeli jako „podstawa opodatkowania". -->
 {#snippet wzglednieDoProgow(d: number)}
   {#if PROG_DZIS - d >= 1}
     Do pierwszego progu skali — {kwota(PROG_DZIS)} — brakuje {kwota(PROG_DZIS - d)}.
@@ -608,6 +587,29 @@
     {/if}
   </p>
 </section>
+
+<!-- Wykres jest drugim sterownikiem tej samej kwoty: `onZmiana` odpowiada
+     `oninput` suwaka, a `zakonczone` jego `onchange` (zapis adresu na koniec
+     gestu, nie na każdym drgnięciu). -->
+<!-- Oś pozioma zostaje przy Twoim wynagrodzeniu także we wspólnym rozliczeniu —
+     to nadal ta jedna kwota, którą gest przesuwa, więc przeciąganie znaczy
+     dokładnie to samo co dotąd. Zmienia się treść krzywej: przy włączonym
+     wspólnym rozliczeniu pokazuje łączny zysk pary przy zarobkach małżonka
+     przyjętych za stałe, z dwukrotnie wyższym pułapem i przesuniętymi
+     załamaniami. Osi „łączne zarobki obojga" celowo nie robimy: nie dałoby się
+     jej przeciągać, bo z jednej sumy nie wynika, ile zarabia które z was. -->
+<WykresZysku
+  {brutto}
+  bruttoMalzonka={wspolne ? bruttoMalzonka : null}
+  {ulga}
+  ulgaMalzonka={wspolne && ulgaMalzonka}
+  {progi}
+  maxX={gornaOsi}
+  onZmiana={(wartosc, zakonczone) => {
+    przesun(wartosc);
+    if (zakonczone) zapisz();
+  }}
+/>
 
 <details bind:open={rozwiniete}>
   <summary>
@@ -1015,10 +1017,14 @@
   }
 
   /* Celowo cicha: żadnej karty, żadnego tła — tylko pionowa kreska, ta sama co
-     przy `.uwaga`. Sekcja odpowiada na to samo pytanie co wykres nad nią, tyle
+     przy `.uwaga`. Sekcja odpowiada na to samo pytanie co wykres pod nią, tyle
      że w innej jednostce, więc gdyby dostała własną ramkę, dwie odpowiedzi
      biłyby się o wzrok zamiast się uzupełniać. Mocna jest w niej jedna rzecz —
-     sama kwota, bo po nią się tu przychodzi. */
+     sama kwota, bo po nią się tu przychodzi.
+
+     Marginesy pionowe zostają 1.75rem jak dotąd: `.porownanie` nad nią ma tyle
+     samo (marginesy się zlewają), a `figure` wykresu wchodzi z zerowym górnym —
+     więc oba odstępy wychodzą dokładnie takie same jak przed przeniesieniem. */
   .dochod {
     margin: 0 0 1.75rem;
     padding-left: 1rem;
