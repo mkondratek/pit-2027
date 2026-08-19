@@ -1,13 +1,17 @@
 <script lang="ts">
   import { PLACA_MINIMALNA } from '../tax/constants';
   import {
+    BRUTTO_PELNA_KORZYSC,
     BRUTTO_POCZATEK_KORZYSCI,
     MAKSYMALNA_KORZYSC_ROCZNA,
+    MAKSYMALNA_KORZYSC_WSPOLNA,
     porownaj,
+    porownajWspolnie,
+    progiWspolne,
   } from '../tax/engine';
   import WykresZysku from './WykresZysku.svelte';
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
-  import { odczytajBrutto, zapiszBrutto } from './url';
+  import { odczytajBrutto, odczytajMalzonka, zapiszStan } from './url';
 
   // Suwak obejmuje zakres, w którym cokolwiek się dzieje. Wpisać z ręki można
   // znacznie więcej, bo powyżej suwaka zysk wprawdzie stoi w miejscu, ale netto
@@ -18,6 +22,7 @@
   const MAX_POLE = 100_000;
 
   const startowe = wZakresiePola(odczytajBrutto(12_000));
+  const startowyMalzonek = odczytajMalzonka();
 
   /** Kwota, na której liczy silnik — zawsze skończona liczba, nigdy pusta. */
   let brutto = $state(startowe);
@@ -29,26 +34,85 @@
    */
   let pole = $state(String(startowe));
 
+  /**
+   * Wspólne rozliczenie z małżonkiem. Domyślnie wyłączone: rozliczenie
+   * indywidualne zostaje scenariuszem podstawowym, a wspólne pojawia się dopiero
+   * na świadome kliknięcie — razem z drugim polem.
+   */
+  let wspolne = $state(startowyMalzonek !== null);
+
+  /**
+   * Zero jest tu poprawną i najczęstszą odpowiedzią, nie brakiem odpowiedzi:
+   * para z jednym żywicielem to główny powód, dla którego wspólne rozliczenie
+   * w ogóle istnieje. Dlatego jest wartością startową i dolną granicą pola.
+   */
+  let bruttoMalzonka = $state(startowyMalzonek ?? 0);
+  let poleMalzonka = $state(String(startowyMalzonek ?? 0));
+
   let rozwiniete = $state(false);
 
-  const wynik = $derived(porownaj(brutto));
+  const wynik = $derived(
+    wspolne ? porownajWspolnie(brutto, bruttoMalzonka) : porownaj(brutto),
+  );
   const zyskuje = $derived(wynik.zyskRocznie > 0);
-  const doProgu = $derived(Math.max(0, BRUTTO_POCZATEK_KORZYSCI - brutto));
+
+  const maksymalnyZysk = $derived(
+    wspolne ? MAKSYMALNA_KORZYSC_WSPOLNA : MAKSYMALNA_KORZYSC_ROCZNA,
+  );
+
+  /**
+   * Progi korzyści. Przy rozliczeniu indywidualnym to dwie stałe; przy wspólnym
+   * przesuwają się wraz z zarobkami małżonka, bo liczy się połowa łącznego
+   * dochodu — przy małżonku bez dochodu obie granice skali działają podwójnie
+   * i próg wypada mniej więcej dwa razy wyżej.
+   */
+  const progi = $derived(
+    wspolne
+      ? progiWspolne(bruttoMalzonka)
+      : { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC },
+  );
+
+  /**
+   * Górny kraniec osi wykresu. Dobierany tak, żeby próg pełnej korzyści wypadał
+   * mniej więcej w dwóch trzecich szerokości — tak jak przy rozliczeniu
+   * indywidualnym, gdzie 14 776 zł leży w tym miejscu osi kończącej się na
+   * 20 000 zł. Widełki pilnują, żeby oś nie zrobiła się absurdalnie ciasna, gdy
+   * małżonek zarabia tyle, że para ma pełną korzyść niemal od razu.
+   */
+  const gornaOsi = $derived(
+    wspolne
+      ? Math.min(40_000, Math.max(12_000, Math.ceil((MIN_SUWAK + (progi.pelna - MIN_SUWAK) / 0.69) / 1_000) * 1_000))
+      : 20_000,
+  );
+
+  /**
+   * Suwak sięga co najmniej tam, gdzie oś wykresu, bo wykres jest jego drugim
+   * sterownikiem — inaczej przeciągnięcie w prawy koniec zatrzymywałoby znacznik
+   * w połowie gestu.
+   */
+  const maxSuwak = $derived(wspolne ? Math.max(MAX_SUWAK, gornaOsi) : MAX_SUWAK);
+
+  const doProgu = $derived(Math.max(0, progi.poczatek - brutto));
   const ponizejMinimalnej = $derived(brutto < PLACA_MINIMALNA);
 
   // Jednorazowo po wczytaniu, żeby adres dało się skopiować, zanim ktoś dotknie
   // pola. Później zapisują już tylko zakończona edycja i puszczony suwak —
   // zapis na każdym znaku wpisywał do adresu wartości pośrednie.
   $effect(() => {
-    zapiszBrutto(startowe);
+    zapiszStan(startowe, startowyMalzonek);
   });
+
+  /** Adres ma nieść cały scenariusz, także ten wspólny — patrz `url.ts`. */
+  function zapisz() {
+    zapiszStan(brutto, wspolne ? bruttoMalzonka : null);
+  }
 
   function wZakresiePola(wartosc: number): number {
     return Math.min(MAX_POLE, Math.max(MIN_POLE, Math.round(wartosc)));
   }
 
   function wZakresieSuwaka(wartosc: number): number {
-    return Math.min(MAX_SUWAK, Math.max(MIN_SUWAK, Math.round(wartosc)));
+    return Math.min(maxSuwak, Math.max(MIN_SUWAK, Math.round(wartosc)));
   }
 
   /** Pisanie w polu: wynik idzie za tym, co widać, ale bez domykania do zakresu. */
@@ -66,7 +130,28 @@
   function zakoncz() {
     brutto = wZakresiePola(brutto);
     pole = String(brutto);
-    zapiszBrutto(brutto);
+    zapisz();
+  }
+
+  /** To samo dla pola małżonka, tyle że tu wolno wpisać zero. */
+  function piszMalzonka(surowe: string) {
+    poleMalzonka = surowe;
+
+    const liczba = Number(surowe);
+    if (surowe.trim() === '' || !Number.isFinite(liczba) || liczba < 0) return;
+
+    bruttoMalzonka = Math.round(liczba);
+  }
+
+  function zakonczMalzonka() {
+    bruttoMalzonka = Math.min(MAX_POLE, Math.max(0, bruttoMalzonka));
+    poleMalzonka = String(bruttoMalzonka);
+    zapisz();
+  }
+
+  function przelacz(wlaczone: boolean) {
+    wspolne = wlaczone;
+    zapisz();
   }
 
   /** Suwak nie ma stanów pośrednich, więc klamruje od razu. */
@@ -101,38 +186,103 @@
     class="suwak"
     type="range"
     min={MIN_SUWAK}
-    max={MAX_SUWAK}
+    max={maxSuwak}
     step="100"
     aria-label="Wynagrodzenie brutto miesięcznie"
-    value={Math.min(brutto, MAX_SUWAK)}
+    value={Math.min(brutto, maxSuwak)}
     oninput={(e) => przesun(e.currentTarget.valueAsNumber)}
-    onchange={() => zapiszBrutto(brutto)}
+    onchange={zapisz}
   />
+
+  <!-- Przełącznik i drugie pole są pod suwakiem, bo pytanie o małżonka ma sens
+       dopiero po podaniu własnej pensji. Pole pojawia się na kliknięcie, nie
+       w trakcie przeciągania, więc zmiana wysokości strony jest tu odpowiedzią
+       na decyzję użytkownika, a nie drganiem układu. -->
+  <label class="przelacznik">
+    <input
+      type="checkbox"
+      checked={wspolne}
+      onchange={(e) => przelacz(e.currentTarget.checked)}
+    />
+    Rozliczam się wspólnie z małżonkiem
+  </label>
+
+  {#if wspolne}
+    <div class="malzonek">
+      <label for="brutto-malzonka">Wynagrodzenie brutto małżonka</label>
+
+      <div class="pole">
+        <input
+          id="brutto-malzonka"
+          type="number"
+          inputmode="numeric"
+          min="0"
+          max={MAX_POLE}
+          step="100"
+          value={poleMalzonka}
+          oninput={(e) => piszMalzonka(e.currentTarget.value)}
+          onblur={zakonczMalzonka}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') zakonczMalzonka();
+          }}
+        />
+        <span class="jednostka">zł / mies.</span>
+      </div>
+
+      <p class="wskazowka">
+        Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
+        z reformy potrafi być wtedy dwa razy większy.
+      </p>
+    </div>
+  {/if}
 </section>
 
 <!-- Treść akapitu w jednym miejscu, bo obok wersji widocznej renderujemy jeszcze
      wersje-duchy, które rezerwują wysokość (patrz `.stos` niżej). -->
-{#snippet tekstZysku(zyskRocznie: number)}
+{#snippet tekstZysku(zyskRocznie: number, maksimum: number)}
   To {kwota(zyskRocznie)} przez cały rok.
-  {#if zyskRocznie === MAKSYMALNA_KORZYSC_ROCZNA}
+  {#if zyskRocznie === maksimum}
     To maksimum — wyższa pensja da wyższe netto, ale z tej zmiany zawsze wychodzi tyle samo.
   {/if}
 {/snippet}
 
-{#snippet tekstBrakuZysku(brakuje: number)}
-  Nowa skala zmienia wynagrodzenie od {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto —
-  brakuje {kwota(brakuje)} podwyżki. Reforma dotyczy mniej więcej co dziesiątego
-  podatnika.
+{#snippet tekstBrakuZysku(prog: number, brakuje: number)}
+  {#if brakuje < 1}
+    Jesteś dokładnie na granicy — zysk zaczyna się kilka złotych wyżej. Reforma dotyczy
+    mniej więcej co dziesiątego podatnika.
+  {:else}
+    Nowa skala zmienia wynagrodzenie od {kwota(prog)} brutto —
+    brakuje {kwota(brakuje)} podwyżki. Reforma dotyczy mniej więcej co dziesiątego
+    podatnika.
+  {/if}
+{/snippet}
+
+<!-- Przy wspólnym rozliczeniu próg nie jest stałą z ustawy, tylko wynikiem
+     zarobków małżonka — dlatego zdanie tłumaczy, skąd się bierze, zamiast podać
+     liczbę bez wyjaśnienia. -->
+{#snippet tekstBrakuZyskuWspolnie(prog: number, brakuje: number)}
+  Liczy się połowa łącznego dochodu, więc przy zarobkach małżonka {kwota(bruttoMalzonka)}
+  zmiana zaczyna się od {kwota(prog)} Twojego brutto — brakuje {kwota(brakuje)}.
 {/snippet}
 
 <section class="wynik" class:zyskuje aria-live="polite">
   <!-- Etykieta i sama liczba mieszczą się w jednym wierszu w obu wariantach
        (krótkie napisy, `line-height: 1` na liczbie), więc tu nic nie skacze. -->
   {#if zyskuje}
-    <p class="etykieta">Na rękę dostaniesz miesięcznie</p>
-    <p class="liczba">{zeZnakiem(wynik.zyskMiesiecznie)}</p>
+    <p class="etykieta">
+      {wspolne ? 'Na rękę dostaniecie miesięcznie' : 'Na rękę dostaniesz miesięcznie'}
+    </p>
+    <p class="liczba">
+      {#if wynik.zyskMiesiecznie < 1}
+        &lt;&nbsp;1 zł
+      {:else}
+        {zeZnakiem(wynik.zyskMiesiecznie)}
+      {/if}
+    </p>
   {:else}
-    <p class="etykieta">Dla Ciebie ta zmiana oznacza</p>
+    <p class="etykieta">
+      {wspolne ? 'Dla Was ta zmiana oznacza' : 'Dla Ciebie ta zmiana oznacza'}
+    </p>
     <p class="liczba">0 zł</p>
   {/if}
 
@@ -145,14 +295,27 @@
   <div class="stos">
     <p class="rocznie">
       {#if zyskuje}
-        {@render tekstZysku(wynik.zyskRocznie)}
+        {@render tekstZysku(wynik.zyskRocznie, maksymalnyZysk)}
+      {:else if wspolne}
+        {@render tekstBrakuZyskuWspolnie(progi.poczatek, doProgu)}
       {:else}
-        {@render tekstBrakuZysku(doProgu)}
+        {@render tekstBrakuZysku(progi.poczatek, doProgu)}
       {/if}
     </p>
-    <p class="rocznie duch" aria-hidden="true">{@render tekstZysku(MAKSYMALNA_KORZYSC_ROCZNA)}</p>
+    <!-- Duchy niosą najdłuższe brzmienie dla bieżącego trybu: największy możliwy
+         zysk i największy możliwy brak (czyli cały próg). Obie te wartości
+         zmieniają się wyłącznie przy przełączeniu trybu albo zmianie pensji
+         małżonka — nigdy w trakcie przeciągania suwaka — więc rezerwacja
+         wysokości trzyma się tak samo jak dotąd. -->
     <p class="rocznie duch" aria-hidden="true">
-      {@render tekstBrakuZysku(BRUTTO_POCZATEK_KORZYSCI)}
+      {@render tekstZysku(maksymalnyZysk, maksymalnyZysk)}
+    </p>
+    <p class="rocznie duch" aria-hidden="true">
+      {#if wspolne}
+        {@render tekstBrakuZyskuWspolnie(progi.poczatek, progi.poczatek)}
+      {:else}
+        {@render tekstBrakuZysku(progi.poczatek, progi.poczatek)}
+      {/if}
     </p>
   </div>
 </section>
@@ -161,7 +324,7 @@
   <div>
     <p class="rok">dziś</p>
     <p class="netto">{kwota(wynik.przed.nettoMiesiecznie)}</p>
-    <p class="opis">netto miesięcznie</p>
+    <p class="opis">{wspolne ? 'łącznie netto miesięcznie' : 'netto miesięcznie'}</p>
   </div>
 
   <div class="strzalka" aria-hidden="true">→</div>
@@ -169,18 +332,28 @@
   <div>
     <p class="rok">od 2027</p>
     <p class="netto" class:wyroznione={zyskuje}>{kwota(wynik.po.nettoMiesiecznie)}</p>
-    <p class="opis">netto miesięcznie</p>
+    <p class="opis">{wspolne ? 'łącznie netto miesięcznie' : 'netto miesięcznie'}</p>
   </div>
 </section>
 
 <!-- Wykres jest drugim sterownikiem tej samej kwoty: `onZmiana` odpowiada
      `oninput` suwaka, a `zakonczone` jego `onchange` (zapis adresu na koniec
      gestu, nie na każdym drgnięciu). -->
+<!-- Oś pozioma zostaje przy Twoim wynagrodzeniu także we wspólnym rozliczeniu —
+     to nadal ta jedna kwota, którą gest przesuwa, więc przeciąganie znaczy
+     dokładnie to samo co dotąd. Zmienia się treść krzywej: przy włączonym
+     wspólnym rozliczeniu pokazuje łączny zysk pary przy zarobkach małżonka
+     przyjętych za stałe, z dwukrotnie wyższym pułapem i przesuniętymi
+     załamaniami. Osi „łączne zarobki obojga" celowo nie robimy: nie dałoby się
+     jej przeciągać, bo z jednej sumy nie wynika, ile zarabia które z was. -->
 <WykresZysku
   {brutto}
+  bruttoMalzonka={wspolne ? bruttoMalzonka : null}
+  {progi}
+  maxX={gornaOsi}
   onZmiana={(wartosc, zakonczone) => {
     przesun(wartosc);
-    if (zakonczone) zapiszBrutto(brutto);
+    if (zakonczone) zapisz();
   }}
 />
 
@@ -244,6 +417,12 @@
     Podstawa opodatkowania i podatek zaokrąglane do pełnych złotych zgodnie z art. 63 §1 Ordynacji
     podatkowej. Kwota wolna 30 000 zł i kwota zmniejszająca podatek 3 600 zł pozostają bez zmian —
     zmienia się wyłącznie skala.
+    {#if wspolne}
+      Wszystkie kwoty w tabeli są sumą obojga małżonków. Podatek to dwukrotność podatku od połowy
+      łącznego dochodu (art. 6 ust. 2 ustawy o PIT), więc kwota zmniejszająca odlicza się dwa razy.
+      Składki liczy każdy od swojego wynagrodzenia, z własnym limitem 30-krotności, a składka
+      zdrowotna pozostaje indywidualna — wspólnemu rozliczeniu podlega sam podatek.
+    {/if}
   </p>
 </details>
 
@@ -295,6 +474,50 @@
     width: 100%;
     margin-top: 1rem;
     accent-color: var(--akcent);
+  }
+
+  /* Etykieta jest klikalnym celem razem z kwadracikiem, więc nie `display: block`
+     jak pozostałe etykiety w tym komponencie. */
+  .przelacznik {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: fit-content;
+    margin: 1.25rem 0 0;
+    cursor: pointer;
+    /* Wielokrotne przełączanie nie ma zaznaczać napisu. */
+    user-select: none;
+    font-size: 0.9375rem;
+    color: var(--tekst);
+  }
+
+  .przelacznik input {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--akcent);
+    cursor: pointer;
+  }
+
+  .malzonek {
+    margin-top: 1rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--linia);
+  }
+
+  /* Mniejsze od pola głównego: druga pensja jest dopowiedzeniem do pierwszej,
+     nie drugim równorzędnym pytaniem. Szersze o znak, bo `ch` maleje razem
+     z krojem, a stałe `padding` w rem — nie, więc przy 7ch pięciocyfrowa kwota
+     ucinała się o ostatnią cyfrę. */
+  .malzonek input[type='number'] {
+    font-size: 1.5rem;
+    width: 8ch;
+  }
+
+  .wskazowka {
+    margin: 0.5rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--tekst-cichy);
   }
 
   .wynik {
