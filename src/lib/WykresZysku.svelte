@@ -327,20 +327,16 @@
     </text>
   </svg>
 
-  <!-- Bez rezerwacji miejsca: notka wyskakuje tylko poza osią (poniżej 3 000 albo
-       powyżej 20 000 zł), więc drgnięcie dotyczy skraju suwaka, a stały pusty pas
-       pod wykresem widziałby każdy. Ten akapit pojawia się poza osią, a że jest pod wykresem, jego
-       wejście przesuwało wszystko niżej. Wszystkie warianty siedzą więc w jednej
-       komórce siatki: widoczny jest co najwyżej jeden, dwa duchy trzymają
-       wysokość. Duchy dostają najszerszą możliwą kwotę, bo dłuższa liczba
-       potrafi dołożyć wiersz zawijania. -->
+  <!-- Świadomie bez rezerwacji wysokości: notka pojawia się tylko poza osią
+       (poniżej 3 000 albo powyżej 20 000 zł), więc drgnięcie dotyczy skraju
+       suwaka. Stały pusty pas pod wykresem, którym trzeba by za to zapłacić,
+       widziałby natomiast każdy. -->
   <div class="stos">
     {#if pozaZakresem === 'prawo'}
       <p class="poza">{@render pozaPrawo(brutto)}</p>
     {:else if pozaZakresem === 'lewo'}
       <p class="poza">{@render pozaLewo(brutto)}</p>
     {/if}
-
   </div>
 </figure>
 
