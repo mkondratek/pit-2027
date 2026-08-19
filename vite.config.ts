@@ -1,7 +1,11 @@
-import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import { defineConfig } from 'vite'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [svelte()],
+  test: {
+    // Drzewa robocze gita trzymane w .claude/ zawierają własną kopię testów.
+    // Bez tego `vitest run` liczy je razem z naszymi i podaje zawyżony wynik.
+    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**'],
+  },
 })
