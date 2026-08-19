@@ -565,9 +565,10 @@
       Ulga dla młodych (PIT-0, art. 21 ust. 1 pkt 148 ustawy o PIT) zwalnia z podatku przychód
       do {kwota(LIMIT_PIT_ZERO)} rocznie — limit przysługuje każdemu osobno i jest wspólny dla
       wszystkich zwolnień PIT-0. Składki ZUS naliczają się od całości wynagrodzenia, bo
-      zwolnienie jest podatkowe, nie składkowe; składka zdrowotna nie może za to przekroczyć
-      hipotetycznej zaliczki na PIT wg stanu na 31.12.2021 (art. 83 ustawy zdrowotnej), więc
-      przy przychodzie w całości zwolnionym spada do zera.
+      zwolnienie jest podatkowe, nie składkowe. Składka zdrowotna też się należy w pełnej
+      wysokości: art. 83 ust. 2a ustawy zdrowotnej każe porównywać ją z zaliczką policzoną wg
+      stanu na 31.12.2021 tak, jakby zwolnienie nie przysługiwało — więc wbrew częstej opinii
+      nie spada przy uldze do zera.
     {/if}
   </p>
 </details>
