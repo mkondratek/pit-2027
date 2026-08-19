@@ -37,7 +37,8 @@
       zmiany dopiero powstają, więc poprawki są mile widziane.
     </p>
     <p class="podpis">
-      Zrobił Mikołaj Kondratek ·
+      Autorem strony jest Mikołaj Kondratek — programista, nie doradca podatkowy ·
+      <a href="https://www.linkedin.com/in/mkondratek/">LinkedIn</a> ·
       <a href="https://github.com/mkondratek">GitHub</a>
     </p>
   </footer>
