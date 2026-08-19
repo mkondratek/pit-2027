@@ -4,6 +4,7 @@
     BRUTTO_POCZATEK_KORZYSCI,
     MAKSYMALNA_KORZYSC_ROCZNA,
     MAKSYMALNA_KORZYSC_WSPOLNA,
+    type OpcjeWspolne,
     porownaj,
     porownajWspolnie,
   } from '../tax/engine';
@@ -12,6 +13,8 @@
   let {
     brutto,
     bruttoMalzonka = null,
+    ulga = false,
+    ulgaMalzonka = false,
     progi = { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC },
     maxX = 20_000,
     onZmiana,
@@ -23,6 +26,13 @@
      * zysk pary, a pułap osi pionowej jest dwukrotny.
      */
     bruttoMalzonka?: number | null;
+    /**
+     * Ulga dla młodych — osobno Twoja i małżonka, bo silnik jej nie dziedziczy.
+     * Krzywa musi je znać, nie tylko progi: bez nich rysowałaby zysk kogoś
+     * innego niż ten, którego dotyczą podpisane załamania.
+     */
+    ulga?: boolean;
+    ulgaMalzonka?: boolean;
     /**
      * Załamania krzywej — gdzie zysk rusza z zera i gdzie dochodzi do pułapu.
      * Przy wspólnym rozliczeniu nie są stałymi: przesuwają się wraz z zarobkami
@@ -73,17 +83,29 @@
   const skalaX = (b: number) => L + ((b - MIN_X) / (maxX - MIN_X)) * (R - L);
   const skalaY = (z: number) => B - (Math.min(z, ZYSK_MAX) / ZYSK_MAX) * (B - T);
 
+  /**
+   * `malzonek` podajemy zawsze wprost — patrz `OpcjeWspolne` w silniku: bez tego
+   * ulga nie przeszłaby na małżonka, a przy dziedziczeniu przeszłaby po cichu na
+   * oboje. Przy rozliczeniu indywidualnym pole jest ignorowane.
+   */
+  const opcje: OpcjeWspolne = $derived({
+    ulgaDlaMlodych: ulga,
+    malzonek: { ulgaDlaMlodych: ulgaMalzonka },
+  });
+
   /** Zysk miesięczny — jednej osoby albo całej pary, zależnie od trybu. */
   const zyskDla = (b: number) =>
     bruttoMalzonka === null
-      ? porownaj(b).zyskMiesiecznie
-      : porownajWspolnie(b, bruttoMalzonka).zyskMiesiecznie;
+      ? porownaj(b, opcje).zyskMiesiecznie
+      : porownajWspolnie(b, bruttoMalzonka, opcje).zyskMiesiecznie;
 
   /**
    * Krzywa nie zależy od tego, co użytkownik wpisał w swoje wynagrodzenie — to ta
    * sama funkcja dla wszystkich — więc przeliczenie nie zachodzi przy ruchu
-   * suwaka. Zależy natomiast od zarobków małżonka i od zakresu osi, i tylko one
-   * są tu czytane: `brutto` nigdzie w tym wyrażeniu nie występuje. Krok 100 zł
+   * suwaka. Zależy natomiast od zarobków małżonka, od ulg i od zakresu osi,
+   * i tylko one są tu czytane: `brutto` nigdzie w tym wyrażeniu nie występuje
+   * (`zyskDla` sięga po `opcje`, więc przeliczy się po przełączeniu ulgi —
+   * kliknięcie, nie gest). Krok 100 zł
    * wystarcza na gładką linię; oba załamania dokładamy osobno, żeby były ostre,
    * a nie ścięte próbkowaniem.
    */
@@ -128,7 +150,10 @@
       `Oś pozioma obejmuje od ${liczba.format(MIN_X)} do ${liczba.format(maxX)} zł, a poza tym ` +
       `zakresem krzywa jest płaska: do ${kwota(progi.poczatek)} brutto zysk wynosi zero, potem ` +
       `rośnie, a od ${kwota(progi.pelna)} zatrzymuje się na ${kwota(ZYSK_MAX)} miesięcznie ` +
-      `i wyżej już nie rośnie. Dla ${kwota(brutto)} brutto zysk wynosi ${kwota(zysk)} miesięcznie.`,
+      `i wyżej już nie rośnie. Dla ${kwota(brutto)} brutto zysk wynosi ${kwota(zysk)} miesięcznie.` +
+      // Progi z ulgą wypadają wyraźnie wyżej od tych z nagłówka strony, więc bez
+      // tej wzmianki opis czytany bez ekranu wyglądałby na sprzeczny.
+      `${ulga || ulgaMalzonka ? ' Wyliczenie uwzględnia ulgę dla młodych, dlatego zysk pojawia się dopiero przy wyższych zarobkach.' : ''}`,
   );
 
   // ——— Sterowanie wskaźnikiem (mysz, palec, rysik — jedną ścieżką) ———

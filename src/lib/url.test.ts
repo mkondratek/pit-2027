@@ -176,3 +176,59 @@ describe('zapiszStan', () => {
     expect(stan.href).toBe('https://pit.example/?brutto=13000&malzonek=4000');
   });
 });
+
+describe('ulga dla młodych w adresie', () => {
+  it('czyta obie ulgi z linku', async () => {
+    ustawWindow('https://pit.example/?brutto=15000&malzonek=4000&ulga=1&ulga-malzonka=1');
+    const { odczytajUlge, odczytajUlgeMalzonka } = await zaladujModul();
+
+    expect(odczytajUlge()).toBe(true);
+    expect(odczytajUlgeMalzonka()).toBe(true);
+  });
+
+  it('nie czyta ulgi małżonka, gdy w adresie nie ma małżonka', async () => {
+    ustawWindow('https://pit.example/?brutto=15000&ulga-malzonka=1');
+    const { odczytajUlge, odczytajUlgeMalzonka } = await zaladujModul();
+
+    expect(odczytajUlge()).toBe(false);
+    expect(odczytajUlgeMalzonka()).toBe(false);
+  });
+
+  it('traktuje link z samą ulgą jak udostępniony, a nie jak czyste wejście', async () => {
+    const stan = ustawWindow('https://pit.example/?ulga=1');
+    const { odczytajBrutto, odczytajMalzonka, odczytajUlge, zapiszStan } = await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), odczytajUlge());
+
+    expect(stan.href).toBe('https://pit.example/?ulga=1&brutto=12000');
+  });
+
+  it('włączenie ulgi przy domyślnej kwocie jest interakcją', async () => {
+    const stan = ustawWindow('https://pit.example/');
+    const { odczytajBrutto, odczytajMalzonka, odczytajUlge, zapiszStan } = await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), odczytajUlge());
+    zapiszStan(12_000, null, true);
+
+    expect(stan.href).toBe('https://pit.example/?brutto=12000&ulga=1');
+  });
+
+  it('wyłączona ulga znika z adresu zamiast zapisywać się jako zero', async () => {
+    const stan = ustawWindow('https://pit.example/?brutto=15000&ulga=1');
+    const { zapiszStan } = await zaladujModul();
+
+    zapiszStan(15_000, null, false);
+
+    expect(stan.href).toBe('https://pit.example/?brutto=15000');
+  });
+
+  it('ulga małżonka nie zostaje w adresie po wyłączeniu wspólnego rozliczenia', async () => {
+    const stan = ustawWindow('https://pit.example/?brutto=15000&malzonek=4000&ulga-malzonka=1');
+    const { zapiszStan } = await zaladujModul();
+
+    // Tak wywołuje to aplikacja: wyłączone wspólne rozliczenie zeruje oba pola naraz.
+    zapiszStan(15_000, null, false, false);
+
+    expect(stan.href).toBe('https://pit.example/?brutto=15000');
+  });
+});

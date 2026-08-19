@@ -1,17 +1,26 @@
 <script lang="ts">
-  import { PLACA_MINIMALNA } from '../tax/constants';
+  import { LIMIT_PIT_ZERO, PLACA_MINIMALNA } from '../tax/constants';
   import {
     BRUTTO_PELNA_KORZYSC,
+    BRUTTO_PELNA_KORZYSC_ULGA,
     BRUTTO_POCZATEK_KORZYSCI,
+    BRUTTO_POCZATEK_KORZYSCI_ULGA,
     MAKSYMALNA_KORZYSC_ROCZNA,
     MAKSYMALNA_KORZYSC_WSPOLNA,
+    type OpcjeWspolne,
     porownaj,
     porownajWspolnie,
     progiWspolne,
   } from '../tax/engine';
   import WykresZysku from './WykresZysku.svelte';
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
-  import { odczytajBrutto, odczytajMalzonka, zapiszStan } from './url';
+  import {
+    odczytajBrutto,
+    odczytajMalzonka,
+    odczytajUlge,
+    odczytajUlgeMalzonka,
+    zapiszStan,
+  } from './url';
 
   // Suwak obejmuje zakres, w którym cokolwiek się dzieje. Wpisać z ręki można
   // znacznie więcej, bo powyżej suwaka zysk wprawdzie stoi w miejscu, ale netto
@@ -23,6 +32,8 @@
 
   const startowe = wZakresiePola(odczytajBrutto(12_000));
   const startowyMalzonek = odczytajMalzonka();
+  const startowaUlga = odczytajUlge();
+  const startowaUlgaMalzonka = odczytajUlgeMalzonka();
 
   /** Kwota, na której liczy silnik — zawsze skończona liczba, nigdy pusta. */
   let brutto = $state(startowe);
@@ -49,10 +60,34 @@
   let bruttoMalzonka = $state(startowyMalzonek ?? 0);
   let poleMalzonka = $state(String(startowyMalzonek ?? 0));
 
+  /**
+   * Ulga dla młodych — dwie niezależne flagi, bo silnik jej nie dziedziczy:
+   * wiek jest cechą konkretnej osoby, a nie ustawieniem gospodarstwa. Stąd też
+   * rozmieszczenie w układzie: każdy przełącznik stoi przy wynagrodzeniu tej
+   * osoby, której dotyczy, zamiast tworzyć osobną grupę „ulgi" z dwoma polami,
+   * przy której trzeba by dopiero czytać, kto jest kto.
+   */
+  let ulga = $state(startowaUlga);
+  let ulgaMalzonka = $state(startowaUlgaMalzonka);
+
   let rozwiniete = $state(false);
 
+  /** Czy w bieżącym scenariuszu ktokolwiek korzysta ze zwolnienia. */
+  const jakasUlga = $derived(ulga || (wspolne && ulgaMalzonka));
+
+  /**
+   * Opcje dla silnika. `malzonek` podajemy zawsze wprost, bo bez tego
+   * `porownajWspolnie` zeruje małżonkowi ulgę — dokładnie po to, żeby nie
+   * zwolnić po cichu obojga (patrz `OpcjeWspolne`). Przy rozliczeniu
+   * indywidualnym pole jest po prostu ignorowane.
+   */
+  const opcje: OpcjeWspolne = $derived({
+    ulgaDlaMlodych: ulga,
+    malzonek: { ulgaDlaMlodych: ulgaMalzonka },
+  });
+
   const wynik = $derived(
-    wspolne ? porownajWspolnie(brutto, bruttoMalzonka) : porownaj(brutto),
+    wspolne ? porownajWspolnie(brutto, bruttoMalzonka, opcje) : porownaj(brutto, opcje),
   );
   const zyskuje = $derived(wynik.zyskRocznie > 0);
 
@@ -61,27 +96,41 @@
   );
 
   /**
-   * Progi korzyści. Przy rozliczeniu indywidualnym to dwie stałe; przy wspólnym
-   * przesuwają się wraz z zarobkami małżonka, bo liczy się połowa łącznego
-   * dochodu — przy małżonku bez dochodu obie granice skali działają podwójnie
-   * i próg wypada mniej więcej dwa razy wyżej.
+   * Progi korzyści. Przy rozliczeniu indywidualnym to dwie stałe — osobna para
+   * dla osoby z ulgą, bo pierwsze 85 528 zł przychodu jest u niej wolne od
+   * podatku i nowa skala rusza dopiero od 20 139 zł brutto zamiast 11 878 zł.
+   * Przy wspólnym rozliczeniu przesuwają się wraz z zarobkami małżonka, bo
+   * liczy się połowa łącznego dochodu — przy małżonku bez dochodu obie granice
+   * skali działają podwójnie i próg wypada mniej więcej dwa razy wyżej;
+   * `progiWspolne` dostaje te same opcje co reszta wyliczenia, więc ulga jest
+   * w nich uwzględniona.
    */
   const progi = $derived(
     wspolne
-      ? progiWspolne(bruttoMalzonka)
-      : { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC },
+      ? progiWspolne(bruttoMalzonka, opcje)
+      : ulga
+        ? { poczatek: BRUTTO_POCZATEK_KORZYSCI_ULGA, pelna: BRUTTO_PELNA_KORZYSC_ULGA }
+        : { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC },
   );
 
   /**
    * Górny kraniec osi wykresu. Dobierany tak, żeby próg pełnej korzyści wypadał
    * mniej więcej w dwóch trzecich szerokości — tak jak przy rozliczeniu
-   * indywidualnym, gdzie 14 776 zł leży w tym miejscu osi kończącej się na
-   * 20 000 zł. Widełki pilnują, żeby oś nie zrobiła się absurdalnie ciasna, gdy
-   * małżonek zarabia tyle, że para ma pełną korzyść niemal od razu.
+   * indywidualnym bez ulgi, gdzie 14 776 zł leży w tym miejscu osi kończącej się
+   * na 20 000 zł. Widełki pilnują, żeby oś nie zrobiła się absurdalnie ciasna,
+   * gdy małżonek zarabia tyle, że para ma pełną korzyść niemal od razu.
+   *
+   * Ulga przesuwa oba załamania w górę (23 036 zł indywidualnie, prawie 36 000 zł
+   * przy małżonku bez dochodu), więc sufit 40 000 zł ścinałby wtedy podpis progu
+   * przy krawędzi. Podnosimy go tylko w scenariuszach z ulgą — bez niej oś
+   * zostaje co do złotówki taka jak dotąd.
    */
   const gornaOsi = $derived(
-    wspolne
-      ? Math.min(40_000, Math.max(12_000, Math.ceil((MIN_SUWAK + (progi.pelna - MIN_SUWAK) / 0.69) / 1_000) * 1_000))
+    wspolne || jakasUlga
+      ? Math.min(
+          jakasUlga ? 55_000 : 40_000,
+          Math.max(12_000, Math.ceil((MIN_SUWAK + (progi.pelna - MIN_SUWAK) / 0.69) / 1_000) * 1_000),
+        )
       : 20_000,
   );
 
@@ -90,7 +139,7 @@
    * sterownikiem — inaczej przeciągnięcie w prawy koniec zatrzymywałoby znacznik
    * w połowie gestu.
    */
-  const maxSuwak = $derived(wspolne ? Math.max(MAX_SUWAK, gornaOsi) : MAX_SUWAK);
+  const maxSuwak = $derived(Math.max(MAX_SUWAK, gornaOsi));
 
   const doProgu = $derived(Math.max(0, progi.poczatek - brutto));
   const ponizejMinimalnej = $derived(brutto < PLACA_MINIMALNA);
@@ -99,12 +148,16 @@
   // pola. Później zapisują już tylko zakończona edycja i puszczony suwak —
   // zapis na każdym znaku wpisywał do adresu wartości pośrednie.
   $effect(() => {
-    zapiszStan(startowe, startowyMalzonek);
+    zapiszStan(startowe, startowyMalzonek, startowaUlga, startowaUlgaMalzonka);
   });
 
-  /** Adres ma nieść cały scenariusz, także ten wspólny — patrz `url.ts`. */
+  /**
+   * Adres ma nieść cały scenariusz, także ten wspólny — patrz `url.ts`. Stan
+   * wyłączonej sekcji do adresu nie idzie: przy rozliczeniu indywidualnym nie ma
+   * małżonka, więc nie ma też jego ulgi.
+   */
   function zapisz() {
-    zapiszStan(brutto, wspolne ? bruttoMalzonka : null);
+    zapiszStan(brutto, wspolne ? bruttoMalzonka : null, ulga, wspolne && ulgaMalzonka);
   }
 
   function wZakresiePola(wartosc: number): number {
@@ -149,8 +202,18 @@
     zapisz();
   }
 
-  function przelacz(wlaczone: boolean) {
+  function przelaczWspolne(wlaczone: boolean) {
     wspolne = wlaczone;
+    zapisz();
+  }
+
+  function przelaczUlge(wlaczone: boolean) {
+    ulga = wlaczone;
+    zapisz();
+  }
+
+  function przelaczUlgeMalzonka(wlaczone: boolean) {
+    ulgaMalzonka = wlaczone;
     zapisz();
   }
 
@@ -195,23 +258,53 @@
     onchange={zapisz}
   />
 
-  <!-- Przełącznik i drugie pole są pod suwakiem, bo pytanie o małżonka ma sens
-       dopiero po podaniu własnej pensji. Pole pojawia się na kliknięcie, nie
+  <!-- Przełączniki i drugie pole są pod suwakiem, bo oba pytania mają sens
+       dopiero po podaniu własnej pensji. Treść pojawia się na kliknięcie, nie
        w trakcie przeciągania, więc zmiana wysokości strony jest tu odpowiedzią
        na decyzję użytkownika, a nie drganiem układu — i dlatego wolno jej być
        animacją, a nie przeskokiem.
 
-       Kontrolka zostaje zwykłym checkboxem (klawiatura, fokus i ogłaszanie
-       stanu za darmo), tylko z wygaszonym wyglądem systemowym. Robi tu dwie
-       rzeczy naraz: przełącza tryb obliczeń i otwiera dodatkową sekcję —
-       pierwsze niesie `checked`, drugie `aria-expanded` z `aria-controls`. -->
+       Kontrolki zostają zwykłymi checkboxami (klawiatura, fokus i ogłaszanie
+       stanu za darmo), tylko z wygaszonym wyglądem systemowym. Każda robi dwie
+       rzeczy naraz: przełącza tryb obliczeń i otwiera dodatkową treść —
+       pierwsze niesie `checked`, drugie `aria-expanded` z `aria-controls`.
+
+       Etykieta mówi o wieku, nie o nazwie przepisu: „PIT-0" i „ulga dla
+       młodych" to hasła dla kogoś, kto już wie, że mu przysługują, a ta
+       kontrolka istnieje głównie dla tych, którzy nie wiedzą. Nazwa ulgi pada
+       dopiero w wyjaśnieniu pod spodem i w rozbiciu. -->
+  <label class="przelacznik">
+    <input
+      type="checkbox"
+      checked={ulga}
+      aria-expanded={ulga}
+      aria-controls="ulga-wyjasnienie"
+      onchange={(e) => przelaczUlge(e.currentTarget.checked)}
+    />
+    Mam mniej niż 26 lat
+  </label>
+
+  <div class="rozwijane" class:otwarte={ulga} id="ulga-wyjasnienie">
+    <div class="klip" inert={!ulga}>
+      <!-- Najważniejsze zdanie na tej stronie dla osoby poniżej 26 lat: zwolnienie
+           obowiązuje już dziś, więc podnosi netto po obu stronach porównania i
+           właśnie dlatego zysk z reformy zwykle zostaje zerowy. Bez tego wyższe
+           netto przy zerowym zysku wygląda na błąd kalkulatora. -->
+      <p class="wskazowka wyjasnienie">
+        Zarobki do {kwota(LIMIT_PIT_ZERO)} rocznie są wtedy wolne od PIT. Ta ulga obowiązuje już
+        dziś i zapowiedź jej nie zmienia — widać ją więc w netto po obu stronach, ale nie w zysku
+        z reformy.
+      </p>
+    </div>
+  </div>
+
   <label class="przelacznik">
     <input
       type="checkbox"
       checked={wspolne}
       aria-expanded={wspolne}
       aria-controls="malzonek"
-      onchange={(e) => przelacz(e.currentTarget.checked)}
+      onchange={(e) => przelaczWspolne(e.currentTarget.checked)}
     />
     Rozliczam się wspólnie z małżonkiem
   </label>
@@ -247,6 +340,23 @@
           Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
           z reformy potrafi być wtedy dwa razy większy.
         </p>
+
+        <!-- Druga, niezależna ulga stoi tutaj, przy wynagrodzeniu małżonka, a nie
+             obok Twojej: wiek jest cechą osoby, więc przełącznik należy do tej
+             samej grupki co pole, którego dotyczy. Wcięcie i pionowa kreska
+             sekcji małżonka mówią to samo bez ani jednego dodatkowego słowa,
+             dzięki czemu etykiety mogą zostać krótkie, a kontrolek jest tyle,
+             ile osób — nie ich dwukrotność ze zdublowanym „Twoja / małżonka".
+             Nic nie rozwija, więc bez `aria-expanded`: wyjaśnienie o zwolnieniu
+             pada raz, wyżej, i dotyczy obojga. -->
+        <label class="przelacznik">
+          <input
+            type="checkbox"
+            checked={ulgaMalzonka}
+            onchange={(e) => przelaczUlgeMalzonka(e.currentTarget.checked)}
+          />
+          Małżonek ma mniej niż 26 lat
+        </label>
       </div>
     </div>
   </div>
@@ -364,6 +474,8 @@
 <WykresZysku
   {brutto}
   bruttoMalzonka={wspolne ? bruttoMalzonka : null}
+  {ulga}
+  ulgaMalzonka={wspolne && ulgaMalzonka}
   {progi}
   maxX={gornaOsi}
   onZmiana={(wartosc, zakonczone) => {
@@ -395,6 +507,17 @@
         <td>{kwotaDokladna(wynik.przed.bruttoRocznie)}</td>
         <td>{kwotaDokladna(wynik.po.bruttoRocznie)}</td>
       </tr>
+      <!-- Sedno ulgi dla młodych: bez tego wiersza z tabeli widać tylko, że
+           podatek jest niższy, a nie dlaczego. Pokazujemy go wyłącznie, gdy
+           coś rzeczywiście jest zwolnione — przy wyłączonej uldze tabela
+           zostaje taka jak dotąd, co do wiersza. -->
+      {#if wynik.przed.przychodZwolniony > 0 || wynik.po.przychodZwolniony > 0}
+        <tr>
+          <th scope="row">Przychód zwolniony z PIT</th>
+          <td>−{kwotaDokladna(wynik.przed.przychodZwolniony)}</td>
+          <td>−{kwotaDokladna(wynik.po.przychodZwolniony)}</td>
+        </tr>
+      {/if}
       <tr>
         <th scope="row">Składki społeczne</th>
         <td>−{kwotaDokladna(wynik.przed.skladkiSpoleczne)}</td>
@@ -437,6 +560,14 @@
       łącznego dochodu (art. 6 ust. 2 ustawy o PIT), więc kwota zmniejszająca odlicza się dwa razy.
       Składki liczy każdy od swojego wynagrodzenia, z własnym limitem 30-krotności, a składka
       zdrowotna pozostaje indywidualna — wspólnemu rozliczeniu podlega sam podatek.
+    {/if}
+    {#if wynik.przed.przychodZwolniony > 0}
+      Ulga dla młodych (PIT-0, art. 21 ust. 1 pkt 148 ustawy o PIT) zwalnia z podatku przychód
+      do {kwota(LIMIT_PIT_ZERO)} rocznie — limit przysługuje każdemu osobno i jest wspólny dla
+      wszystkich zwolnień PIT-0. Składki ZUS naliczają się od całości wynagrodzenia, bo
+      zwolnienie jest podatkowe, nie składkowe; składka zdrowotna nie może za to przekroczyć
+      hipotetycznej zaliczki na PIT wg stanu na 31.12.2021 (art. 83 ustawy zdrowotnej), więc
+      przy przychodzie w całości zwolnionym spada do zera.
     {/if}
   </p>
 </details>
@@ -519,6 +650,13 @@
     transition:
       background-color 0.15s ease,
       border-color 0.15s ease;
+  }
+
+  /* Drugi przełącznik pod pierwszym: ciaśniej niż odstęp od suwaka, żeby oba
+     czytały się jako jedna grupa pytań o Twoją sytuację. Kombinator ogólny
+     (`~`, nie `+`), bo między nimi siedzi rozwijane wyjaśnienie ulgi. */
+  .przelacznik ~ .przelacznik {
+    margin-top: 0.5rem;
   }
 
   .przelacznik:hover {
@@ -639,6 +777,12 @@
     margin: 0.5rem 0 0;
     font-size: 0.8125rem;
     color: var(--tekst-cichy);
+  }
+
+  /* Wcięcie równe poziomemu paddingowi przełącznika — wyjaśnienie ustawia się
+     do krawędzi tekstu ramki nad sobą, a nie do krawędzi kolumny. */
+  .wyjasnienie {
+    padding: 0 0.875rem;
   }
 
   .wynik {
