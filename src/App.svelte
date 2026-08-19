@@ -93,6 +93,14 @@
 
 <style>
   main {
+    /* Dwie świadome krawędzie łamania w nagłówku:
+       - krawędź konstrukcyjna = pełna szerokość kolumny (46rem minus padding),
+         trzyma ją zastrzeżenie, h1 oraz cała treść poniżej;
+       - miara prozy = ok. 2/3 kolumny, wspólna dla obu akapitów nagłówka.
+       Wcięcie jest celowo wyraźne (~69% kolumny), żeby czytało się jako
+       osobna kolumna tekstu, a nie jako niedociągnięta krawędź. */
+    --miara-prozy: 30rem;
+
     max-width: 46rem;
     margin: 0 auto;
     padding: 2rem 1.25rem 4rem;
@@ -108,24 +116,41 @@
     margin: 0 0 2rem;
   }
 
+  /* Trzy stopnie pisma o trzech rolach: pytanie (h1), wyjaśnienie (.podtytul),
+     zastrzeżenie (.zakres). Duży tekst dostaje ciaśniejszą interlinię, mały
+     luźniejszą — stąd 1.15 / 1.5 / 1.6. */
   h1 {
     font-size: clamp(1.75rem, 5vw, 2.5rem);
     line-height: 1.15;
     letter-spacing: -0.02em;
     margin: 0 0 0.75rem;
+    text-wrap: balance;
   }
 
+  /* Lid: skaluje się razem z tytułem (16 px na telefonie, 18 px od ~736 px,
+     czyli od szerokości, na której kolumna przestaje rosnąć). Pełny kontrast
+     tekstu — to treść główna, nie przypis; różnicę wobec .zakres niesie więc
+     nie tylko stopień pisma, ale i kolor, co działa też na telefonie, gdzie
+     stopnie są sobie bliższe. */
   .podtytul {
-    color: var(--tekst-cichy);
-    margin: 0 0 0.6rem;
-    max-width: 34rem;
+    max-width: var(--miara-prozy);
+    font-size: clamp(1rem, 0.85rem + 0.6vw, 1.125rem);
+    line-height: 1.5;
+    color: var(--tekst);
+    margin: 0 0 1rem;
+    text-wrap: pretty;
   }
 
+  /* Zastrzeżenie, kogo zmiana dotyczy: rejestr drobnego druku, więc ten sam
+     stopień (0.875rem) i ten sam przygaszony kolor co żółta ramka nad
+     nagłówkiem — to rym, nie przypadek. */
   .zakres {
-    color: var(--tekst-cichy);
+    max-width: var(--miara-prozy);
     font-size: 0.875rem;
-    margin: 0 0 1.75rem;
-    max-width: 34rem;
+    line-height: 1.6;
+    color: var(--tekst-cichy);
+    margin: 0 0 1.5rem;
+    text-wrap: pretty;
   }
 
   .zrodla {

@@ -198,44 +198,58 @@
   <!-- Przełącznik i drugie pole są pod suwakiem, bo pytanie o małżonka ma sens
        dopiero po podaniu własnej pensji. Pole pojawia się na kliknięcie, nie
        w trakcie przeciągania, więc zmiana wysokości strony jest tu odpowiedzią
-       na decyzję użytkownika, a nie drganiem układu. -->
+       na decyzję użytkownika, a nie drganiem układu — i dlatego wolno jej być
+       animacją, a nie przeskokiem.
+
+       Kontrolka zostaje zwykłym checkboxem (klawiatura, fokus i ogłaszanie
+       stanu za darmo), tylko z wygaszonym wyglądem systemowym. Robi tu dwie
+       rzeczy naraz: przełącza tryb obliczeń i otwiera dodatkową sekcję —
+       pierwsze niesie `checked`, drugie `aria-expanded` z `aria-controls`. -->
   <label class="przelacznik">
     <input
       type="checkbox"
       checked={wspolne}
+      aria-expanded={wspolne}
+      aria-controls="malzonek"
       onchange={(e) => przelacz(e.currentTarget.checked)}
     />
     Rozliczam się wspólnie z małżonkiem
   </label>
 
-  {#if wspolne}
-    <div class="malzonek">
-      <label for="brutto-malzonka">Wynagrodzenie brutto małżonka</label>
+  <!-- Blok zostaje w drzewie także zwinięty — to warunek animowania wysokości.
+       Zwinięty jest jednak `inert` i `visibility: hidden`, więc wypada z
+       kolejności fokusu i z drzewa dostępności dokładnie tak, jakby go nie
+       było; wynik i tak liczy się z `wspolne`, nie z zawartości pola. -->
+  <div class="rozwijane" class:otwarte={wspolne} id="malzonek">
+    <div class="klip" inert={!wspolne}>
+      <div class="malzonek">
+        <label for="brutto-malzonka">Wynagrodzenie brutto małżonka</label>
 
-      <div class="pole">
-        <input
-          id="brutto-malzonka"
-          type="number"
-          inputmode="numeric"
-          min="0"
-          max={MAX_POLE}
-          step="100"
-          value={poleMalzonka}
-          oninput={(e) => piszMalzonka(e.currentTarget.value)}
-          onblur={zakonczMalzonka}
-          onkeydown={(e) => {
-            if (e.key === 'Enter') zakonczMalzonka();
-          }}
-        />
-        <span class="jednostka">zł / mies.</span>
+        <div class="pole">
+          <input
+            id="brutto-malzonka"
+            type="number"
+            inputmode="numeric"
+            min="0"
+            max={MAX_POLE}
+            step="100"
+            value={poleMalzonka}
+            oninput={(e) => piszMalzonka(e.currentTarget.value)}
+            onblur={zakonczMalzonka}
+            onkeydown={(e) => {
+              if (e.key === 'Enter') zakonczMalzonka();
+            }}
+          />
+          <span class="jednostka">zł / mies.</span>
+        </div>
+
+        <p class="wskazowka">
+          Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
+          z reformy potrafi być wtedy dwa razy większy.
+        </p>
       </div>
-
-      <p class="wskazowka">
-        Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
-        z reformy potrafi być wtedy dwa razy większy.
-      </p>
     </div>
-  {/if}
+  </div>
 </section>
 
 <!-- Treść akapitu w jednym miejscu, bo obok wersji widocznej renderujemy jeszcze
@@ -481,27 +495,129 @@
     accent-color: var(--akcent);
   }
 
-  /* Etykieta jest klikalnym celem razem z kwadracikiem, więc nie `display: block`
-     jak pozostałe etykiety w tym komponencie. */
+  /* Etykieta jest klikalnym celem razem z przełącznikiem, więc nie
+     `display: block` jak pozostałe etykiety w tym komponencie. Cały wiersz
+     dostaje ramkę i tło jak `summary` niżej: to też jest rzecz, która coś
+     otwiera, więc ma wyglądać na rodzeństwo, a nie na inny gatunek kontrolki.
+     Pełna szerokość (bez `fit-content`) daje przy okazji wygodny cel dotykowy
+     wysokości ~44 px, mimo że sam suwaczek ma 20 px. */
   .przelacznik {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    width: fit-content;
+    gap: 0.625rem;
     margin: 1.25rem 0 0;
+    padding: 0.6875rem 0.875rem;
+    border: 1px solid var(--linia);
+    border-radius: 0.5rem;
+    background: var(--tlo-karta);
     cursor: pointer;
     /* Wielokrotne przełączanie nie ma zaznaczać napisu. */
     user-select: none;
     font-size: 0.9375rem;
+    font-weight: 500;
     color: var(--tekst);
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
   }
 
+  .przelacznik:hover {
+    background: var(--akcent-tlo);
+    border-color: color-mix(in srgb, var(--akcent) 40%, var(--linia));
+  }
+
+  /* Obwódka fokusu obejmuje cały wiersz, bo cały wiersz jest celem kliknięcia
+     — tak samo jak przy `summary`. Systemowa obwódka samego kwadracika
+     zostaje zgaszona, żeby nie było dwóch pierścieni naraz. */
+  .przelacznik:has(input:focus-visible) {
+    outline: 2px solid var(--akcent);
+    outline-offset: 2px;
+  }
+
+  /* Wygaszony wygląd systemowy — element pozostaje checkboxem, zmienia się
+     tylko obraz. Tor plus krążek: stan widać z odległości, a przejście
+     krążka pokazuje kierunek zmiany. */
   .przelacznik input {
-    width: 1rem;
-    height: 1rem;
+    appearance: none;
+    flex: none;
+    position: relative;
+    width: 2.25rem;
+    height: 1.25rem;
     margin: 0;
-    accent-color: var(--akcent);
+    padding: 0;
+    border: 1px solid var(--linia);
+    border-radius: 999px;
+    /* Odrobinę ciemniejsze od karty, na której leży — samo `--tlo` ginęło na
+       białym tle i tor czytał się jak pusta ramka. */
+    background: color-mix(in srgb, var(--tekst-cichy) 12%, var(--tlo-karta));
     cursor: pointer;
+    outline: none;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .przelacznik input::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0.125rem;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 50%;
+    background: var(--tekst-cichy);
+    transform: translateY(-50%);
+    transition:
+      transform 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  .przelacznik input:checked {
+    background: var(--akcent);
+    border-color: var(--akcent);
+  }
+
+  .przelacznik input:checked::before {
+    background: var(--tlo-karta);
+    transform: translate(1rem, -50%);
+  }
+
+  /* Płynne rozwinięcie bez mierzenia wysokości w JS — ten sam zamiar co przy
+     „Skąd ta liczba?", ale innym narzędziem: `::details-content` istnieje
+     wyłącznie dla `details`, a tu jest zwykły blok sterowany checkboxem.
+     Odpowiednikiem jest tor siatki `0fr → 1fr`, który animuje do wysokości
+     treści równie dobrze i działa też tam, gdzie `interpolate-size` jeszcze
+     nie dojechało (stąd bez `@supports` — nie ma czego zabezpieczać).
+     Czas i krzywa te same, żeby oba rozwinięcia czytały się jak jedno
+     zachowanie strony. */
+  .rozwijane {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.25s ease;
+  }
+
+  .rozwijane.otwarte {
+    grid-template-rows: 1fr;
+  }
+
+  /* `min-height: 0` puszcza element poniżej jego wysokości minimalnej —
+     bez tego tor 0fr i tak zostałby rozepchany treścią. `visibility`
+     przełącza się dopiero na końcu zwijania (przejście trwa tyle co
+     wysokość), więc treść nie znika w połowie gestu, a zwinięta wypada
+     z fokusu i z drzewa dostępności. */
+  .klip {
+    overflow: hidden;
+    min-height: 0;
+    visibility: hidden;
+    opacity: 0;
+    transition:
+      visibility 0.25s,
+      opacity 0.2s ease;
+  }
+
+  .rozwijane.otwarte .klip {
+    visibility: visible;
+    opacity: 1;
   }
 
   .malzonek {
@@ -738,7 +854,12 @@
   @media (prefers-reduced-motion: reduce) {
     summary,
     .znacznik,
-    details::details-content {
+    details::details-content,
+    .przelacznik,
+    .przelacznik input,
+    .przelacznik input::before,
+    .rozwijane,
+    .klip {
       transition: none;
     }
   }
