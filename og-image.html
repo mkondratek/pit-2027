@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        width: 1200px;
+        height: 630px;
+        background: #fbfaf8;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        color: #1a1a1a;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 72px 80px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* Delikatny pasek akcentu, żeby kafelek nie był płaski. */
+      .pasek {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 10px;
+        background: #0f7b5f;
+      }
+
+      .brew {
+        font-size: 24px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #6b6b6b;
+        font-weight: 500;
+      }
+
+      .teza {
+        font-size: 52px;
+        line-height: 1.25;
+        font-weight: 500;
+        letter-spacing: -0.015em;
+        max-width: 15ch;
+      }
+
+      .kwota {
+        font-size: 132px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        color: #0f7b5f;
+        font-variant-numeric: tabular-nums;
+        margin: 10px 0 18px;
+      }
+
+      .dopisek {
+        font-size: 30px;
+        color: #6b6b6b;
+        line-height: 1.4;
+        max-width: 30ch;
+      }
+
+      .stopka {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        font-size: 27px;
+      }
+
+      .adres { font-weight: 600; }
+      .zastrzezenie { color: #8a6d3b; font-size: 23px; }
+    </style>
+  </head>
+  <body>
+    <div class="pasek"></div>
+
+    <p class="brew">Kalkulator PIT 2027</p>
+
+    <div>
+      <p class="teza">Zysk zaczyna się dopiero od</p>
+      <p class="kwota">11 878 zł</p>
+      <p class="dopisek">
+        brutto miesięcznie. Poniżej tej kwoty zapowiadana zmiana daje dokładnie 0 zł.
+      </p>
+    </div>
+
+    <div class="stopka">
+      <span class="adres">pit.kondratek.pl</span>
+      <span class="zastrzezenie">to zapowiedź, nie obowiązujące prawo</span>
+    </div>
+  </body>
+</html>
