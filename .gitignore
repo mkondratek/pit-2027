@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+.env
+.env.*
+
+# robocze notatki / research — nie publikujemy
+model.md
+todo.md
+existing-calculators.md
+decisions-research.md
