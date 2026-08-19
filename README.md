@@ -16,6 +16,10 @@ Wyniki mają charakter poglądowy i nie są poradą podatkową.
 
 ## Jak to liczy
 
+Model podatkowy wraz ze źródłami opisany jest w [`model.md`](model.md) — od zapowiedzianej
+skali, przez kolejność operacji na liście płac, po walidację na kwotach opublikowanych przez
+media. Każde twierdzenie jest tam oznaczone jako pewne, zapowiedziane albo założone.
+
 Cała logika wykonuje się w przeglądarce — żadne dane nie są nigdzie wysyłane.
 
 ## Licencja

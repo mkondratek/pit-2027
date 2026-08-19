@@ -6,7 +6,7 @@ dist/
 .env.*
 
 # robocze notatki / research — nie publikujemy
-model.md
+# (model.md jest publiczny: opisuje sposób liczenia)
 todo.md
 existing-calculators.md
 decisions-research.md
