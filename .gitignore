@@ -10,3 +10,6 @@ model.md
 todo.md
 existing-calculators.md
 decisions-research.md
+
+# lokalna konfiguracja Claude Code
+.claude/
