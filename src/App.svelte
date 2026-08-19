@@ -28,6 +28,7 @@
     <p>
       Wszystko liczy się w Twojej przeglądarce — żadne dane nie są nigdzie wysyłane.
       <a href="https://github.com/mkondratek/pit-2027">Kod źródłowy na GitHubie</a>.
+      <a href="/polityka-prywatnosci">Polityka prywatności</a>.
     </p>
   </footer>
 </main>
