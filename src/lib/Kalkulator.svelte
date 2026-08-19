@@ -112,25 +112,51 @@
   />
 </section>
 
+<!-- Treść akapitu w jednym miejscu, bo obok wersji widocznej renderujemy jeszcze
+     wersje-duchy, które rezerwują wysokość (patrz `.stos` niżej). -->
+{#snippet tekstZysku(zyskRocznie: number)}
+  To {kwota(zyskRocznie)} przez cały rok
+  {#if zyskRocznie === MAKSYMALNA_KORZYSC_ROCZNA}
+    — czyli maksimum, jakie ta zmiana daje komukolwiek
+  {/if}
+{/snippet}
+
+{#snippet tekstBrakuZysku(brakuje: number)}
+  Nowa skala zmienia wynagrodzenie od {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto —
+  brakuje {kwota(brakuje)} podwyżki. Reforma dotyczy mniej więcej co dziesiątego
+  podatnika.
+{/snippet}
+
 <section class="wynik" class:zyskuje aria-live="polite">
+  <!-- Etykieta i sama liczba mieszczą się w jednym wierszu w obu wariantach
+       (krótkie napisy, `line-height: 1` na liczbie), więc tu nic nie skacze. -->
   {#if zyskuje}
     <p class="etykieta">Na rękę dostaniesz miesięcznie</p>
     <p class="liczba">{zeZnakiem(wynik.zyskMiesiecznie)}</p>
-    <p class="rocznie">
-      To {kwota(wynik.zyskRocznie)} przez cały rok
-      {#if wynik.zyskRocznie === MAKSYMALNA_KORZYSC_ROCZNA}
-        — czyli maksimum, jakie ta zmiana daje komukolwiek
-      {/if}
-    </p>
   {:else}
     <p class="etykieta">Dla Ciebie ta zmiana oznacza</p>
     <p class="liczba">0 zł</p>
-    <p class="rocznie">
-      Nowa skala zmienia wynagrodzenie od {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto —
-      brakuje {kwota(doProgu)} podwyżki. Reforma dotyczy mniej więcej co dziesiątego
-      podatnika.
-    </p>
   {/if}
+
+  <!-- Skacze dopiero akapit pod liczbą: raz jeden wiersz, raz trzy. Zamiast
+       zgadywać `min-height` w pikselach — który i tak zależy od szerokości,
+       zawijania i kroju pisma — wkładamy wszystkie warianty w tę samą komórkę
+       siatki. Wysokość komórki to maksimum z nich przy każdej szerokości.
+       Duchy niosą najdłuższe możliwe brzmienie (największy zysk, największy
+       brak), bo dłuższa kwota potrafi dołożyć wiersz zawijania. -->
+  <div class="stos">
+    <p class="rocznie">
+      {#if zyskuje}
+        {@render tekstZysku(wynik.zyskRocznie)}
+      {:else}
+        {@render tekstBrakuZysku(doProgu)}
+      {/if}
+    </p>
+    <p class="rocznie duch" aria-hidden="true">{@render tekstZysku(MAKSYMALNA_KORZYSC_ROCZNA)}</p>
+    <p class="rocznie duch" aria-hidden="true">
+      {@render tekstBrakuZysku(BRUTTO_POCZATEK_KORZYSCI)}
+    </p>
+  </div>
 </section>
 
 <section class="porownanie">
@@ -149,20 +175,16 @@
   </div>
 </section>
 
-<WykresZysku {brutto} />
-
-{#if naPlaskowyzu}
-  <p class="uwaga">
-    Powyżej {kwota(BRUTTO_PELNA_KORZYSC)} brutto sam zysk już nie rośnie — wyższa pensja oznacza
-    wyższe netto, ale ta konkretna zmiana daje zawsze te same {kwota(MAKSYMALNA_KORZYSC_ROCZNA)}
-    rocznie.
-  </p>
-{:else if ponizejMinimalnej}
-  <p class="uwaga">
-    To mniej niż płaca minimalna ({kwota(PLACA_MINIMALNA)} w 2026 r.), która obowiązuje przy pełnym
-    etacie. Przy niepełnym taka kwota jest jak najbardziej możliwa i wyliczenie pozostaje poprawne.
-  </p>
-{/if}
+<!-- Wykres jest drugim sterownikiem tej samej kwoty: `onZmiana` odpowiada
+     `oninput` suwaka, a `zakonczone` jego `onchange` (zapis adresu na koniec
+     gestu, nie na każdym drgnięciu). -->
+<WykresZysku
+  {brutto}
+  onZmiana={(wartosc, zakonczone) => {
+    przesun(wartosc);
+    if (zakonczone) zapiszBrutto(brutto);
+  }}
+/>
 
 <details bind:open={rozwiniete}>
   <summary>
@@ -226,6 +248,22 @@
     zmienia się wyłącznie skala.
   </p>
 </details>
+
+<!-- Uwagi na końcu treści: tutaj ich pojawianie się i znikanie nic nie przesuwa,
+     więc nie trzeba rezerwować miejsca i nie zostaje pusty pas pod wykresem. -->
+{#if naPlaskowyzu}
+  <p class="uwaga">
+    Powyżej {kwota(BRUTTO_PELNA_KORZYSC)} brutto sam zysk już nie rośnie — wyższa pensja oznacza
+    wyższe netto, ale ta konkretna zmiana daje zawsze te same {kwota(MAKSYMALNA_KORZYSC_ROCZNA)}
+    rocznie.
+  </p>
+{:else if ponizejMinimalnej}
+  <p class="uwaga">
+    To mniej niż płaca minimalna ({kwota(PLACA_MINIMALNA)} w 2026 r.), która obowiązuje przy pełnym
+    etacie. Przy niepełnym taka kwota jest jak najbardziej możliwa i wyliczenie pozostaje poprawne.
+  </p>
+{/if}
+
 
 <style>
   .wejscie {
@@ -297,6 +335,24 @@
 
   .wynik.zyskuje .liczba {
     color: var(--akcent);
+  }
+
+  /* Wszystkie dzieci lądują w tej samej komórce siatki, więc wysokość stosu to
+     maksimum z ich wysokości — liczone przez przeglądarkę przy każdej
+     szerokości, bez mierzenia czegokolwiek w JS. */
+  .stos {
+    display: grid;
+  }
+
+  .stos > * {
+    grid-area: 1 / 1;
+  }
+
+  /* `visibility: hidden` zostawia pudełko w układzie, ale wycina je z obrazu,
+     z drzewa dostępności i z kolejności fokusu (te akapity i tak nie mają
+     niczego interaktywnego). `aria-hidden` w znaczniku to pas i szelki. */
+  .duch {
+    visibility: hidden;
   }
 
   .rocznie {
