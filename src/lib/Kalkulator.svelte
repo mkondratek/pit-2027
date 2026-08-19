@@ -1,0 +1,338 @@
+<script lang="ts">
+  import {
+    BRUTTO_POCZATEK_KORZYSCI,
+    MAKSYMALNA_KORZYSC_ROCZNA,
+    porownaj,
+  } from '../tax/engine';
+  import { kwota, kwotaDokladna, zeZnakiem } from './format';
+  import { odczytajBrutto, zapiszBrutto } from './url';
+
+  const MIN = 3_000;
+  const MAX = 30_000;
+
+  let brutto = $state(odczytajBrutto(12_000));
+  let rozwiniete = $state(false);
+
+  const wynik = $derived(porownaj(brutto));
+  const zyskuje = $derived(wynik.zyskRocznie > 0);
+  const doProgu = $derived(Math.max(0, BRUTTO_POCZATEK_KORZYSCI - brutto));
+
+  $effect(() => {
+    zapiszBrutto(brutto);
+  });
+
+  function zmien(wartosc: number) {
+    brutto = Math.min(MAX, Math.max(MIN, Math.round(wartosc)));
+  }
+</script>
+
+<section class="wejscie">
+  <label for="brutto">Twoje wynagrodzenie brutto</label>
+
+  <div class="pole">
+    <input
+      id="brutto"
+      type="number"
+      min={MIN}
+      max={MAX}
+      step="100"
+      value={brutto}
+      oninput={(e) => zmien(e.currentTarget.valueAsNumber)}
+    />
+    <span class="jednostka">zł / mies.</span>
+  </div>
+
+  <input
+    class="suwak"
+    type="range"
+    min={MIN}
+    max={MAX}
+    step="100"
+    aria-label="Wynagrodzenie brutto miesięcznie"
+    value={brutto}
+    oninput={(e) => zmien(e.currentTarget.valueAsNumber)}
+  />
+</section>
+
+<section class="wynik" class:zyskuje aria-live="polite">
+  {#if zyskuje}
+    <p class="etykieta">Na rękę dostaniesz miesięcznie</p>
+    <p class="liczba">{zeZnakiem(wynik.zyskMiesiecznie)}</p>
+    <p class="rocznie">
+      To {kwota(wynik.zyskRocznie)} przez cały rok
+      {#if wynik.zyskRocznie === MAKSYMALNA_KORZYSC_ROCZNA}
+        — czyli maksimum, jakie ta zmiana daje komukolwiek
+      {/if}
+    </p>
+  {:else}
+    <p class="etykieta">Dla Ciebie ta zmiana oznacza</p>
+    <p class="liczba">0 zł</p>
+    <p class="rocznie">
+      Nowa skala zaczyna cokolwiek zmieniać dopiero przy zarobkach powyżej
+      {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto — brakuje {kwota(doProgu)} podwyżki.
+      Reforma dotyka mniej więcej co dziesiątego podatnika.
+    </p>
+  {/if}
+</section>
+
+<section class="porownanie">
+  <div>
+    <p class="rok">dziś</p>
+    <p class="netto">{kwota(wynik.przed.nettoMiesiecznie)}</p>
+    <p class="opis">netto miesięcznie</p>
+  </div>
+
+  <div class="strzalka" aria-hidden="true">→</div>
+
+  <div>
+    <p class="rok">od 2027</p>
+    <p class="netto" class:wyroznione={zyskuje}>{kwota(wynik.po.nettoMiesiecznie)}</p>
+    <p class="opis">netto miesięcznie</p>
+  </div>
+</section>
+
+<details bind:open={rozwiniete}>
+  <summary>Skąd ta liczba</summary>
+
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">rocznie</th>
+        <th scope="col">dziś</th>
+        <th scope="col">od 2027</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Brutto</th>
+        <td>{kwotaDokladna(wynik.przed.bruttoRocznie)}</td>
+        <td>{kwotaDokladna(wynik.po.bruttoRocznie)}</td>
+      </tr>
+      <tr>
+        <th scope="row">Składki społeczne</th>
+        <td>−{kwotaDokladna(wynik.przed.skladkiSpoleczne)}</td>
+        <td>−{kwotaDokladna(wynik.po.skladkiSpoleczne)}</td>
+      </tr>
+      <tr>
+        <th scope="row">Składka zdrowotna</th>
+        <td>−{kwotaDokladna(wynik.przed.skladkaZdrowotna)}</td>
+        <td>−{kwotaDokladna(wynik.po.skladkaZdrowotna)}</td>
+      </tr>
+      <tr>
+        <th scope="row">Koszty uzyskania przychodu</th>
+        <td>{kwotaDokladna(wynik.przed.kup)}</td>
+        <td>{kwotaDokladna(wynik.po.kup)}</td>
+      </tr>
+      <tr>
+        <th scope="row">Podstawa opodatkowania</th>
+        <td>{kwotaDokladna(wynik.przed.podstawaOpodatkowania)}</td>
+        <td>{kwotaDokladna(wynik.po.podstawaOpodatkowania)}</td>
+      </tr>
+      <tr>
+        <th scope="row">Podatek</th>
+        <td>−{kwotaDokladna(wynik.przed.podatek)}</td>
+        <td>−{kwotaDokladna(wynik.po.podatek)}</td>
+      </tr>
+      <tr class="suma">
+        <th scope="row">Netto</th>
+        <td>{kwotaDokladna(wynik.przed.nettoRocznie)}</td>
+        <td>{kwotaDokladna(wynik.po.nettoRocznie)}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="nota">
+    Podstawa opodatkowania i podatek zaokrąglane do pełnych złotych zgodnie z art. 63 §1 Ordynacji
+    podatkowej. Kwota wolna 30 000 zł i kwota zmniejszająca podatek 3 600 zł pozostają bez zmian —
+    zmienia się wyłącznie skala.
+  </p>
+</details>
+
+<style>
+  .wejscie {
+    margin-bottom: 2.5rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--tekst-cichy);
+    margin-bottom: 0.5rem;
+  }
+
+  .pole {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  input[type='number'] {
+    font-size: 2rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    width: 7ch;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--linia);
+    border-radius: 0.375rem;
+    background: var(--tlo-karta);
+    color: inherit;
+  }
+
+  .jednostka {
+    color: var(--tekst-cichy);
+  }
+
+  .suwak {
+    width: 100%;
+    margin-top: 1rem;
+    accent-color: var(--akcent);
+  }
+
+  .wynik {
+    background: var(--tlo-karta);
+    border: 1px solid var(--linia);
+    border-radius: 0.75rem;
+    padding: 1.75rem;
+    text-align: center;
+  }
+
+  .wynik.zyskuje {
+    background: var(--akcent-tlo);
+    border-color: color-mix(in srgb, var(--akcent) 35%, transparent);
+  }
+
+  .etykieta {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--tekst-cichy);
+  }
+
+  .liczba {
+    margin: 0.25rem 0;
+    font-size: clamp(2.5rem, 10vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .wynik.zyskuje .liczba {
+    color: var(--akcent);
+  }
+
+  .rocznie {
+    margin: 0.75rem auto 0;
+    max-width: 28rem;
+    font-size: 0.9375rem;
+    color: var(--tekst-cichy);
+  }
+
+  .porownanie {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(1rem, 6vw, 3rem);
+    margin: 1.75rem 0;
+    text-align: center;
+  }
+
+  .rok {
+    margin: 0;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tekst-cichy);
+  }
+
+  .netto {
+    margin: 0.125rem 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .netto.wyroznione {
+    color: var(--akcent);
+  }
+
+  .opis {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--tekst-cichy);
+  }
+
+  .strzalka {
+    font-size: 1.5rem;
+    color: var(--tekst-cichy);
+  }
+
+  details {
+    border-top: 1px solid var(--linia);
+    padding-top: 1rem;
+  }
+
+  summary {
+    cursor: pointer;
+    font-size: 0.9375rem;
+    color: var(--tekst-cichy);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  th[scope='col'] {
+    text-align: right;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tekst-cichy);
+    font-weight: 500;
+  }
+
+  th[scope='col']:first-child,
+  th[scope='row'] {
+    text-align: left;
+  }
+
+  th[scope='row'] {
+    font-weight: 400;
+    color: var(--tekst-cichy);
+  }
+
+  td {
+    text-align: right;
+    padding: 0.375rem 0;
+  }
+
+  th {
+    padding: 0.375rem 0;
+  }
+
+  .suma th,
+  .suma td {
+    border-top: 1px solid var(--linia);
+    font-weight: 600;
+    color: var(--tekst);
+  }
+
+  .nota {
+    font-size: 0.75rem;
+    color: var(--tekst-cichy);
+    margin: 1rem 0 0;
+  }
+
+  @media (max-width: 30rem) {
+    .porownanie {
+      gap: 1rem;
+    }
+
+    .netto {
+      font-size: 1.25rem;
+    }
+  }
+</style>
