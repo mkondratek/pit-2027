@@ -10,19 +10,57 @@
   const MIN = 3_000;
   const MAX = 30_000;
 
-  let brutto = $state(odczytajBrutto(12_000));
+  const startowe = wZakresie(odczytajBrutto(12_000));
+
+  /** Kwota, na której liczy silnik — zawsze skończona liczba, nigdy pusta. */
+  let brutto = $state(startowe);
+
+  /**
+   * Treść pola trzymana osobno od kwoty: w trakcie pisania wolno jej być pustej
+   * albo spoza zakresu, bo „1", „12", „123" to etapy wpisywania 13 000, a nie
+   * błędy do naprawienia.
+   */
+  let pole = $state(String(startowe));
+
   let rozwiniete = $state(false);
 
   const wynik = $derived(porownaj(brutto));
   const zyskuje = $derived(wynik.zyskRocznie > 0);
   const doProgu = $derived(Math.max(0, BRUTTO_POCZATEK_KORZYSCI - brutto));
 
+  // Jednorazowo po wczytaniu, żeby adres dało się skopiować, zanim ktoś dotknie
+  // pola. Później zapisują już tylko zakończona edycja i puszczony suwak —
+  // zapis na każdym znaku wpisywał do adresu wartości pośrednie.
   $effect(() => {
-    zapiszBrutto(brutto);
+    zapiszBrutto(startowe);
   });
 
-  function zmien(wartosc: number) {
-    brutto = Math.min(MAX, Math.max(MIN, Math.round(wartosc)));
+  function wZakresie(wartosc: number): number {
+    return Math.min(MAX, Math.max(MIN, Math.round(wartosc)));
+  }
+
+  /** Pisanie w polu: wynik idzie za tym, co widać, ale bez domykania do zakresu. */
+  function pisz(surowe: string) {
+    pole = surowe;
+
+    const liczba = Number(surowe);
+    // Pusto albo śmieć — zostaje ostatnia sensowna kwota, żeby wynik się nie wywrócił.
+    if (surowe.trim() === '' || !Number.isFinite(liczba) || liczba < 0) return;
+
+    brutto = Math.round(liczba);
+  }
+
+  /** Koniec edycji (blur albo Enter) — dopiero tu domykamy do zakresu suwaka. */
+  function zakoncz() {
+    brutto = wZakresie(brutto);
+    pole = String(brutto);
+    zapiszBrutto(brutto);
+  }
+
+  /** Suwak nie ma stanów pośrednich, więc klamruje od razu. */
+  function przesun(wartosc: number) {
+    brutto = wZakresie(wartosc);
+    pole = String(brutto);
   }
 </script>
 
@@ -33,11 +71,16 @@
     <input
       id="brutto"
       type="number"
+      inputmode="numeric"
       min={MIN}
       max={MAX}
       step="100"
-      value={brutto}
-      oninput={(e) => zmien(e.currentTarget.valueAsNumber)}
+      value={pole}
+      oninput={(e) => pisz(e.currentTarget.value)}
+      onblur={zakoncz}
+      onkeydown={(e) => {
+        if (e.key === 'Enter') zakoncz();
+      }}
     />
     <span class="jednostka">zł / mies.</span>
   </div>
@@ -50,7 +93,8 @@
     step="100"
     aria-label="Wynagrodzenie brutto miesięcznie"
     value={brutto}
-    oninput={(e) => zmien(e.currentTarget.valueAsNumber)}
+    oninput={(e) => przesun(e.currentTarget.valueAsNumber)}
+    onchange={() => zapiszBrutto(brutto)}
   />
 </section>
 
