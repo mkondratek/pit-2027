@@ -15,6 +15,10 @@
       Nowa skala podatkowa ma podnieść pierwszy próg ze 120&nbsp;000 do 130&nbsp;000&nbsp;zł i wstawić
       pośrednią stawkę 24% do 150&nbsp;000&nbsp;zł. Sprawdź, co to znaczy dla Twojej wypłaty.
     </p>
+    <p class="zakres">
+      Zmiana obejmuje wyłącznie skalę podatkową — umowę o pracę, zlecenie, emeryturę. Kalkulator
+      liczy umowę o pracę; podatku liniowego 19% ani ryczałtu zapowiedź nie zmienia.
+    </p>
   </header>
 
   <Kalkulator />
@@ -64,7 +68,7 @@
 
   <footer>
     <p>
-      Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada umowę o pracę,
+      Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada
       podstawowe koszty uzyskania przychodu, złożony PIT-2, brak ulg i brak PPK. Liczy w skali roku,
       więc może różnić się o kilka złotych od sumy dwunastu zaliczek.
     </p>
@@ -113,7 +117,14 @@
 
   .podtytul {
     color: var(--tekst-cichy);
-    margin: 0 0 2.5rem;
+    margin: 0 0 0.6rem;
+    max-width: 34rem;
+  }
+
+  .zakres {
+    color: var(--tekst-cichy);
+    font-size: 0.875rem;
+    margin: 0 0 1.75rem;
     max-width: 34rem;
   }
 
