@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LIMIT_PIT_ZERO, PLACA_MINIMALNA } from '../tax/constants';
+  import { LIMIT_PIT_ZERO, PLACA_MINIMALNA, SKALA } from '../tax/constants';
   import {
     BRUTTO_PELNA_KORZYSC,
     BRUTTO_PELNA_KORZYSC_ULGA,
@@ -143,6 +143,38 @@
 
   const doProgu = $derived(Math.max(0, progi.poczatek - brutto));
   const ponizejMinimalnej = $derived(brutto < PLACA_MINIMALNA);
+
+  /**
+   * Progi z zapowiedzi w jednostce, w której są napisane: **roczny dochód**.
+   * Czytane ze skali, a nie wpisane drugi raz z ręki — inaczej podniesienie
+   * granicy w `constants.ts` rozjechałoby liczby ze zdaniem obok nich.
+   */
+  const PROG_DZIS = SKALA[2026][0].do;
+  const PROG_NOWY = SKALA[2027][0].do;
+  const PROG_NOWY_GORNY = SKALA[2027][1].do;
+
+  /**
+   * Liczba, którą wolno postawić obok progów skali.
+   *
+   * Silnik liczy dochód identycznie dla obu lat — `skladniki` w ogóle nie zna
+   * roku, bo zapowiedź zmienia stawki, a nie sposób dojścia do podstawy — więc
+   * `przed.podstawaOpodatkowania` i `po.podstawaOpodatkowania` są tą samą
+   * kwotą i wolno wziąć jedną na obie strony porównania. Bierzemy `po`, bo to
+   * o skali z 2027 r. mówi tekst obok.
+   *
+   * Przy wspólnym rozliczeniu skalę stosuje się do **połowy** łącznego dochodu
+   * (art. 6 ust. 2 ustawy o PIT), więc to ona, a nie suma, stoi po tej samej
+   * stronie porównania co progi. Pokazanie tu sumy byłoby liczbą, która w tym
+   * trybie po prostu kłamie: para z łącznym dochodem 240 000 zł nie płaci
+   * dziś od nadwyżki 32%, bo skala widzi u niej 120 000 zł.
+   *
+   * Ulga dla młodych nie wymaga tu niczego dodatkowego: zwolniony przychód jest
+   * już odjęty w `podstawaOpodatkowania`, więc porównywana liczba sama z siebie
+   * jest odpowiednio niższa (przy pełnym zwolnieniu — zerowa).
+   */
+  const dochod = $derived(
+    wspolne ? wynik.po.podstawaOpodatkowania / 2 : wynik.po.podstawaOpodatkowania,
+  );
 
   // Jednorazowo po wczytaniu, żeby adres dało się skopiować, zanim ktoś dotknie
   // pola. Później zapisują już tylko zakończona edycja i puszczony suwak —
@@ -483,6 +515,99 @@
     if (zakonczone) zapisz();
   }}
 />
+
+<!-- Zapowiedź mówi wyłącznie o progach 120 000, 130 000 i 150 000 zł — a to są
+     progi DOCHODU, podczas gdy strona pyta o brutto. Różnica jest ogromna i
+     w jedną stronę: przy 11 878 zł brutto roczne wynagrodzenie to 142 536 zł,
+     ale dochód dopiero 119 994 zł. Kto zobaczy samo roczne brutto, odruchowo
+     zestawi je ze 120 000 zł i wyjdzie mu, że próg dawno ma za sobą. Ta sekcja
+     podaje więc liczbę w tej samej jednostce, w której napisana jest reforma.
+
+     Świadomie tekst, nie drugi pasek. Wykres wyżej ma już oś „brutto",
+     podpisane załamania i znacznik „tu jesteś"; pasek postawiony pod nim —
+     w innej jednostce, z innymi progami, ale z tą samą gramatyką obrazka —
+     byłby dokładnie tym pomyleniem jednostek, któremu ta sekcja ma zapobiegać.
+     Zdania nie da się przy tym odczytać „mniej więcej" — albo mówi, ile
+     brakuje, albo o ile próg jest przekroczony.
+
+     Stąd też miejsce: PO wykresie i tuż przed rozbiciem, gdzie ta sama kwota
+     wraca jako „podstawa opodatkowania". Wykres zostaje tam, gdzie był, a
+     sekcja czyta się jako most między obrazkiem a tabelą, nie jako jego rywal. -->
+{#snippet wzglednieDoProgow(d: number)}
+  {#if PROG_DZIS - d >= 1}
+    Do pierwszego progu skali — {kwota(PROG_DZIS)} — brakuje {kwota(PROG_DZIS - d)}.
+  {:else if d - PROG_DZIS < 1}
+    To dokładnie granica pierwszego progu skali — {kwota(PROG_DZIS)}.
+  {:else if d < PROG_NOWY}
+    To {kwota(d - PROG_DZIS)} ponad dzisiejszy próg {kwota(PROG_DZIS)} — zapowiedź podnosi go
+    do {kwota(PROG_NOWY)}.
+  {:else if d < PROG_NOWY_GORNY}
+    To {kwota(d - PROG_NOWY)} ponad {kwota(PROG_NOWY)}, ale poniżej {kwota(PROG_NOWY_GORNY)} —
+    czyli w nowej stawce 24%.
+  {:else}
+    To powyżej wszystkich trzech progów — {kwota(PROG_DZIS)}, {kwota(PROG_NOWY)}
+    i {kwota(PROG_NOWY_GORNY)}.
+  {/if}
+{/snippet}
+
+<section class="dochod">
+  <p class="dochod-etykieta">
+    {wspolne ? 'Połowa Waszego łącznego dochodu' : 'Twój dochód roczny'}
+  </p>
+  <!-- Kwota i wiersz pod nią są jednolinijkowe w całym zakresie pól (przy
+       100 000 zł brutto to wciąż siedem cyfr), więc nie potrzebują rezerwacji
+       wysokości — inaczej niż zdanie niżej. -->
+  <p class="dochod-kwota">{kwota(dochod)}</p>
+  <p class="dochod-zrodlo">
+    {#if wspolne}
+      z łącznego dochodu {kwota(wynik.po.podstawaOpodatkowania)}
+    {:else}
+      z {kwota(wynik.po.bruttoRocznie)} brutto rocznie
+    {/if}
+  </p>
+
+  <!-- Ta sama sztuczka co w panelu wyniku: wszystkie warianty zdania w jednej
+       komórce siatki, widoczny jeden, reszta jako duchy trzymające wysokość.
+       Bez tego przeciągnięcie suwaka przez próg potrafiłoby dołożyć zdaniu
+       wiersz i podskoczyłaby cała reszta strony. Duchy dostają
+       najdłuższe możliwe brzmienie każdego wariantu i są **stałymi** —
+       120 000 zł brakującego dochodu, 9 999 zł i 19 999 zł nadwyżki — więc
+       rezerwacja nie drga razem z kwotą. -->
+  <div class="stos">
+    <p class="dochod-polozenie">{@render wzglednieDoProgow(dochod)}</p>
+    <p class="dochod-polozenie duch" aria-hidden="true">{@render wzglednieDoProgow(0)}</p>
+    <p class="dochod-polozenie duch" aria-hidden="true">
+      {@render wzglednieDoProgow(PROG_DZIS)}
+    </p>
+    <p class="dochod-polozenie duch" aria-hidden="true">
+      {@render wzglednieDoProgow(PROG_NOWY - 1)}
+    </p>
+    <p class="dochod-polozenie duch" aria-hidden="true">
+      {@render wzglednieDoProgow(PROG_NOWY_GORNY - 1)}
+    </p>
+    <p class="dochod-polozenie duch" aria-hidden="true">
+      {@render wzglednieDoProgow(PROG_NOWY_GORNY)}
+    </p>
+  </div>
+
+  <!-- Bez tego zdania liczba wyżej wygląda na pomyłkę kalkulatora („czemu mniej,
+       niż zarabiam?"). Zdanie jest w całości stałe — dopowiedzenia zależą od
+       trybu, a tryb zmienia się kliknięciem, nie przeciąganiem, więc wolno im
+       zmienić wysokość. -->
+  <p class="dochod-wyjasnienie">
+    Dochód to brutto pomniejszone o składki społeczne (13,71%) i koszty uzyskania przychodu —
+    składka zdrowotna go nie pomniejsza. Progi z zapowiedzi są progami dochodu, nie
+    wynagrodzenia; w rozbiciu niżej ta sama liczba to „podstawa opodatkowania".
+    {#if wspolne}
+      Skalę stosuje się przy tym do połowy łącznego dochodu (art. 6 ust. 2 ustawy o PIT), więc to
+      ona, a nie suma, stoi obok progów.
+    {/if}
+    {#if jakasUlga}
+      Ulga dla młodych zwalnia z podatku przychód do {kwota(LIMIT_PIT_ZERO)} rocznie, więc dochód
+      jest o tyle niższy.
+    {/if}
+  </p>
+</section>
 
 <details bind:open={rozwiniete}>
   <summary>
@@ -887,6 +1012,60 @@
   .strzalka {
     font-size: 1.5rem;
     color: var(--tekst-cichy);
+  }
+
+  /* Celowo cicha: żadnej karty, żadnego tła — tylko pionowa kreska, ta sama co
+     przy `.uwaga`. Sekcja odpowiada na to samo pytanie co wykres nad nią, tyle
+     że w innej jednostce, więc gdyby dostała własną ramkę, dwie odpowiedzi
+     biłyby się o wzrok zamiast się uzupełniać. Mocna jest w niej jedna rzecz —
+     sama kwota, bo po nią się tu przychodzi. */
+  .dochod {
+    margin: 0 0 1.75rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--linia);
+  }
+
+  /* Wersaliki i rozstrzelenie jak w `.rok` nad kwotami netto: to rym, nie
+     przypadek — oba wiersze podpisują liczbę stojącą pod nimi. */
+  .dochod-etykieta {
+    margin: 0;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tekst-cichy);
+  }
+
+  /* Stopniem odpowiada kwotom netto z `.porownanie`, a nie liczbie zysku:
+     to druga co do ważności kwota na stronie, nie pierwsza. */
+  .dochod-kwota {
+    margin: 0.125rem 0 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dochod-zrodlo {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--tekst-cichy);
+  }
+
+  /* Miara jak w `.rocznie`: to samo, co tam — wszystkie warianty leżą w jednej
+     komórce, więc najdłuższy dyktuje wysokość i warto trzymać go w ryzach. */
+  .dochod-polozenie {
+    margin: 0.5rem 0 0;
+    max-width: 35rem;
+    font-size: 0.875rem;
+    color: var(--tekst);
+  }
+
+  .dochod-wyjasnienie {
+    margin: 0.5rem 0 0;
+    max-width: 35rem;
+    font-size: 0.8125rem;
+    color: var(--tekst-cichy);
+    text-wrap: pretty;
   }
 
   .uwaga {
