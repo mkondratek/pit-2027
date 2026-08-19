@@ -167,7 +167,7 @@
 <details bind:open={rozwiniete}>
   <summary>
     <span class="znacznik" aria-hidden="true"></span>
-    Skąd ta liczba
+    Skąd ta liczba?
     <!-- Stan i tak ogłasza czytnik ekranu przez samo details, więc podpowiedź
          jest wyłącznie wizualną zachętą do kliknięcia. -->
     <span class="podpowiedz" aria-hidden="true">{rozwiniete ? 'ukryj' : 'pokaż rozbicie'}</span>
