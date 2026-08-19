@@ -93,10 +93,11 @@
   });
 
   const opis = $derived(
-    `Wykres zysku miesięcznego w zależności od wynagrodzenia brutto, od ${liczba.format(MIN_X)} do ` +
-      `${liczba.format(MAX_X)} zł. Do ${kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto zysk wynosi zero, ` +
-      `potem rośnie, a od ${kwota(BRUTTO_PELNA_KORZYSC)} zatrzymuje się na ${kwota(ZYSK_MAX)} ` +
-      `miesięcznie. Dla ${kwota(brutto)} brutto zysk wynosi ${kwota(zysk)} miesięcznie.`,
+    `Wykres zysku miesięcznego w zależności od wynagrodzenia brutto. Oś pozioma obejmuje ` +
+      `od ${liczba.format(MIN_X)} do ${liczba.format(MAX_X)} zł, a poza tym zakresem krzywa jest ` +
+      `płaska: do ${kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto zysk wynosi zero, potem rośnie, ` +
+      `a od ${kwota(BRUTTO_PELNA_KORZYSC)} zatrzymuje się na ${kwota(ZYSK_MAX)} miesięcznie ` +
+      `i wyżej już nie rośnie. Dla ${kwota(brutto)} brutto zysk wynosi ${kwota(zysk)} miesięcznie.`,
   );
 
   // ——— Sterowanie wskaźnikiem (mysz, palec, rysik — jedną ścieżką) ———
@@ -189,11 +190,14 @@
 </script>
 
 <figure>
+  <!-- Tytuł musi nieść słowo „zysk": krzywa rośnie do 300 zł i przy pobieżnym
+       spojrzeniu daje się wziąć za wykres wynagrodzenia. -->
   <figcaption>
-    Jak zysk zmienia się z zarobkami
+    <span class="tytul">Miesięczny zysk przy różnych zarobkach</span>
     <!-- Podpowiedź o geście jest bez treści dla kogoś, kto steruje klawiaturą
-         albo czytnikiem ekranu — dla nich kwotę ustawia suwak wyżej. -->
-    <span class="podpowiedz" aria-hidden="true">— kliknij lub przeciągnij, żeby zmienić kwotę</span>
+         albo czytnikiem ekranu — dla nich kwotę ustawia suwak wyżej. Osobny
+         wiersz, gdy nie mieści się obok tytułu (patrz `figcaption` w stylach). -->
+    <span class="podpowiedz" aria-hidden="true">kliknij lub przeciągnij, żeby zmienić kwotę</span>
   </figcaption>
 
   <!-- Rola `img` zostaje: dla czytnika ekranu to nadal jeden obrazek z opisem,
@@ -235,14 +239,22 @@
          wskaźnik), ale daje kursor „przeciągnij" dokładnie nad kropką. -->
     <circle class="chwyt" cx={znacznikX} cy={znacznikY} r="16" />
 
-    <text class="skala" x={L} y={B + 16} text-anchor="middle">{liczba.format(MIN_X)}</text>
+    <!-- Końce osi to nie ucięcie wykresu, tylko granice, za którymi krzywa jest
+         płaska — podpis mówi to wprost, zamiast rysować symbol przerwania osi.
+         Oba są dosunięte do końców osi (start / end), a nie wyśrodkowane na
+         nich: dłuższy tekst inaczej wychodziłby poza SVG na wąskim ekranie. -->
+    <text class="skala kraniec" x={L} y={B + 16} text-anchor="start">
+      {liczba.format(MIN_X)} i mniej
+    </text>
     <text class="prog" x={progX} y={B + 16} text-anchor="middle">
       {liczba.format(BRUTTO_POCZATEK_KORZYSCI)}
     </text>
     <text class="prog" x={pelnyX} y={B + 16} text-anchor="middle">
       {liczba.format(BRUTTO_PELNA_KORZYSC)}
     </text>
-    <text class="skala" x={R} y={B + 16} text-anchor="end">{liczba.format(MAX_X)}</text>
+    <text class="skala kraniec" x={R} y={B + 16} text-anchor="end">
+      {liczba.format(MAX_X)} i więcej
+    </text>
 
     <text class="podpis-osi" x={(L + R) / 2} y={H - 5} text-anchor="middle">
       wynagrodzenie brutto (zł / mies.)
@@ -281,14 +293,25 @@
     margin: 0 0 1.75rem;
   }
 
+  /* Tytuł i podpowiedź stoją obok siebie, dopóki się mieszczą; na wąskim
+     ekranie podpowiedź spada do drugiego wiersza zamiast łamać tytuł. */
   figcaption {
-    font-size: 0.875rem;
-    color: var(--tekst-cichy);
-    margin-bottom: 0.375rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    column-gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tytul {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--tekst);
   }
 
   .podpowiedz {
-    color: color-mix(in srgb, var(--tekst-cichy) 75%, transparent);
+    font-size: 0.8125rem;
+    color: var(--tekst-cichy);
   }
 
   svg {
@@ -360,6 +383,18 @@
   .prog {
     fill: var(--tekst);
     font-weight: 500;
+  }
+
+  /* Podpisy krańców są dłuższe od reszty skali i sąsiadują z progiem 14 776 —
+     odrobinę mniejsze, żeby na wąskim ekranie zostawić między nimi odstęp. */
+  .kraniec {
+    font-size: 11px;
+  }
+
+  @media (min-width: 30rem) {
+    .kraniec {
+      font-size: 7.5px;
+    }
   }
 
   /* Kreski mają zostać włosowe niezależnie od tego, jak mocno SVG się rozciągnie. */
