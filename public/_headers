@@ -1,0 +1,5 @@
+# Nazwy plików w /assets zawierają hash treści, więc każda zmiana to nowa nazwa —
+# można je cache'ować bezterminowo. Domyślne 4 godziny z rewalidacją oznaczały
+# zbędne zapytanie przy każdym powrocie na stronę.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
