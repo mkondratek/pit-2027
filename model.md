@@ -361,30 +361,83 @@ faktycznie podążał za granicą I przedziału.
 ## B.5. Kap składki zdrowotnej (art. 83 ustawy zdrowotnej)
 
 `[PEWNE]` Jeżeli składka zdrowotna 9% jest **wyższa** od zaliczki na PIT obliczonej **wg przepisów
-obowiązujących na 31.12.2021**, składkę obniża się do wysokości tej hipotetycznej zaliczki.
+obowiązujących na 31.12.2021**, składkę obniża się do wysokości tej hipotetycznej zaliczki
+(art. 83 ust. 1 w zw. z ust. 2b).
 
 Hipotetyczna zaliczka „2021" liczona jest z:
 - KUP 250 zł (lub 300 zł),
-- **stawka 17%**,
-- miesięczna kwota zmniejszająca **43,76 zł**,
-- **bez** odliczania składki zdrowotnej.
+- **stawka 17%** (w 2021 r. powyżej 85 528 zł dochodu było 32% — patrz uwaga niżej),
+- miesięczna kwota zmniejszająca **43,76 zł** (= 525,12 zł rocznie, czyli 1/12 kwoty zmniejszającej
+  z 2021 r.); przysługiwała **wyłącznie po złożeniu PIT-2** i tylko u jednego płatnika. Silnik
+  zakłada PIT-2 wszędzie, tak jak w reszcie modelu,
+- **bez** odliczania składki zdrowotnej (w 2021 r. odliczalne było 7,75% podstawy, ale w tym
+  rachunku się tego nie stosuje — inaczej definicja byłaby cykliczna).
+
+### ⚠️ Przy zwolnieniach PIT-0 zaliczkę liczy się tak, JAKBY zwolnienia nie było
+
+`[PEWNE]` To jest ten fragment, na którym łatwo się przejechać — i na którym silnik przejechał się
+do 2026-08-20 (patrz „Historia poprawek" niżej). **Art. 83 ust. 2a**:
+
+> W przypadku gdy składka na ubezpieczenie zdrowotne obliczona od przychodu wolnego od podatku
+> dochodowego na podstawie art. 21 ust. 1 pkt 148 i 152–154 ustawy z dnia 26 lipca 1991 r.
+> o podatku dochodowym od osób fizycznych jest wyższa od kwoty ustalonej zgodnie z ust. 2b,
+> **którą płatnik obliczyłby, gdyby przychód ubezpieczonego nie był zwolniony od podatku
+> dochodowego na podstawie tego przepisu**, składkę obliczoną za poszczególne miesiące obniża się
+> do wysokości tej kwoty.
+
+Czyli: przychodu zwolnionego w hipotetycznej zaliczce **nie zdejmuje się** — liczy się ją od całości,
+z pełnymi KUP. Ust. 2a jest przepisem szczególnym wobec ust. 2 („nieobliczanie zaliczki ⇒ składkę
+obniża się do 0 zł"), więc **ogólna zasada „nie ma zaliczki, nie ma składki" do ulg PIT-0 się nie
+stosuje**. Przy realnych wynagrodzeniach kap wtedy w ogóle nie wiąże i składka zdrowotna osoby
+z ulgą jest **taka sama jak osoby bez ulgi**.
+
+Dotyczy to **wszystkich czterech ulg PIT-0** — przepis wymienia pkt 148 (młodzi), 152 (na powrót),
+153 (rodziny 4+) i 154 (pracujący seniorzy) jednym tchem. Silnik modeluje je jedną flagą
+`ulgaDlaMlodych`, więc poprawka obejmuje je wszystkie automatycznie.
 
 ```
-def kap_zdrowotnej(P_ZUS, S_spol, KUP, ma_PIT2):
-    podstawa_2021 = round_do_pelnych_zlotych(P_ZUS - S_spol - KUP)
+def kap_zdrowotnej(P_podatkowy, S_spol, KUP_roczne, ma_PIT2):
+    # UWAGA: P_podatkowy to CAŁY przychód, także część zwolniona z PIT (art. 83 ust. 2a)
+    kup = min(KUP_roczne, max(0, P_podatkowy - S_spol))
+    podstawa_2021 = round_do_pelnych_zlotych(max(0, P_podatkowy - S_spol - kup))
     zal_2021 = podstawa_2021 * 0.17
     if ma_PIT2:
-        zal_2021 -= 43.76
+        zal_2021 -= 525.12                     # 12 × 43,76 zł
     return max(0, zal_2021)
 
 S_zdrow = min(round2(P_ZDR * 0.09), kap_zdrowotnej(...))
 ```
 
-Praktycznie dotyczy tylko **bardzo niskich wynagrodzeń** oraz przypadków, gdzie przychód jest
-zwolniony z PIT (ulga dla młodych!) — wtedy zaliczka wynosi 0, więc **składka zdrowotna spada do 0**
-dla tej części przychodu. To istotny, często pomijany szczegół.
+Praktycznie kap wiąże więc tylko przy **bardzo niskich wynagrodzeniach** — poniżej ok. 1 250 zł/mies
+brutto, czyli ćwiartki płacy minimalnej (składka 9% to ~7,8% brutto, a kap rośnie szybciej:
+~14,7% brutto − 1 035 zł). Ulga PIT-0 tego progu **nie przesuwa**, bo hipotetyczna zaliczka jej nie
+widzi.
 
-Źródło: <https://www.pit.pl/podatek-dochodowy/obnizanie-skladki-zdrowotnej-do-wysokosci-zaliczki-na-pdof-1007182>
+**Dwa świadome uproszczenia w silniku:**
+
+1. **Stawka płaska 17%**, bez drugiego progu z 2021 r. (32% powyżej 85 528 zł dochodu). 17% zaniża
+   kap, więc uproszczenie może go tylko „przedwcześnie" zacisnąć — a wiąże on dopiero poniżej
+   1 250 zł/mies, o dwa rzędy wielkości od tego progu. Bezpieczne.
+2. **Bez ulgi silnik kapu w ogóle nie stosuje**, choć w prawie (ust. 1) obowiązuje zawsze. Skutek
+   jest widoczny wyłącznie poniżej ~1 250 zł/mies brutto, gdzie osoba z ulgą dostaje składkę
+   obniżoną, a osoba bez ulgi nie. Zostawione tak, żeby włączenie ulgi pozostało jedyną rzeczą
+   zmieniającą dotychczasowe, zwalidowane wyniki; do naprawienia razem z jakąkolwiek przyszłą
+   rewizją zakresu bardzo niskich wynagrodzeń.
+
+Źródła:
+- art. 83 ust. 1, 2, 2a i 2b:
+  <https://lexlege.pl/ustawa-o-swiadczeniach-opieki-zdrowotnej-finansowanych-ze-srodkow-publicznych/art-83/>
+- sposób liczenia hipotetycznej zaliczki (17%, KUP, 43,76 zł, bez 7,75%):
+  <https://www.pit.pl/podatek-dochodowy/obnizanie-skladki-zdrowotnej-do-wysokosci-zaliczki-na-pdof-1007182>
+- interpretacja ZUS wprost o uldze dla młodych:
+  <https://edgp.gazetaprawna.pl/kadry-i-place/ubezpieczenia/artykuly/11249487,przy-uldze-dla-mlodych-skladka-zdrowotna-nie-jest-automatycznie-reduko.html>
+
+### Historia poprawek
+
+**2026-08-20** — do tego dnia B.5 i silnik twierdziły, że przy przychodzie w całości zwolnionym
+z PIT składka zdrowotna spada do zera. Było to czytanie samego ust. 2 z pominięciem ust. 2a.
+Skutek na produkcji: zawyżone netto każdemu, kto włączył ulgę dla młodych — przy 5 000 zł/mies
+o 4 659,66 zł rocznie (388,30 zł miesięcznie).
 
 ## B.6. Ulgi PIT-0
 
@@ -415,7 +468,8 @@ przychod_opodatkowany  = P - przychod_zwolniony_msc
 
 # KUP stosuje się TYLKO do części opodatkowanej
 # Składki społeczne i zdrowotna nalicza się od CAŁOŚCI (zwolnienie jest podatkowe, nie składkowe)
-# ale zdrowotna podlega kapowi z B.5 → dla przychodu w całości zwolnionego spada do 0
+# Zdrowotna podlega kapowi z B.5, ale kap liczy się od podstawy SPRZED zwolnienia
+# (art. 83 ust. 2a) → przy przychodzie w całości zwolnionym składka NIE spada do 0
 ```
 
 Źródła:
@@ -506,6 +560,8 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
     s_spol = s_emer + s_rent + s_chor
 
     # --- zdrowotna ---
+    # Kap art. 83 (B.5) liczy się od podstawy SPRZED zwolnienia PIT-0, więc przy
+    # realnych wynagrodzeniach nie wiąże — także u osoby z ulgą.
     s_zdrow = (brutto_rok - s_spol) * 0.09  # + kap art. 83 (B.5)
 
     # --- KUP ---
@@ -651,8 +707,14 @@ To ta sama granica dokładności, co przy zwykłym rozliczeniu (patrz uwaga w cz
     rozporządzenie", „mniejsza niż 5 tys. zł") vs **5 103 zł** (nagłówek PIT.pl). Prawdopodobnie
     5 103 zł to wcześniejsza propozycja, 4 950 zł wersja przyjęta — **nie zweryfikowano ostatecznie**.
     Nie jest to parametr krytyczny dla modelu (wpływa tylko na próg obniżonej wpłaty PPK 0,5%).
-14. **Kwota 43,76 zł** (miesięczna kwota zmniejszająca wg stanu na 31.12.2021, używana w kapie
-    składki zdrowotnej) — potwierdzona, ale warto sprawdzić w źródle pierwotnym przy implementacji.
+14. ~~**Kwota 43,76 zł** (miesięczna kwota zmniejszająca wg stanu na 31.12.2021, używana w kapie
+    składki zdrowotnej) — potwierdzona, ale warto sprawdzić w źródle pierwotnym przy
+    implementacji.~~ **ROZSTRZYGNIĘTE 2026-08-20.** Kwota potwierdzona (525,12 zł rocznie, 1/12
+    miesięcznie), przysługuje **po złożeniu PIT-2** i tylko u jednego płatnika. Przy okazji
+    potwierdzone całe otoczenie rachunku: stawka 17%, KUP 250/300 zł, **bez** odliczania składki
+    zdrowotnej 7,75% — oraz to, że przy uldze PIT-0 zaliczkę liczy się tak, **jakby zwolnienie nie
+    przysługiwało** (art. 83 ust. 2a; patrz B.5, gdzie jest cytat przepisu i opis poprawki).
+    Źródło: <https://www.pit.pl/podatek-dochodowy/obnizanie-skladki-zdrowotnej-do-wysokosci-zaliczki-na-pdof-1007182>
 
 ## Rekomendacja dla implementacji
 

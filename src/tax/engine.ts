@@ -58,20 +58,28 @@ export function podatekWgSkali(dochod: number, rok: Rok): number {
  * Kap składki zdrowotnej — art. 83 ustawy zdrowotnej (model.md B.5).
  *
  * Zwraca hipotetyczną zaliczkę na PIT „wg stanu na 31.12.2021": stawka 17% od
- * podstawy opodatkowania, minus kwota zmniejszająca 43,76 zł miesięcznie
- * (zakładamy PIT-2 — tak jak reszta silnika, która zawsze stosuje kwotę
- * zmniejszającą). Składka zdrowotna nie może przekroczyć tej kwoty.
+ * podstawy, minus kwota zmniejszająca 43,76 zł miesięcznie (zakładamy PIT-2 —
+ * tak jak reszta silnika, która zawsze stosuje kwotę zmniejszającą), bez
+ * odliczania składki zdrowotnej. Składka zdrowotna nie może przekroczyć tej
+ * kwoty.
  *
- * Podstawa jest ta sama, którą liczy `skladniki`, czyli **bez przychodu
- * zwolnionego**: ulga dla młodych obowiązywała już w 2021 r., więc w
- * hipotetycznej zaliczce przychód zwolniony też się nie pojawia. Stąd
- * najważniejsza konsekwencja: przy przychodzie w całości zwolnionym podstawa
- * wynosi zero, hipotetyczna zaliczka zero — i **składka zdrowotna spada do
- * zera**, mimo że sam przychód jest oskładkowany normalnie.
+ * ⚠️ Argumentem jest podstawa **policzona tak, jakby zwolnienie PIT-0 nie
+ * przysługiwało** — nie bieżąca podstawa opodatkowania. Art. 83 ust. 2a mówi
+ * o kwocie z ust. 2b, „**którą płatnik obliczyłby, gdyby przychód
+ * ubezpieczonego nie był zwolniony od podatku dochodowego** na podstawie tego
+ * przepisu". Zwolnienie jest więc w hipotetycznej zaliczce pomijane i kap przy
+ * przychodzie w całości zwolnionym **nie spada do zera** — wychodzi tyle, ile
+ * wyszłoby osobie bez ulgi. Wołający ma obowiązek podać właściwą podstawę;
+ * podanie podstawy po zwolnieniu było błędem naprawionym w tej funkcji przez
+ * zmianę tego, co się do niej podaje (patrz `skladniki`).
+ *
+ * Stawka jest płaska 17%, choć w 2021 r. powyżej 85 528 zł dochodu wchodziło
+ * 32%. Jest to bezpieczne uproszczenie: 17% zaniża kap, a kap i tak wiąże
+ * dopiero poniżej ~1 250 zł/mies brutto — daleko od drugiego progu z 2021 r.
  */
-export function kapZdrowotnej(podstawaOpodatkowania: number): number {
+export function kapZdrowotnej(podstawaBezZwolnienia: number): number {
   return round2(
-    Math.max(0, podstawaOpodatkowania * KAP_2021_STAWKA - 12 * KAP_2021_ZMNIEJSZAJACA_MIES),
+    Math.max(0, podstawaBezZwolnienia * KAP_2021_STAWKA - 12 * KAP_2021_ZMNIEJSZAJACA_MIES),
   );
 }
 
@@ -227,35 +235,50 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
   // najwyżej tyle, ile z tej części zostało po składkach; dzięki temu dochód
   // zwykle wychodzi nieujemny sam z siebie i równa się różnicy pokazywanych
   // w rozbiciu kwot.
-  const kup = Math.min(
-    (opcje.kupPodwyzszone ? KUP_PODWYZSZONE_MIES : KUP_PODSTAWOWE_MIES) * 12,
-    Math.max(0, przychodOpodatkowany - skladkiSpoleczne),
-  );
-
-  // Obcięcie na zerze wchodzi w grę wyłącznie z ulgą: składki naliczone od
-  // całości brutto potrafią przewyższyć samą część opodatkowaną (całość
+  //
+  // Obcięcie dochodu na zerze wchodzi w grę wyłącznie z ulgą: składki naliczone
+  // od całości brutto potrafią przewyższyć samą część opodatkowaną (całość
   // zwolniona ⇒ przychód opodatkowany zero, a składki dodatnie). Bez ulgi
   // ogranicznik KUP powyżej gwarantuje nieujemność i `max` nigdy nie działa —
   // wynik jest wtedy co do grosza taki jak przed wprowadzeniem ulgi.
   //
   // Model.md (część C) odejmuje tu **całość** składek społecznych, także tę
   // przypadającą na przychód zwolniony, i tak jest to zaimplementowane.
-  const dochod = roundPln(Math.max(0, przychodOpodatkowany - skladkiSpoleczne - kup));
+  const kupRoczne = (opcje.kupPodwyzszone ? KUP_PODWYZSZONE_MIES : KUP_PODSTAWOWE_MIES) * 12;
+  const podstawaZ = (przychod: number) => {
+    const kup = Math.min(kupRoczne, Math.max(0, przychod - skladkiSpoleczne));
+    return { kup, dochod: roundPln(Math.max(0, przychod - skladkiSpoleczne - kup)) };
+  };
+
+  const { kup, dochod } = podstawaZ(przychodOpodatkowany);
+
+  // Podstawa hipotetycznej zaliczki z art. 83 ust. 2a: ta sama arytmetyka, ale
+  // od **całego** przychodu podatkowego, bez zdejmowania zwolnienia — bo
+  // przepis każe wziąć kwotę, „którą płatnik obliczyłby, gdyby przychód
+  // ubezpieczonego nie był zwolniony od podatku". Konsekwencja: pełne KUP
+  // (przysługują od całości, skoro całość jest w tym rachunku opodatkowana).
+  // Bez ulgi jest to dokładnie `dochod`.
+  const podstawaBezZwolnienia = podstawaZ(przychodPodatkowy).dochod;
 
   // Zdrowotna: 9% po odjęciu społecznych, ale przed KUP — od CAŁOŚCI przychodu,
-  // bo zwolnienie nie jest składkowe. Podlega jednak kapowi z art. 83 (B.5),
-  // który przy przychodzie zwolnionym z podatku ściąga ją aż do zera.
+  // bo zwolnienie nie jest składkowe. Podlega kapowi z art. 83 (B.5), ale kap
+  // liczy się od podstawy SPRZED zwolnienia (ust. 2a) — więc przy przychodzie
+  // w całości zwolnionym składka **nie spada do zera**, tylko zostaje na
+  // poziomie takim jak bez ulgi. Zwolnienie z PIT nie jest zwolnieniem ze
+  // składki zdrowotnej.
   //
-  // Podstawą jest tu `bruttoRocznie`, a nie `przychodPodatkowy`: wpłata
-  // pracodawcy do PPK jest nieoskładkowana także zdrowotnie (B.7). Kap liczy się
-  // natomiast od `dochod`, czyli już z tą wpłatą — bo kapem jest hipotetyczna
+  // Podstawą samej składki jest tu `bruttoRocznie`, a nie `przychodPodatkowy`:
+  // wpłata pracodawcy do PPK jest nieoskładkowana także zdrowotnie (B.7). Kap
+  // liczy się natomiast od podstawy z tą wpłatą — bo kapem jest hipotetyczna
   // zaliczka na PIT, a ta widzi cały przychód podatkowy.
   const skladkaZdrowotna = Math.min(
     round2((bruttoRocznie - skladkiSpoleczne) * RATE_ZDROWOTNA),
     // Bez ulgi kap wiązałby dopiero poniżej ~1 250 zł/mies brutto — patrz
     // komentarz przy `kapZdrowotnej` w engine.test.ts. Nie stosujemy go tam,
     // żeby włączenie ulgi było jedyną rzeczą zmieniającą dotychczasowe wyniki.
-    przychodZwolniony > 0 ? kapZdrowotnej(dochod) : Infinity,
+    // Po poprawce kap ma tu i tak tę samą wartość co bez ulgi, więc różnica
+    // między gałęziami została już tylko w tym ćwiartce płacy minimalnej.
+    przychodZwolniony > 0 ? kapZdrowotnej(podstawaBezZwolnienia) : Infinity,
   );
 
   return {

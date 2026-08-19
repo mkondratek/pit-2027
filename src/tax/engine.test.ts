@@ -473,8 +473,10 @@ describe('wspólne rozliczenie — własności', () => {
  * 2. powyżej limitu opodatkowana jest **wyłącznie nadwyżka**, a nie całość;
  * 3. składki społeczne i zdrowotna naliczają się od **całości** przychodu —
  *    zwolnienie jest podatkowe, nie składkowe;
- * 4. …ale zdrowotna podlega kapowi z art. 83, więc przy przychodzie w całości
- *    zwolnionym spada do **zera** (to jest ten najczęściej pomijany fragment);
+ * 4. …i zdrowotna przy przychodzie w całości zwolnionym **nie spada do zera**:
+ *    kap z art. 83 ust. 2a liczy się od podstawy sprzed zwolnienia, „którą
+ *    płatnik obliczyłby, gdyby przychód nie był zwolniony" (to jest ten
+ *    najczęściej mylony fragment — patrz `nie zeruje składki zdrowotnej`);
  * 5. KUP przysługują tylko od części opodatkowanej;
  * 6. ulga nigdy nie może pogorszyć netto;
  * 7. wyłączona ulga nie zmienia niczego.
@@ -508,16 +510,22 @@ describe('ulga dla młodych (PIT-0)', () => {
   });
 
   /*
-   * Właściwość 1 — poniżej limitu podatek zero i zdrowotna zero.
+   * Właściwość 1 — poniżej limitu podatek zero, ale zdrowotna NIE zero.
    *
-   * Podatek zero jest oczywisty; zdrowotna zero już nie i to jest sedno kapu
-   * z art. 83: składka 9% liczy się od całego przychodu, ale nie może
-   * przekroczyć hipotetycznej zaliczki „wg stanu na 31.12.2021", a ta przy
-   * przychodzie w całości zwolnionym wynosi zero. Kalkulator, który tego nie
-   * ma, zaniża młodemu pracownikowi netto o ~7% brutto — przy 5 000 zł/mies
-   * to blisko 4 700 zł rocznie.
+   * Podatek zero jest oczywisty. Zdrowotna zero byłaby błędem i to jest sedno
+   * art. 83 ust. 2a: składka 9% liczy się od całego przychodu i owszem, nie
+   * może przekroczyć hipotetycznej zaliczki „wg stanu na 31.12.2021" — ale tej,
+   * „**którą płatnik obliczyłby, gdyby przychód ubezpieczonego nie był
+   * zwolniony** od podatku dochodowego na podstawie tego przepisu". Zwolnienia
+   * w tym rachunku się nie uwzględnia, więc kap wychodzi taki sam jak u osoby
+   * bez ulgi i przy realnych wynagrodzeniach w ogóle nie wiąże.
+   *
+   * Kalkulator, który zeruje tu składkę, zawyża młodemu pracownikowi netto
+   * o ~7% brutto — przy 5 000 zł/mies o 4 659,66 zł rocznie, czyli 388 zł
+   * miesięcznie. Dlatego kwoty są tu przypięte co do grosza, a nie tylko
+   * porównane ze sobą.
    */
-  it('przychód w całości zwolniony ⇒ zero podatku i zero składki zdrowotnej', () => {
+  it('przychód w całości zwolniony ⇒ zero podatku, ale zdrowotna zostaje', () => {
     for (const rok of lata) {
       for (const brutto of [1_500, 3_000, 4_806, 5_000, 7_000, 7_127]) {
         const w = oblicz(brutto, rok, U);
@@ -525,7 +533,40 @@ describe('ulga dla młodych (PIT-0)', () => {
         expect(w.przychodZwolniony).toBe(w.bruttoRocznie);
         expect(w.podstawaOpodatkowania).toBe(0);
         expect(w.podatek).toBe(0);
-        expect(w.skladkaZdrowotna).toBe(0);
+        expect(w.skladkaZdrowotna).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  /*
+   * Regresja art. 83 ust. 2a, przypięta kwotowo.
+   *
+   * Do 2026-08-20 silnik podawał tu zero (kap liczony od podstawy PO
+   * zwolnieniu). Te trzy liczby są tym, co się wtedy psuło, więc stoją tu
+   * wprost — property test „nie pogarsza netto" takiego błędu nie łapie, bo
+   * zaniżona składka wygląda dla podatnika korzystnie.
+   */
+  it('nie zeruje składki zdrowotnej — kap liczy się od podstawy sprzed zwolnienia', () => {
+    for (const rok of lata) {
+      // 9% od (brutto − społeczne), co do grosza — kap nie wiąże.
+      expect(oblicz(3_000, rok, U).skladkaZdrowotna).toBe(2_795.8);
+      expect(oblicz(5_000, rok, U).skladkaZdrowotna).toBe(4_659.66);
+      expect(oblicz(8_000, rok, U).skladkaZdrowotna).toBe(7_455.46);
+    }
+  });
+
+  /*
+   * …i to samo od strony właściwości: skoro zwolnienia w hipotetycznej zaliczce
+   * się nie uwzględnia, to składka z ulgą musi być identyczna jak bez niej
+   * wszędzie tam, gdzie kap nie wiązałby również osobie bez ulgi (czyli powyżej
+   * ~1 250 zł/mies brutto — patrz test kapu niżej).
+   */
+  it('składka zdrowotna jest taka sama jak bez ulgi', () => {
+    for (const rok of lata) {
+      for (let brutto = 1_300; brutto <= 40_000; brutto += 100) {
+        expect(oblicz(brutto, rok, U).skladkaZdrowotna).toBe(
+          oblicz(brutto, rok).skladkaZdrowotna,
+        );
       }
     }
   });
@@ -588,10 +629,11 @@ describe('ulga dla młodych (PIT-0)', () => {
     }
   });
 
-  it('powyżej limitu z dużym zapasem zdrowotna wraca do pełnych 9%', () => {
+  it('powyżej limitu zdrowotna też jest pełne 9%', () => {
     // Kap wiąże tylko wtedy, gdy hipotetyczna zaliczka 17% jest niższa od 9%
-    // składki. Przy 20 000 zł/mies nadwyżka ponad limit jest na tyle duża, że
-    // przestaje wiązać — składka jest taka sama jak bez ulgi.
+    // składki — a liczy się ją od całego przychodu, więc przy 20 000 zł/mies
+    // nie ma o czym mówić. Zostawione osobno od sweepa wyżej, bo to najczęściej
+    // spotykany przypadek „ulga + zarobki powyżej limitu PIT-0".
     expect(oblicz(20_000, 2026, U).skladkaZdrowotna).toBe(oblicz(20_000, 2026).skladkaZdrowotna);
   });
 
@@ -642,6 +684,25 @@ describe('ulga dla młodych (PIT-0)', () => {
 
     it('powyżej tego jest 17% podstawy minus 525,12 zł rocznie', () => {
       expect(kapZdrowotnej(10_000)).toBeCloseTo(10_000 * 0.17 - 12 * 43.76, 2);
+    });
+
+    /*
+     * Sedno ust. 2a: podstawą kapu jest kwota, „którą płatnik obliczyłby, gdyby
+     * przychód ubezpieczonego nie był zwolniony od podatku dochodowego". Osoba
+     * z ulgą i osoba bez ulgi o tym samym wynagrodzeniu mają więc ten sam kap,
+     * choć podstawa opodatkowania jednej z nich wynosi zero.
+     */
+    it('u osoby z ulgą jest ten sam co bez ulgi — zwolnienia się nie uwzględnia', () => {
+      for (const brutto of [3_000, 5_000, 8_000]) {
+        const z = oblicz(brutto, 2026, U);
+        const bez = oblicz(brutto, 2026);
+
+        expect(z.podstawaOpodatkowania).toBe(0); // całość zwolniona…
+        // …a mimo to kap jest liczony od podstawy takiej jak bez ulgi i wychodzi
+        // wyżej niż składka 9%, więc jej nie rusza.
+        expect(kapZdrowotnej(bez.podstawaOpodatkowania)).toBeGreaterThan(z.skladkaZdrowotna);
+        expect(z.skladkaZdrowotna).toBe(bez.skladkaZdrowotna);
+      }
     });
 
     /*
@@ -948,8 +1009,10 @@ describe('PPK (model.md B.7)', () => {
         expect(w.przychodZwolniony).toBe(w.przychodPodatkowy);
         expect(w.podatek).toBe(0);
         expect(w.podstawaOpodatkowania).toBe(0);
-        // Kap z art. 83 nadal ściąga zdrowotną do zera.
-        expect(w.skladkaZdrowotna).toBe(0);
+        // Kap z art. 83 ust. 2a liczy się od podstawy sprzed zwolnienia, więc
+        // zdrowotnej nie rusza — i wpłata pracodawcy jej nie zmienia, bo nie
+        // wchodzi do podstawy składek (B.7).
+        expect(w.skladkaZdrowotna).toBe(oblicz(5_000, rok).skladkaZdrowotna);
       }
     });
 
