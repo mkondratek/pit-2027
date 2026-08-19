@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { PLACA_MINIMALNA } from '../tax/constants';
   import {
+    BRUTTO_PELNA_KORZYSC,
     BRUTTO_POCZATEK_KORZYSCI,
     MAKSYMALNA_KORZYSC_ROCZNA,
     porownaj,
@@ -7,10 +9,15 @@
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
   import { odczytajBrutto, zapiszBrutto } from './url';
 
-  const MIN = 3_000;
-  const MAX = 30_000;
+  // Suwak obejmuje zakres, w którym cokolwiek się dzieje. Wpisać z ręki można
+  // znacznie więcej, bo powyżej suwaka zysk wprawdzie stoi w miejscu, ale netto
+  // rośnie dalej — przycięcie kwoty pokazywałoby komuś cudzą wypłatę jako jego.
+  const MIN_SUWAK = 3_000;
+  const MAX_SUWAK = 30_000;
+  const MIN_POLE = 1_000;
+  const MAX_POLE = 100_000;
 
-  const startowe = wZakresie(odczytajBrutto(12_000));
+  const startowe = wZakresiePola(odczytajBrutto(12_000));
 
   /** Kwota, na której liczy silnik — zawsze skończona liczba, nigdy pusta. */
   let brutto = $state(startowe);
@@ -27,6 +34,8 @@
   const wynik = $derived(porownaj(brutto));
   const zyskuje = $derived(wynik.zyskRocznie > 0);
   const doProgu = $derived(Math.max(0, BRUTTO_POCZATEK_KORZYSCI - brutto));
+  const naPlaskowyzu = $derived(brutto > BRUTTO_PELNA_KORZYSC);
+  const ponizejMinimalnej = $derived(brutto < PLACA_MINIMALNA);
 
   // Jednorazowo po wczytaniu, żeby adres dało się skopiować, zanim ktoś dotknie
   // pola. Później zapisują już tylko zakończona edycja i puszczony suwak —
@@ -35,8 +44,12 @@
     zapiszBrutto(startowe);
   });
 
-  function wZakresie(wartosc: number): number {
-    return Math.min(MAX, Math.max(MIN, Math.round(wartosc)));
+  function wZakresiePola(wartosc: number): number {
+    return Math.min(MAX_POLE, Math.max(MIN_POLE, Math.round(wartosc)));
+  }
+
+  function wZakresieSuwaka(wartosc: number): number {
+    return Math.min(MAX_SUWAK, Math.max(MIN_SUWAK, Math.round(wartosc)));
   }
 
   /** Pisanie w polu: wynik idzie za tym, co widać, ale bez domykania do zakresu. */
@@ -52,14 +65,14 @@
 
   /** Koniec edycji (blur albo Enter) — dopiero tu domykamy do zakresu suwaka. */
   function zakoncz() {
-    brutto = wZakresie(brutto);
+    brutto = wZakresiePola(brutto);
     pole = String(brutto);
     zapiszBrutto(brutto);
   }
 
   /** Suwak nie ma stanów pośrednich, więc klamruje od razu. */
   function przesun(wartosc: number) {
-    brutto = wZakresie(wartosc);
+    brutto = wZakresieSuwaka(wartosc);
     pole = String(brutto);
   }
 </script>
@@ -72,8 +85,8 @@
       id="brutto"
       type="number"
       inputmode="numeric"
-      min={MIN}
-      max={MAX}
+      min={MIN_POLE}
+      max={MAX_POLE}
       step="100"
       value={pole}
       oninput={(e) => pisz(e.currentTarget.value)}
@@ -88,11 +101,11 @@
   <input
     class="suwak"
     type="range"
-    min={MIN}
-    max={MAX}
+    min={MIN_SUWAK}
+    max={MAX_SUWAK}
     step="100"
     aria-label="Wynagrodzenie brutto miesięcznie"
-    value={brutto}
+    value={Math.min(brutto, MAX_SUWAK)}
     oninput={(e) => przesun(e.currentTarget.valueAsNumber)}
     onchange={() => zapiszBrutto(brutto)}
   />
@@ -134,6 +147,19 @@
     <p class="opis">netto miesięcznie</p>
   </div>
 </section>
+
+{#if naPlaskowyzu}
+  <p class="uwaga">
+    Powyżej {kwota(BRUTTO_PELNA_KORZYSC)} brutto sam zysk już nie rośnie — wyższa pensja oznacza
+    wyższe netto, ale ta konkretna zmiana daje zawsze te same {kwota(MAKSYMALNA_KORZYSC_ROCZNA)}
+    rocznie.
+  </p>
+{:else if ponizejMinimalnej}
+  <p class="uwaga">
+    To mniej niż płaca minimalna ({kwota(PLACA_MINIMALNA)} w 2026 r.), która obowiązuje przy pełnym
+    etacie. Przy niepełnym taka kwota jest jak najbardziej możliwa i wyliczenie pozostaje poprawne.
+  </p>
+{/if}
 
 <details bind:open={rozwiniete}>
   <summary>Skąd ta liczba</summary>
@@ -307,6 +333,14 @@
 
   .strzalka {
     font-size: 1.5rem;
+    color: var(--tekst-cichy);
+  }
+
+  .uwaga {
+    margin: 0 0 1.75rem;
+    padding: 0.75rem 1rem;
+    border-left: 2px solid var(--linia);
+    font-size: 0.875rem;
     color: var(--tekst-cichy);
   }
 

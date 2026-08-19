@@ -27,6 +27,17 @@ export const KUP_PODWYZSZONE_MIES = 300;
 /** Kwota wolna 30 000 zł ⇒ kwota zmniejszająca podatek. [PEWNE — bez zmian w 2027] */
 export const KWOTA_ZMNIEJSZAJACA_ROK = 3_600;
 
+/**
+ * Płaca minimalna przy pełnym etacie. [PEWNE dla 2026]
+ *
+ * Nie wchodzi do wzoru — służy wyłącznie do ostrzeżenia w interfejsie. Nie jest
+ * dolną granicą wynagrodzenia z umowy o pracę: przy niepełnym etacie kwota jest
+ * proporcjonalnie niższa i to nadal legalna umowa. Wartość na 2027 r. pozostaje
+ * nieustalona (źródła podają sprzecznie 4 950 i 5 103 zł), dlatego trzymamy tu
+ * tę pewną.
+ */
+export const PLACA_MINIMALNA = 4_806;
+
 export type Rok = 2026 | 2027;
 
 /** Skala podatkowa. Progi jako punkty przełamania stawki. */
