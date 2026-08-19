@@ -6,6 +6,7 @@
     MAKSYMALNA_KORZYSC_ROCZNA,
     porownaj,
   } from '../tax/engine';
+  import WykresZysku from './WykresZysku.svelte';
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
   import { odczytajBrutto, zapiszBrutto } from './url';
 
@@ -125,9 +126,9 @@
     <p class="etykieta">Dla Ciebie ta zmiana oznacza</p>
     <p class="liczba">0 zł</p>
     <p class="rocznie">
-      Nowa skala zaczyna cokolwiek zmieniać dopiero przy zarobkach powyżej
-      {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto — brakuje {kwota(doProgu)} podwyżki.
-      Reforma dotyka mniej więcej co dziesiątego podatnika.
+      Nowa skala zmienia wynagrodzenie od {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto —
+      brakuje {kwota(doProgu)} podwyżki. Reforma dotyczy mniej więcej co dziesiątego
+      podatnika.
     </p>
   {/if}
 </section>
@@ -148,6 +149,8 @@
   </div>
 </section>
 
+<WykresZysku {brutto} />
+
 {#if naPlaskowyzu}
   <p class="uwaga">
     Powyżej {kwota(BRUTTO_PELNA_KORZYSC)} brutto sam zysk już nie rośnie — wyższa pensja oznacza
@@ -162,7 +165,13 @@
 {/if}
 
 <details bind:open={rozwiniete}>
-  <summary>Skąd ta liczba</summary>
+  <summary>
+    <span class="znacznik" aria-hidden="true"></span>
+    Skąd ta liczba
+    <!-- Stan i tak ogłasza czytnik ekranu przez samo details, więc podpowiedź
+         jest wyłącznie wizualną zachętą do kliknięcia. -->
+    <span class="podpowiedz" aria-hidden="true">{rozwiniete ? 'ukryj' : 'pokaż rozbicie'}</span>
+  </summary>
 
   <table>
     <thead>
@@ -346,13 +355,109 @@
 
   details {
     border-top: 1px solid var(--linia);
-    padding-top: 1rem;
+    padding-top: 1.25rem;
   }
 
   summary {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.6875rem 0.875rem;
+    border: 1px solid var(--linia);
+    border-radius: 0.5rem;
+    background: var(--tlo-karta);
     cursor: pointer;
+    /* Wielokrotne klikanie w rozwijanie nie ma zaznaczać napisu. */
+    user-select: none;
     font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--tekst);
+    /* Własny znacznik zamiast systemowego trójkąta: `list-style` gasi go
+       w Firefoksie i nowym Chrome, `::-webkit-details-marker` w Safari. */
+    list-style: none;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary:hover {
+    background: var(--akcent-tlo);
+    border-color: color-mix(in srgb, var(--akcent) 40%, var(--linia));
+  }
+
+  summary:focus-visible {
+    outline: 2px solid var(--akcent);
+    outline-offset: 2px;
+  }
+
+  /* Kwadrat z dwoma bokami: obrócony o −45° to strzałka w prawo, o 45° w dół. */
+  .znacznik {
+    flex: none;
+    width: 0.4375rem;
+    height: 0.4375rem;
+    margin-left: 0.125rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
     color: var(--tekst-cichy);
+    transform: rotate(-45deg);
+    transition:
+      transform 0.2s ease,
+      color 0.15s ease;
+  }
+
+  details[open] .znacznik {
+    transform: rotate(45deg);
+  }
+
+  summary:hover .znacznik,
+  summary:focus-visible .znacznik {
+    color: var(--akcent);
+  }
+
+  .podpowiedz {
+    margin-left: auto;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--tekst-cichy);
+  }
+
+  summary:hover .podpowiedz {
+    color: var(--akcent);
+  }
+
+  /* Płynne rozwijanie bez mierzenia wysokości w JS — tylko tam, gdzie
+     przeglądarka umie animować do `auto`. Gdzie nie umie, otwiera się skokowo. */
+  @supports (interpolate-size: allow-keywords) and (selector(::details-content)) {
+    details {
+      interpolate-size: allow-keywords;
+    }
+
+    details::details-content {
+      block-size: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition:
+        block-size 0.25s ease,
+        opacity 0.2s ease,
+        content-visibility 0.25s allow-discrete;
+    }
+
+    details[open]::details-content {
+      block-size: auto;
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    summary,
+    .znacznik,
+    details::details-content {
+      transition: none;
+    }
   }
 
   table {
@@ -382,9 +487,11 @@
     color: var(--tekst-cichy);
   }
 
-  td {
+  /* Odstęp od lewej, bo przy wąskim ekranie sąsiednie kwoty inaczej się stykają. */
+  td,
+  th[scope='col']:not(:first-child) {
     text-align: right;
-    padding: 0.375rem 0;
+    padding: 0.375rem 0 0.375rem 0.75rem;
   }
 
   th {
@@ -411,6 +518,10 @@
 
     .netto {
       font-size: 1.25rem;
+    }
+
+    table {
+      font-size: 0.8125rem;
     }
   }
 </style>
