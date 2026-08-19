@@ -27,8 +27,18 @@
     </p>
     <p>
       Wszystko liczy się w Twojej przeglądarce — żadne dane nie są nigdzie wysyłane.
-      <a href="https://github.com/mkondratek/pit-2027">Kod źródłowy na GitHubie</a>.
+      <a href="https://github.com/mkondratek/pit-2027">Kod źródłowy jest otwarty</a>, więc sposób
+      wyliczeń można sprawdzić samemu.
       <a href="/polityka-prywatnosci">Polityka prywatności</a>.
+    </p>
+    <p>
+      Coś się nie zgadza?
+      <a href="https://github.com/mkondratek/pit-2027/issues/new">Zgłoś błąd</a> — przepisy wokół tej
+      zmiany dopiero powstają, więc poprawki są mile widziane.
+    </p>
+    <p class="podpis">
+      Zrobił Mikołaj Kondratek ·
+      <a href="https://github.com/mkondratek">GitHub</a>
     </p>
   </footer>
 </main>
@@ -73,6 +83,11 @@
 
   footer p {
     margin: 0 0 0.75rem;
+  }
+
+  .podpis {
+    margin-top: 1.25rem;
+    color: var(--tekst);
   }
 
   a {
