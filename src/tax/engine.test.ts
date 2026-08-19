@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BRUTTO_PELNA_KORZYSC,
+  BRUTTO_PELNA_KORZYSC_ULGA,
   BRUTTO_POCZATEK_KORZYSCI,
+  BRUTTO_POCZATEK_KORZYSCI_ULGA,
   MAKSYMALNA_KORZYSC_ROCZNA,
   MAKSYMALNA_KORZYSC_WSPOLNA,
+  kapZdrowotnej,
   obliczWspolnie,
   oblicz,
   podatekWgSkali,
@@ -13,7 +16,7 @@ import {
   progiWspolne,
   roundPln,
 } from './engine';
-import { type Rok } from './constants';
+import { LIMIT_PIT_ZERO, PLACA_MINIMALNA, type Rok } from './constants';
 
 describe('roundPln — art. 63 §1 Ordynacji podatkowej', () => {
   it('pomija końcówki poniżej 50 gr', () => {
@@ -446,6 +449,294 @@ describe('wspólne rozliczenie — własności', () => {
         const { pelna } = progiWspolne(malzonek);
         expect(pelna).toBeLessThan(poprzedni);
         poprzedni = pelna;
+      }
+    });
+  });
+});
+
+/**
+ * Ulga dla młodych — PIT-0 do 26. roku życia (model.md B.6 + kap z B.5).
+ *
+ * Nikt nie opublikował wyliczeń dla młodego pracownika przy nowej skali, więc —
+ * tak jak przy wspólnym rozliczeniu — zamiast wpisywać własny wynik jako
+ * oczekiwany testujemy **własności**. Każda z nich to osobny sposób, w jaki
+ * kalkulator ulgi dla młodych bywa w internecie zrobiony źle:
+ *
+ * 1. limit dotyczy **przychodu**, nie dochodu, i wynosi 85 528 zł (nie 120 000
+ *    zł, nie kwoty wolnej);
+ * 2. powyżej limitu opodatkowana jest **wyłącznie nadwyżka**, a nie całość;
+ * 3. składki społeczne i zdrowotna naliczają się od **całości** przychodu —
+ *    zwolnienie jest podatkowe, nie składkowe;
+ * 4. …ale zdrowotna podlega kapowi z art. 83, więc przy przychodzie w całości
+ *    zwolnionym spada do **zera** (to jest ten najczęściej pomijany fragment);
+ * 5. KUP przysługują tylko od części opodatkowanej;
+ * 6. ulga nigdy nie może pogorszyć netto;
+ * 7. wyłączona ulga nie zmienia niczego.
+ */
+describe('ulga dla młodych (PIT-0)', () => {
+  const lata: Rok[] = [2026, 2027];
+  const U = { ulgaDlaMlodych: true } as const;
+
+  it('jest domyślnie wyłączona — bez niej wynik jest identyczny co do grosza', () => {
+    for (const rok of lata) {
+      for (const brutto of [0, 1_000, 4_806, 10_000, 13_000, 30_000]) {
+        expect(oblicz(brutto, rok, { ulgaDlaMlodych: false })).toEqual(oblicz(brutto, rok));
+      }
+    }
+  });
+
+  it('zwalnia przychód (nie dochód) do 85 528 zł i ani grosza więcej', () => {
+    expect(oblicz(5_000, 2026, U).przychodZwolniony).toBe(60_000);
+    // 7 127 zł/mies = 85 524 zł/rok — jeszcze poniżej limitu, więc całość.
+    expect(oblicz(7_127, 2026, U).przychodZwolniony).toBe(85_524);
+    // Powyżej limitu zwolnienie zatrzymuje się na nim, niezależnie od zarobków.
+    expect(oblicz(10_000, 2026, U).przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+    expect(oblicz(50_000, 2026, U).przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+  });
+
+  it('rozbicie się spina: zwolniony + opodatkowany = brutto', () => {
+    for (const brutto of [3_000, 7_127, 10_000, 30_000]) {
+      const w = oblicz(brutto, 2026, U);
+      expect(w.przychodZwolniony + w.przychodOpodatkowany).toBe(w.bruttoRocznie);
+    }
+  });
+
+  /*
+   * Właściwość 1 — poniżej limitu podatek zero i zdrowotna zero.
+   *
+   * Podatek zero jest oczywisty; zdrowotna zero już nie i to jest sedno kapu
+   * z art. 83: składka 9% liczy się od całego przychodu, ale nie może
+   * przekroczyć hipotetycznej zaliczki „wg stanu na 31.12.2021", a ta przy
+   * przychodzie w całości zwolnionym wynosi zero. Kalkulator, który tego nie
+   * ma, zaniża młodemu pracownikowi netto o ~7% brutto — przy 5 000 zł/mies
+   * to blisko 4 700 zł rocznie.
+   */
+  it('przychód w całości zwolniony ⇒ zero podatku i zero składki zdrowotnej', () => {
+    for (const rok of lata) {
+      for (const brutto of [1_500, 3_000, 4_806, 5_000, 7_000, 7_127]) {
+        const w = oblicz(brutto, rok, U);
+
+        expect(w.przychodZwolniony).toBe(w.bruttoRocznie);
+        expect(w.podstawaOpodatkowania).toBe(0);
+        expect(w.podatek).toBe(0);
+        expect(w.skladkaZdrowotna).toBe(0);
+      }
+    }
+  });
+
+  it('składki społeczne naliczają się od całości — zwolnienie jest podatkowe, nie składkowe', () => {
+    for (const brutto of [3_000, 7_000, 10_000, 30_000]) {
+      expect(oblicz(brutto, 2026, U).skladkiSpoleczne).toBe(
+        oblicz(brutto, 2026).skladkiSpoleczne,
+      );
+    }
+  });
+
+  /*
+   * Właściwość 2 — tuż powyżej limitu opodatkowana jest wyłącznie nadwyżka.
+   *
+   * Sprawdzane od strony kwoty, nie tylko znaku: dochód musi być dokładnie tym,
+   * co zostaje z nadwyżki po składkach (liczonych od całości) i KUP. Test na
+   * samym „podatek > 0" przepuściłby implementację opodatkowującą całość.
+   */
+  it('powyżej limitu opodatkowana jest tylko nadwyżka ponad 85 528 zł', () => {
+    const brutto = 10_000;
+    const w = oblicz(brutto, 2026, U);
+    const bez = oblicz(brutto, 2026);
+
+    expect(w.przychodOpodatkowany).toBe(120_000 - LIMIT_PIT_ZERO);
+    expect(w.podstawaOpodatkowania).toBe(
+      roundPln(w.przychodOpodatkowany - bez.skladkiSpoleczne - w.kup),
+    );
+    // Podstawa niższa dokładnie o zwolniony przychód (KUP takie same — mieszczą
+    // się w części opodatkowanej).
+    expect(bez.podstawaOpodatkowania - w.podstawaOpodatkowania).toBe(LIMIT_PIT_ZERO);
+  });
+
+  it('KUP przysługują tylko od części opodatkowanej', () => {
+    // Całość zwolniona ⇒ nie ma od czego ich odliczyć.
+    expect(oblicz(5_000, 2026, U).kup).toBe(0);
+    // Nadwyżka ponad limit z zapasem większa niż 3 000 zł ⇒ pełne KUP.
+    expect(oblicz(30_000, 2026, U).kup).toBe(3_000);
+    expect(oblicz(30_000, 2026, { ...U, kupPodwyzszone: true }).kup).toBe(3_600);
+  });
+
+  /*
+   * Właściwość 3 — ulga nigdy nie pogarsza netto.
+   *
+   * Warunek konieczny każdego zwolnienia: podatek i zdrowotna mogą tylko spaść.
+   * Przemiata cały realny zakres, bo błędy w rodzaju „KUP odliczone od zwolnionej
+   * części" albo „kap policzony od złej podstawy" potrafią wychodzić na plus
+   * tylko lokalnie.
+   */
+  it('nigdy nie pogarsza netto ani nie podnosi obciążeń', () => {
+    for (const rok of lata) {
+      for (let brutto = 0; brutto <= 40_000; brutto += 250) {
+        const z = oblicz(brutto, rok, U);
+        const bez = oblicz(brutto, rok);
+
+        expect(z.nettoRocznie).toBeGreaterThanOrEqual(bez.nettoRocznie);
+        expect(z.podatek).toBeLessThanOrEqual(bez.podatek);
+        expect(z.skladkaZdrowotna).toBeLessThanOrEqual(bez.skladkaZdrowotna);
+      }
+    }
+  });
+
+  it('powyżej limitu z dużym zapasem zdrowotna wraca do pełnych 9%', () => {
+    // Kap wiąże tylko wtedy, gdy hipotetyczna zaliczka 17% jest niższa od 9%
+    // składki. Przy 20 000 zł/mies nadwyżka ponad limit jest na tyle duża, że
+    // przestaje wiązać — składka jest taka sama jak bez ulgi.
+    expect(oblicz(20_000, 2026, U).skladkaZdrowotna).toBe(oblicz(20_000, 2026).skladkaZdrowotna);
+  });
+
+  /*
+   * Właściwość 4 — próg opłacalności reformy dla osoby z ulgą.
+   *
+   * Zwolnienie zabiera 85 528 zł z góry, więc granica I przedziału (120 000 zł
+   * dochodu) przesuwa się o tyle w prawo. Stała `BRUTTO_POCZATEK_KORZYSCI_ULGA`
+   * jest sprawdzana co do złotówki na krawędzi — tak samo jak jej odpowiednik
+   * bez ulgi — żeby nie została w kodzie kwotą przepisaną z niczego.
+   */
+  it('zysk z reformy pojawia się dopiero od 20 139 zł/mies brutto', () => {
+    expect(porownaj(BRUTTO_POCZATEK_KORZYSCI_ULGA - 1, U).zyskRocznie).toBe(0);
+    expect(porownaj(BRUTTO_POCZATEK_KORZYSCI_ULGA, U).zyskRocznie).toBeGreaterThan(0);
+
+    // …czyli o 8 261 zł/mies wyżej niż bez ulgi. Osoba poniżej tego progu nie
+    // zyskuje na reformie nic — ale kalkulator i tak musi jej pokazać właściwe
+    // netto, dużo wyższe niż bez uwzględnienia zwolnienia.
+    expect(BRUTTO_POCZATEK_KORZYSCI_ULGA).toBeGreaterThan(BRUTTO_POCZATEK_KORZYSCI);
+    expect(porownaj(13_000, U).zyskRocznie).toBe(0);
+    expect(porownaj(13_000, U).po.nettoRocznie).toBeGreaterThan(porownaj(13_000).po.nettoRocznie);
+  });
+
+  it('pełna korzyść 3 600 zł/rok dopiero od 23 036 zł/mies brutto', () => {
+    expect(porownaj(BRUTTO_PELNA_KORZYSC_ULGA - 1, U).zyskRocznie).toBeLessThan(
+      MAKSYMALNA_KORZYSC_ROCZNA,
+    );
+    expect(porownaj(BRUTTO_PELNA_KORZYSC_ULGA, U).zyskRocznie).toBe(MAKSYMALNA_KORZYSC_ROCZNA);
+  });
+
+  it('nigdy nie daje więcej niż maksymalna korzyść ze zmiany skali', () => {
+    for (let brutto = 0; brutto <= 60_000; brutto += 500) {
+      const zysk = porownaj(brutto, U).zyskRocznie;
+      expect(zysk).toBeGreaterThanOrEqual(0);
+      expect(zysk).toBeLessThanOrEqual(MAKSYMALNA_KORZYSC_ROCZNA);
+    }
+  });
+
+  /*
+   * Kap z art. 83 osobno, jako funkcja — łatwiej tu pokazać, że to hipotetyczna
+   * zaliczka z 2021 r. (17% minus 12 × 43,76 zł), a nie bieżąca skala.
+   */
+  describe('kapZdrowotnej — art. 83 ustawy zdrowotnej', () => {
+    it('zeruje się dla podstawy mieszczącej się w kwocie zmniejszającej z 2021 r.', () => {
+      expect(kapZdrowotnej(0)).toBe(0);
+      expect(kapZdrowotnej(3_000)).toBe(0); // 3 000 × 17% = 510 < 525,12
+    });
+
+    it('powyżej tego jest 17% podstawy minus 525,12 zł rocznie', () => {
+      expect(kapZdrowotnej(10_000)).toBeCloseTo(10_000 * 0.17 - 12 * 43.76, 2);
+    });
+
+    /*
+     * Świadome ograniczenie: bez ulgi silnik kapu nie stosuje. W prawie
+     * obowiązuje zawsze, ale bez zwolnienia wiązałby dopiero poniżej ~1 250 zł
+     * miesięcznie brutto — czwarta część płacy minimalnej, więc poza zakresem
+     * pytania, na które ten kalkulator odpowiada. Zostawione tak, żeby włączenie
+     * ulgi było jedyną rzeczą zmieniającą dotychczasowe, zwalidowane wyniki.
+     * Ten test pilnuje granicy tego ograniczenia, żeby nie rozlało się wyżej.
+     */
+    it('bez ulgi wiązałby dopiero poniżej ~1 250 zł/mies brutto (świadomie niestosowany)', () => {
+      const wiazalby = (brutto: number) => {
+        const w = oblicz(brutto, 2026);
+        return kapZdrowotnej(w.podstawaOpodatkowania) < w.skladkaZdrowotna;
+      };
+
+      expect(wiazalby(1_200)).toBe(true);
+      expect(wiazalby(1_300)).toBe(false);
+      // …a przy płacy minimalnej i wyżej nie ma o czym mówić.
+      expect(wiazalby(PLACA_MINIMALNA)).toBe(false);
+    });
+  });
+
+  /*
+   * Właściwość 5 — ulga we wspólnym rozliczeniu jest cechą osoby.
+   *
+   * Limit PIT-0 przysługuje każdemu małżonkowi osobno, a wiek jednego nie mówi
+   * nic o wieku drugiego. Najważniejszy test to ten o niedziedziczeniu: bez
+   * niego `{ ulgaDlaMlodych: true }` po cichu zwalniałoby oboje.
+   */
+  describe('we wspólnym rozliczeniu', () => {
+    it('nie dziedziczy się na małżonka, gdy nie podano jego opcji', () => {
+      const tylkoJa = obliczWspolnie(10_000, 10_000, 2026, U);
+      const oboje = obliczWspolnie(10_000, 10_000, 2026, { ...U, malzonek: { ...U } });
+
+      expect(tylkoJa.przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+      expect(oboje.przychodZwolniony).toBe(2 * LIMIT_PIT_ZERO);
+      expect(oboje.nettoRocznie).toBeGreaterThan(tylkoJa.nettoRocznie);
+    });
+
+    it('pozostałe opcje dziedziczą się jak dotąd', () => {
+      const oboje = obliczWspolnie(10_000, 10_000, 2026, { kupPodwyzszone: true, ...U });
+
+      expect(oboje.kup).toBe(2 * 3_600);
+      expect(oboje.osoby[1].przychodZwolniony).toBe(0);
+    });
+
+    it('daje się włączyć osobno każdemu z małżonków', () => {
+      const mojaUlga = obliczWspolnie(10_000, 10_000, 2026, U);
+      const jegoUlga = obliczWspolnie(10_000, 10_000, 2026, { malzonek: { ...U } });
+
+      expect(mojaUlga.osoby[0].przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+      expect(mojaUlga.osoby[1].przychodZwolniony).toBe(0);
+      expect(jegoUlga.osoby[0].przychodZwolniony).toBe(0);
+      expect(jegoUlga.osoby[1].przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+      // Przy równych zarobkach to musi wyjść na to samo.
+      expect(jegoUlga.nettoRocznie).toBe(mojaUlga.nettoRocznie);
+    });
+
+    it('limit przysługuje każdemu osobno, a nie parze', () => {
+      const oboje = obliczWspolnie(20_000, 20_000, 2026, { ...U, malzonek: { ...U } });
+
+      expect(oboje.osoby[0].przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+      expect(oboje.osoby[1].przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+      expect(oboje.przychodZwolniony).toBe(2 * LIMIT_PIT_ZERO);
+    });
+
+    it('nie pogarsza netto gospodarstwa', () => {
+      for (const [a, b] of [
+        [0, 0],
+        [4_806, 0],
+        [10_000, 4_806],
+        [13_000, 13_000],
+        [30_000, 0],
+      ]) {
+        for (const rok of lata) {
+          expect(obliczWspolnie(a, b, rok, U).nettoRocznie).toBeGreaterThanOrEqual(
+            obliczWspolnie(a, b, rok).nettoRocznie,
+          );
+        }
+      }
+    });
+
+    it('dla pary dwojga młodych o równych zarobkach to dwa razy rozliczenie osobne (± 1 zł)', () => {
+      for (const brutto of [5_000, 10_000, 20_000]) {
+        const para = obliczWspolnie(brutto, brutto, 2027, { ...U, malzonek: { ...U } });
+        const sam = oblicz(brutto, 2027, U);
+
+        expect(Math.abs(para.nettoRocznie - 2 * sam.nettoRocznie)).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('wyłączona nie zmienia wyniku wspólnego rozliczenia', () => {
+      for (const [a, b] of [
+        [12_000, 0],
+        [13_000, 7_000],
+        [30_000, 4_806],
+      ]) {
+        expect(obliczWspolnie(a, b, 2027, { ulgaDlaMlodych: false })).toEqual(
+          obliczWspolnie(a, b, 2027),
+        );
       }
     });
   });

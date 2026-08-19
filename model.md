@@ -576,6 +576,25 @@ Rzeczy, których **nie udało się ustalić** — nie zgadywać w kodzie, wystaw
     Prezydencka alternatywa „PIT Zero" ma zupełnie inną konstrukcję (próg 140 tys. + zerowy PIT
     dla rodziców 2+), co przy kompromisie dałoby jeszcze inne parametry.
 
+## Dotyczące ulgi dla młodych (PIT-0)
+
+**Czy składki społeczne odlicza się w całości, gdy część przychodu jest zwolniona?**
+Część C tego dokumentu odejmuje od podstawy **całość** składek społecznych, także tę
+przypadającą na przychód objęty zwolnieniem — i tak to zaimplementowano w silniku.
+Art. 26 ust. 1 pkt 2 ustawy o PIT daje się jednak czytać jako zakaz odliczania składek
+przypadających na przychód zwolniony, co prowadziłoby do proporcji. Różnica dotyczy
+wyłącznie osób z ulgą zarabiających powyżej 85 528 zł rocznie i działa na korzyść
+podatnika. **Nierozstrzygnięte** — wymaga sprawdzenia w interpretacjach.
+
+**Zbieg ulg PIT-0.** Limit 85 528 zł jest wspólny dla ulgi dla młodych, ulgi na powrót,
+ulgi dla rodzin 4+ i ulgi dla pracujących seniorów. Silnik przyjmuje, że limit jest
+w całości niewykorzystany — nie modeluje sytuacji, w której komuś przysługuje więcej
+niż jedna z nich.
+
+**Miesięczne narastanie limitu.** Model jest roczny, więc nie odwzorowuje momentu
+w trakcie roku, w którym limit się wyczerpuje i zaliczki zaczynają być pobierane.
+To ta sama granica dokładności, co przy zwykłym rozliczeniu (patrz uwaga w części C).
+
 ## Dotyczące parametrów technicznych
 
 12. **30-krotność 2027 (299 130 zł)** — prognoza z założeń makroekonomicznych z kwietnia 2026,

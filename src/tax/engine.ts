@@ -8,10 +8,13 @@
  */
 
 import {
+  KAP_2021_STAWKA,
+  KAP_2021_ZMNIEJSZAJACA_MIES,
   KUP_PODSTAWOWE_MIES,
   KUP_PODWYZSZONE_MIES,
   KWOTA_ZMNIEJSZAJACA_ROK,
   LIMIT_30X,
+  LIMIT_PIT_ZERO,
   RATE_CHOROBOWA,
   RATE_EMERYTALNA,
   RATE_RENTOWA,
@@ -51,9 +54,43 @@ export function podatekWgSkali(dochod: number, rok: Rok): number {
   return Math.max(0, podatek - KWOTA_ZMNIEJSZAJACA_ROK);
 }
 
+/**
+ * Kap składki zdrowotnej — art. 83 ustawy zdrowotnej (model.md B.5).
+ *
+ * Zwraca hipotetyczną zaliczkę na PIT „wg stanu na 31.12.2021": stawka 17% od
+ * podstawy opodatkowania, minus kwota zmniejszająca 43,76 zł miesięcznie
+ * (zakładamy PIT-2 — tak jak reszta silnika, która zawsze stosuje kwotę
+ * zmniejszającą). Składka zdrowotna nie może przekroczyć tej kwoty.
+ *
+ * Podstawa jest ta sama, którą liczy `skladniki`, czyli **bez przychodu
+ * zwolnionego**: ulga dla młodych obowiązywała już w 2021 r., więc w
+ * hipotetycznej zaliczce przychód zwolniony też się nie pojawia. Stąd
+ * najważniejsza konsekwencja: przy przychodzie w całości zwolnionym podstawa
+ * wynosi zero, hipotetyczna zaliczka zero — i **składka zdrowotna spada do
+ * zera**, mimo że sam przychód jest oskładkowany normalnie.
+ */
+export function kapZdrowotnej(podstawaOpodatkowania: number): number {
+  return round2(
+    Math.max(0, podstawaOpodatkowania * KAP_2021_STAWKA - 12 * KAP_2021_ZMNIEJSZAJACA_MIES),
+  );
+}
+
 export interface Opcje {
   /** Zamieszkanie poza miejscowością zakładu pracy — KUP 300 zł zamiast 250 zł. */
   kupPodwyzszone?: boolean;
+  /**
+   * Ulga dla młodych — PIT-0 do ukończenia 26. roku życia (art. 21 ust. 1
+   * pkt 148). Domyślnie wyłączona.
+   *
+   * Zwalnia z podatku **przychód** (nie dochód) do wspólnego dla wszystkich ulg
+   * PIT-0 limitu 85 528 zł rocznie. Kto korzysta równolegle z innej ulgi PIT-0
+   * (na powrót, rodziny 4+, senior), ma ten limit już częściowo zużyty —
+   * silnik tego nie modeluje i przyjmuje limit w całości wolny.
+   *
+   * Cecha **konkretnej osoby**, nie gospodarstwa: przy wspólnym rozliczeniu
+   * patrz `OpcjeWspolne.malzonek`.
+   */
+  ulgaDlaMlodych?: boolean;
   /** Wpłata pracownika do PPK, ułamek (0,02 = 2%). Potrącana z netto. */
   ppkPracownik?: number;
   /**
@@ -82,6 +119,14 @@ export interface Opcje {
 export interface SkladnikiOsoby {
   bruttoMiesiecznie: number;
   bruttoRocznie: number;
+  /**
+   * Przychód zwolniony z podatku w ramach PIT-0 (ulga dla młodych) — zero, gdy
+   * ulga wyłączona. Wystawione osobno, żeby dało się to pokazać w rozbiciu:
+   * inaczej z samego niższego podatku nie widać, skąd się wziął.
+   */
+  przychodZwolniony: number;
+  /** Przychód podlegający opodatkowaniu: brutto − przychód zwolniony. */
+  przychodOpodatkowany: number;
   skladkiSpoleczne: number;
   skladkaZdrowotna: number;
   /**
@@ -94,7 +139,10 @@ export interface SkladnikiOsoby {
    * o nieistniejący etat.
    */
   kup: number;
-  /** Dochód: brutto − składki społeczne − KUP, zaokrąglony do pełnych złotych. */
+  /**
+   * Dochód: przychód opodatkowany − składki społeczne − KUP, zaokrąglony do
+   * pełnych złotych i obcięty na zerze.
+   */
   dochod: number;
   ppk: number;
 }
@@ -109,24 +157,52 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
     podstawaEmerRent * (RATE_EMERYTALNA + RATE_RENTOWA) + bruttoRocznie * RATE_CHOROBOWA,
   );
 
-  // Zdrowotna: po odjęciu społecznych, ale przed KUP.
-  const skladkaZdrowotna = round2((bruttoRocznie - skladkiSpoleczne) * RATE_ZDROWOTNA);
+  // Zwolnienie PIT-0 zdejmuje z podatku PRZYCHÓD, nie dochód, i nie dotyczy
+  // składek: te wyżej naliczyły się od całości brutto. Zwolnienie jest
+  // podatkowe, nie składkowe (model.md B.6).
+  const przychodZwolniony = opcje.ulgaDlaMlodych ? Math.min(bruttoRocznie, LIMIT_PIT_ZERO) : 0;
+  const przychodOpodatkowany = bruttoRocznie - przychodZwolniony;
 
-  // Odliczyć da się najwyżej tyle, ile zostało przychodu po składkach — patrz
-  // `kup` w `SkladnikiOsoby`. Dzięki temu dochód wychodzi nieujemny sam z siebie
-  // i zawsze równa się różnicy trzech pokazywanych w rozbiciu kwot.
+  // KUP stosuje się TYLKO do części opodatkowanej (model.md B.6) — przy
+  // przychodzie w całości zwolnionym nie ma ich wcale. Odliczyć da się przy tym
+  // najwyżej tyle, ile z tej części zostało po składkach; dzięki temu dochód
+  // zwykle wychodzi nieujemny sam z siebie i równa się różnicy pokazywanych
+  // w rozbiciu kwot.
   const kup = Math.min(
     (opcje.kupPodwyzszone ? KUP_PODWYZSZONE_MIES : KUP_PODSTAWOWE_MIES) * 12,
-    Math.max(0, bruttoRocznie - skladkiSpoleczne),
+    Math.max(0, przychodOpodatkowany - skladkiSpoleczne),
+  );
+
+  // Obcięcie na zerze wchodzi w grę wyłącznie z ulgą: składki naliczone od
+  // całości brutto potrafią przewyższyć samą część opodatkowaną (całość
+  // zwolniona ⇒ przychód opodatkowany zero, a składki dodatnie). Bez ulgi
+  // ogranicznik KUP powyżej gwarantuje nieujemność i `max` nigdy nie działa —
+  // wynik jest wtedy co do grosza taki jak przed wprowadzeniem ulgi.
+  //
+  // Model.md (część C) odejmuje tu **całość** składek społecznych, także tę
+  // przypadającą na przychód zwolniony, i tak jest to zaimplementowane.
+  const dochod = roundPln(Math.max(0, przychodOpodatkowany - skladkiSpoleczne - kup));
+
+  // Zdrowotna: 9% po odjęciu społecznych, ale przed KUP — od CAŁOŚCI przychodu,
+  // bo zwolnienie nie jest składkowe. Podlega jednak kapowi z art. 83 (B.5),
+  // który przy przychodzie zwolnionym z podatku ściąga ją aż do zera.
+  const skladkaZdrowotna = Math.min(
+    round2((bruttoRocznie - skladkiSpoleczne) * RATE_ZDROWOTNA),
+    // Bez ulgi kap wiązałby dopiero poniżej ~1 250 zł/mies brutto — patrz
+    // komentarz przy `kapZdrowotnej` w engine.test.ts. Nie stosujemy go tam,
+    // żeby włączenie ulgi było jedyną rzeczą zmieniającą dotychczasowe wyniki.
+    przychodZwolniony > 0 ? kapZdrowotnej(dochod) : Infinity,
   );
 
   return {
     bruttoMiesiecznie,
     bruttoRocznie,
+    przychodZwolniony,
+    przychodOpodatkowany,
     skladkiSpoleczne,
     skladkaZdrowotna,
     kup,
-    dochod: roundPln(bruttoRocznie - skladkiSpoleczne - kup),
+    dochod,
     ppk: round2(bruttoRocznie * (opcje.ppkPracownik ?? 0)),
   };
 }
@@ -135,6 +211,10 @@ export interface Wynik {
   rok: Rok;
   bruttoMiesiecznie: number;
   bruttoRocznie: number;
+  /** Przychód zwolniony z PIT (ulga dla młodych); zero, gdy ulga wyłączona. */
+  przychodZwolniony: number;
+  /** Przychód podlegający opodatkowaniu: brutto − przychód zwolniony. */
+  przychodOpodatkowany: number;
   skladkiSpoleczne: number;
   skladkaZdrowotna: number;
   kup: number;
@@ -158,6 +238,8 @@ export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): 
     rok,
     bruttoMiesiecznie,
     bruttoRocznie: osoba.bruttoRocznie,
+    przychodZwolniony: osoba.przychodZwolniony,
+    przychodOpodatkowany: osoba.przychodOpodatkowany,
     skladkiSpoleczne: osoba.skladkiSpoleczne,
     skladkaZdrowotna: osoba.skladkaZdrowotna,
     kup: osoba.kup,
@@ -193,7 +275,26 @@ export function porownaj(bruttoMiesiecznie: number, opcje: Opcje = {}): Porownan
 /* ————————————— Wspólne rozliczenie małżonków (art. 6 ust. 2 ustawy o PIT) ————————————— */
 
 export interface OpcjeWspolne extends Opcje {
-  /** Opcje małżonka, jeśli inne niż Twoje. Domyślnie te same. */
+  /**
+   * Opcje małżonka, jeśli inne niż Twoje. Domyślnie te same — **z wyjątkiem
+   * `ulgaDlaMlodych`**.
+   *
+   * Ulga dla młodych jest cechą osoby (wiek), a nie ustawieniem gospodarstwa:
+   * to, że Ty masz mniej niż 26 lat, nie mówi nic o małżonku. Gdyby dziedziczyła
+   * się razem z resztą opcji, `{ ulgaDlaMlodych: true }` po cichu zwalniałoby
+   * oboje i zawyżało netto pary o kilka tysięcy złotych. Dlatego pole z tego
+   * obiektu **nie przechodzi** na małżonka — jego ulgę trzeba włączyć wprost:
+   *
+   * ```ts
+   * porownajWspolnie(a, b, { ulgaDlaMlodych: true });                          // tylko Ty
+   * porownajWspolnie(a, b, { malzonek: { ulgaDlaMlodych: true } });            // tylko małżonek
+   * porownajWspolnie(a, b, { ulgaDlaMlodych: true,
+   *                          malzonek: { ulgaDlaMlodych: true } });            // oboje
+   * ```
+   *
+   * Pozostałe opcje (KUP, PPK, limit 30-krotności) dziedziczą się jak dotąd,
+   * o ile `malzonek` nie został podany.
+   */
   malzonek?: Opcje;
 }
 
@@ -232,7 +333,8 @@ export function obliczWspolnie(
   const { malzonek, ...moje } = opcje;
   const osoby: [SkladnikiOsoby, SkladnikiOsoby] = [
     skladniki(bruttoMiesiecznie, moje),
-    skladniki(bruttoMalzonka, malzonek ?? moje),
+    // Ulga dla młodych nie dziedziczy się przez `?? moje` — patrz `OpcjeWspolne`.
+    skladniki(bruttoMalzonka, malzonek ?? { ...moje, ulgaDlaMlodych: false }),
   ];
 
   const suma = (wybierz: (o: SkladnikiOsoby) => number) => wybierz(osoby[0]) + wybierz(osoby[1]);
@@ -257,6 +359,11 @@ export function obliczWspolnie(
     osoby,
     bruttoMiesiecznie: bruttoMiesiecznie + bruttoMalzonka,
     bruttoRocznie,
+    // Limit PIT-0 przysługuje każdemu osobno (jak KUP i limit 30-krotności),
+    // więc tu jest już tylko suma gospodarstwa; rozbicie na osoby siedzi
+    // w `osoby`.
+    przychodZwolniony: suma((o) => o.przychodZwolniony),
+    przychodOpodatkowany: suma((o) => o.przychodOpodatkowany),
     skladkiSpoleczne,
     skladkaZdrowotna,
     kup: suma((o) => o.kup),
@@ -339,6 +446,24 @@ function pierwszeBrutto(warunek: (brutto: number) => boolean): number {
 export const BRUTTO_POCZATEK_KORZYSCI = 11_878;
 export const BRUTTO_PELNA_KORZYSC = 14_776;
 export const MAKSYMALNA_KORZYSC_ROCZNA = 3_600;
+
+/**
+ * To samo dla osoby korzystającej z ulgi dla młodych — progi przesuwają się
+ * w górę dokładnie o tyle, ile trzeba zarobić, żeby *po* zwolnieniu 85 528 zł
+ * dochód wciąż przekraczał granicę przedziału.
+ *
+ * Wyprowadzenie (KUP podstawowe, poniżej 30-krotności, więc składki to 13,71%
+ * brutto): dochód = 0,8629 × brutto_rok − 85 528 − 3 000. Żeby ruszył z miejsca
+ * zysk z nowej skali, musi przekroczyć 120 000 zł ⇒ brutto_rok > 241 658 zł ⇒
+ * **20 139 zł/mies**. Pełna korzyść od dochodu 150 000 zł ⇒ **23 036 zł/mies**.
+ *
+ * Sens tych liczb dla interfejsu: młody pracownik praktycznie nigdy nie zyskuje
+ * na zmianie skali, bo jego pierwsze 85 528 zł jest już wolne od podatku.
+ * Kalkulator ma mu pokazać poprawne (dużo wyższe) netto, a nie obiecywać zysk.
+ * Wartości są testowane co do złotówki na krawędzi — patrz engine.test.ts.
+ */
+export const BRUTTO_POCZATEK_KORZYSCI_ULGA = 20_139;
+export const BRUTTO_PELNA_KORZYSC_ULGA = 23_036;
 
 /**
  * Przy wspólnym rozliczeniu maksimum jest dwukrotne, bo obie granice skali

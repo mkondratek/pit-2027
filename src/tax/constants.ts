@@ -28,6 +28,29 @@ export const KUP_PODWYZSZONE_MIES = 300;
 export const KWOTA_ZMNIEJSZAJACA_ROK = 3_600;
 
 /**
+ * Wspólny roczny limit zwolnień PIT-0. [PEWNE]
+ *
+ * Jedna kwota na wszystkie cztery ulgi PIT-0 u jednego podatnika (młodzi —
+ * art. 21 ust. 1 pkt 148, na powrót, rodziny 4+, pracujący seniorzy) i dotyczy
+ * **przychodu**, nie dochodu. Nie jest odesłaniem do granicy I przedziału skali
+ * (tym jest limit 50% KUP — patrz model.md B.4), więc nowa skala 2027 sama z
+ * siebie tej kwoty nie rusza: ta sama wartość po obu stronach porównania.
+ */
+export const LIMIT_PIT_ZERO = 85_528;
+
+/**
+ * Kap składki zdrowotnej — art. 83 ustawy zdrowotnej. [PEWNE]
+ *
+ * Składkę obniża się do wysokości hipotetycznej zaliczki na PIT liczonej wg
+ * przepisów z 31.12.2021: stawka 17%, KUP 250/300 zł, miesięczna kwota
+ * zmniejszająca 43,76 zł, bez odliczania zdrowotnej. Parametry są z 2021 r.
+ * i nie zmieniają się wraz z rokiem podatkowym — to stan zamrożony w przepisie,
+ * nie bieżąca skala.
+ */
+export const KAP_2021_STAWKA = 0.17;
+export const KAP_2021_ZMNIEJSZAJACA_MIES = 43.76;
+
+/**
  * Płaca minimalna przy pełnym etacie. [PEWNE dla 2026]
  *
  * Nie wchodzi do wzoru — służy wyłącznie do ostrzeżenia w interfejsie. Nie jest
