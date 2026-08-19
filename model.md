@@ -1,8 +1,13 @@
-# PIT 2027 — "trzeci próg podatkowy" + kompletny model wynagrodzenia netto (UoP)
+# PIT 2027 — "trzeci próg podatkowy" + kompletny model wynagrodzenia netto (UoP i zlecenie)
 
-Dokument roboczy. Stan wiedzy na **19.08.2026** (zapowiedź rządowa z tego dnia).
+Dokument roboczy. Stan wiedzy na **19.08.2026** (zapowiedź rządowa z tego dnia);
+część F (umowa zlecenia) dopisana **20.08.2026**.
 Cel: dane wystarczające do napisania kalkulatora netto dla stanu prawnego **2026** oraz
 scenariusza **2027 (proponowanego)**.
+
+> Części A–E opisują umowę o pracę i samą zmianę skali. **Część F** (na końcu, po
+> otwartych pytaniach) opisuje umowę zlecenia — literę dobrano tak, żeby nie
+> przenumerowywać odwołań, które istniejący kod i testy już mają do części B, C, D i E.
 
 ## Legenda oznaczeń
 
@@ -413,6 +418,11 @@ brutto, czyli ćwiartki płacy minimalnej (składka 9% to ~7,8% brutto, a kap ro
 ~14,7% brutto − 1 035 zł). Ulga PIT-0 tego progu **nie przesuwa**, bo hipotetyczna zaliczka jej nie
 widzi.
 
+> **Umowa zlecenia**: te same przepisy, dwie różnice w parametrach — koszty 20% zamiast 250 zł/mies
+> i `ma_PIT2 = False`, bo PIT-2 był w 2021 r. zastrzeżony dla pracowników. Skutek: kap wychodzi
+> 17% × 80% = 13,6% podstawy i **nie wiąże przy żadnej kwocie brutto**, więc progu 1 250 zł tam nie
+> ma. Szczegóły i podstawa tego wnioskowania — F.6.
+
 **Dwa świadome uproszczenia w silniku:**
 
 1. **Stawka płaska 17%**, bez drugiego progu z 2021 r. (32% powyżej 85 528 zł dochodu). 17% zaniża
@@ -690,6 +700,12 @@ zostawałby dla wynagrodzenia — różnica **działa na niekorzyść podatnika*
 pytaniu o składki wyżej. Dotyczy wyłącznie osób z ulgą PIT-0 mających PPK i tylko wokół limitu.
 **Nierozstrzygnięte** — wymaga sprawdzenia w interpretacjach.
 
+**Czy składka zdrowotna przy uldze PIT-0 spada do zera?** **ROZSTRZYGNIĘTE — nie.**
+Pytanie postawione przy pisaniu części F, zamknięte tego samego dnia: art. 83 ust. 2a jest
+przepisem szczególnym wobec ust. 2 i każe liczyć hipotetyczną zaliczkę tak, jakby zwolnienia
+nie było. Pełny opis, cytat przepisu i historia poprawki — w **B.5**. Rozstrzygnięcie
+dotyczy tak samo zlecenia (F.6).
+
 **Zbieg ulg PIT-0.** Limit 85 528 zł jest wspólny dla ulgi dla młodych, ulgi na powrót,
 ulgi dla rodzin 4+ i ulgi dla pracujących seniorów. Silnik przyjmuje, że limit jest
 w całości niewykorzystany — nie modeluje sytuacji, w której komuś przysługuje więcej
@@ -698,6 +714,36 @@ niż jedna z nich.
 **Miesięczne narastanie limitu.** Model jest roczny, więc nie odwzorowuje momentu
 w trakcie roku, w którym limit się wyczerpuje i zaliczki zaczynają być pobierane.
 To ta sama granica dokładności, co przy zwykłym rozliczeniu (patrz uwaga w części C).
+
+## Dotyczące umowy zlecenia (część F)
+
+**Czy koszty 20% liczy się od przychodu pomniejszonego o składki *przypadające na część
+opodatkowaną*, czy o całość składek?** `[NIEJASNE]`
+To ta sama wątpliwość, co przy składkach społecznych wyżej, tylko podniesiona do kwadratu:
+przy zleceniu składki wchodzą do wzoru dwa razy — raz jako odliczenie od dochodu, raz jako
+pomniejszenie podstawy kosztów. Silnik odejmuje **całość** składek w obu miejscach, spójnie
+z częścią C. Dotyczy wyłącznie zleceniobiorców z ulgą PIT-0 zarabiających powyżej 85 528 zł
+rocznie.
+
+**Czy wpłata pracodawcy do PPK dostaje przy zleceniu koszty 20%?** `[NIEJASNE]`
+Silnik przyjmuje, że tak: wpłata jest przychodem z tego samego źródła (art. 13 pkt 8),
+więc liczy się jej te same zryczałtowane koszty; sama nie jest oskładkowana, więc podstawy
+kosztów nie pomniejsza. Żadne źródło się do tego nie odnosi. Skutek jest wąski — dotyczy
+zleceniobiorców z PPK i wynosi 20% wpłaty razy stawka podatku (przy 1,5% i 10 000 zł/mies
+to ok. 43 zł rocznie).
+
+**Czy hipotetyczna zaliczka „z 31.12.2021" ma przy zleceniu kwotę zmniejszającą?**
+`[NIEJASNE — wnioskowanie]`
+Silnik przyjmuje, że **nie**, bo kwota 43,76 zł/mies brała się z PIT-2, a PIT-2 był
+w 2021 r. zastrzeżony dla pracowników (zleceniobiorcy mogą go składać dopiero od 2023 r. —
+patrz F.5). Wniosek z konstrukcji przepisu, nie z komentarza. Skutek praktyczny: żaden
+przy zleceniu bez ulgi (kap i tak nie wiąże, patrz F.6) i drobny przy uldze częściowej.
+Źródło do samego PIT-2: <https://www.podatki.gov.pl/poradniki-i-informatory/pit-2-pit-2a-pit-3-zasady-skladania-oswiadczen-o-stosowaniu-pomniejszenia-zaliczki-o-kwote-zmniejszajaca-podatek-112-124-lub-136>
+
+**Płaca minimalna i minimalna stawka godzinowa 2026.** `[NIEJASNE]`
+Źródła podają dla stawki godzinowej rozbieżnie **30,50 zł** i **31,40 zł**. Nie wchodzi do
+modelu (kalkulator pyta o kwotę brutto, nie o godziny), ale gdyby kiedyś miało trafić do
+ostrzeżenia w interfejsie — najpierw trzeba to rozstrzygnąć.
 
 ## Dotyczące parametrów technicznych
 
@@ -732,3 +778,330 @@ SKALE = {
            "kwota_zmniejszajaca": 3_600},
 }
 ```
+
+---
+
+# CZĘŚĆ F — Umowa zlecenia
+
+Dopisane **20.08.2026**. Stan prawny **2026**; scenariusz 2027 różni się wyłącznie skalą.
+
+## F.0. Dlaczego to w ogóle tu jest
+
+`[PEWNE]` Zapowiadana zmiana dotyczy **skali podatkowej z art. 27 ust. 1**, a skalą
+rozlicza się nie tylko etat — część A.5 wymienia wprost „umowa o pracę, umowa zlecenia,
+umowa o dzieło". Zleceniobiorca jest więc objęty reformą dokładnie tak samo jak pracownik,
+tylko dochodzi do tej samej skali inną drogą.
+
+Różnic jest **trzy** i tylko trzy:
+
+| | umowa o pracę | umowa zlecenia |
+|---|---|---|
+| Koszty uzyskania przychodu | 250 zł/mies (300 zł dojeżdżający) | **20% przychodu po składkach** |
+| Składka chorobowa | obowiązkowa, bez limitu podstawy | **dobrowolna**, limit 250% przeciętnego/mies |
+| Uczeń/student do 26 lat | bez znaczenia | **zwolnienie ze wszystkich składek** |
+
+Wszystko pozostałe — stawki emerytalnej, rentowej i zdrowotnej, limit 30-krotności,
+kwota zmniejszająca, ulga dla młodych, wspólne rozliczenie, PPK, zaokrąglenia — jest
+wspólne. Wypadkową finansuje zleceniodawca, więc netto zleceniobiorcy nie dotyka
+(tak samo jak u pracownika).
+
+## F.1. Koszty uzyskania przychodu — 20%
+
+`[PEWNE]` **art. 22 ust. 9 pkt 4 ustawy o PIT**, cytat dosłowny:
+
+> „z tytułów określonych w art. 13 pkt 2, 4–6 i 8 — w wysokości 20% uzyskanego przychodu,
+> **z tym że koszty te oblicza się od przychodu pomniejszonego o potrącone przez płatnika
+> w danym miesiącu składki na ubezpieczenia emerytalne i rentowe oraz na ubezpieczenie
+> chorobowe**, o których mowa w art. 26 ust. 1 pkt 2 lit. b, których podstawę wymiaru
+> stanowi ten przychód"
+
+```
+KUP_zlecenie = 0.20 × (przychód − składki_społeczne_potrącone)
+```
+
+Trzy rzeczy, na których łatwo się przejechać:
+
+1. **Podstawą nie jest brutto.** To najczęstszy błąd internetowych kalkulatorów zlecenia:
+   20% od 5 000 zł to 1 000 zł, a prawidłowo 20% × 4 314,50 zł = **862,90 zł**. Różnica
+   137,10 zł kosztów miesięcznie to ~16 zł zaniżonego podatku — mało, ale w złą stronę.
+2. **Nie ma limitu rocznego.** Limit z art. 22 ust. 9a („kwota stanowiąca górną granicę
+   pierwszego przedziału skali") dotyczy wyłącznie ust. 9 **pkt 1–3**, czyli kosztów 50%.
+   Koszty 20% rosną z przychodem bez końca. Uwaga: to znaczy też, że wnioskowanie z B.4
+   o podniesieniu limitu do 130 000 zł w 2027 r. **nie dotyczy** kosztów 20%.
+3. **Przy uldze PIT-0 kosztów nie ma od części zwolnionej.** podatki.gov.pl wprost:
+   „Od przychodów objętych ulgą nie obliczasz 20% kosztów uzyskania przychodów". Ta sama
+   zasada, co przy etacie (B.6), tylko widoczniejsza, bo koszty są proporcjonalne.
+
+Konsekwencja arytmetyczna, którą warto mieć z tyłu głowy: przy zleceniu
+**dochód = 0,8 × (przychód − składki)**, czyli okrągłe 80%. Dla etatu poniżej
+30-krotności dochód = 0,8629 × brutto − 3 000; dla zlecenia = 0,69032 × brutto.
+Granica, powyżej której koszty zlecenia biją pracownicze 3 000 zł rocznie, wypada przy
+**1 449 zł/mies brutto** — czyli praktycznie zawsze, ale nie zawsze.
+
+`[PEWNE]` Podatnik może zamiast 20% wykazać **koszty faktyczne**, jeśli je udowodni
+(art. 22 ust. 10), a przy honorarium autorskim — 50% z limitem (B.4). Model liczy
+wyłącznie wariant zryczałtowany 20% (patrz F.7).
+
+Źródła: <https://lexlege.pl/ustawa-o-podatku-dochodowym-od-osob-fizycznych/art-22/>,
+<https://arslege.pl/wykaz-kosztow-uzyskania-przychodow/k71/a18859/>,
+<https://www.podatki.gov.pl/pit/osoba-nieprowadzaca-dzialalnosci-gospodarczej/rozliczenie-osob-26-60/rozliczenie-z-dochodow-z-umowy-zlecenia-lub-o-dzielo/>
+
+## F.2. Składki — zlecenie jako jedyny tytuł
+
+`[PEWNE]` Zakładamy, że zlecenie jest **jedynym tytułem do ubezpieczeń** (zbieg — patrz F.7).
+
+| Składka | Stawka | Kto finansuje | Obowiązkowa? | Limit podstawy |
+|---|---|---|---|---|
+| Emerytalna | 9,76% | zleceniobiorca | tak | 30-krotność (rocznie) |
+| Rentowa | 1,50% | zleceniobiorca | tak | 30-krotność (rocznie) |
+| Chorobowa | 2,45% | zleceniobiorca | **nie — dobrowolna** | **250% przeciętnego (miesięcznie)** |
+| Wypadkowa | ~1,67% | **zleceniodawca** | tak | brak |
+| Zdrowotna | 9% | zleceniobiorca | tak | brak |
+
+Wypadkowej w modelu nie ma, bo nie pomniejsza wypłaty — tak samo jak przy etacie.
+
+### Chorobowa: dobrowolna i z własnym limitem
+
+`[PEWNE]` **art. 20 ust. 3 ustawy o systemie ubezpieczeń społecznych**: podstawa wymiaru
+składki na **dobrowolne** ubezpieczenie chorobowe nie może przekraczać **miesięcznie
+250% prognozowanego przeciętnego wynagrodzenia**. W 2026 r. to **23 550 zł** (250% ×
+9 420 zł). Pracownika ten limit nie dotyczy — u niego chorobowa jest obowiązkowa i liczy
+się od całości.
+
+Ciekawa tożsamość, na której opiera się model roczny: **12 × 250% = 30 × przeciętnego
+wynagrodzenia**, więc roczna granica podstawy chorobowej wychodzi liczbowo równa
+30-krotności (282 600 zł w 2026 r.), mimo że to inny przepis i inne uzasadnienie. W modelu
+o dwunastu równych miesiącach obie podstawy schodzą się do jednej liczby; przy nierównych
+wypłatach miesięczny limit obcinałby więcej. Silnik ma na tę tożsamość osobny test, żeby
+nie rozjechała się po cichu, gdyby prognoza trafiła kiedyś tylko do jednej z dwóch stałych.
+
+**Skutek dla wysoko zarabiających**: zleceniobiorca z 30 000 zł/mies płaci składek
+o 1 896,30 zł rocznie **mniej** niż etatowiec z tą samą kwotą — o 2,45% od nadwyżki ponad
+30-krotność, której etatowej chorobowej nikt nie obcina.
+
+**Domyślne założenie modelu: chorobowa opłacana.** To wybór prezentacyjny, nie prawny —
+dzięki niemu porównanie etatu ze zleceniem przy tej samej kwocie brutto pokazuje wyłącznie
+różnicę w kosztach, a nie sumę dwóch niezależnych różnic. Zleceniobiorca, który do
+chorobowej nie przystąpił, ma o 2,45% brutto wyższe netto.
+
+Źródła: <https://wskazniki.gofin.pl/wskaznik/259/ograniczenie-podstawy-wymiaru-skladki-na-dobrowolne-ubezpieczenie-chorobowe>,
+<https://www.pit.pl/ograniczenia-skladek-zus/>,
+<https://www.zus.pl/en/-/umowy-cywilnoprawne-w-ubezpieczeniach-spolecznych>
+
+### Uczeń i student do ukończenia 26 lat — zero składek
+
+`[PEWNE]` **art. 6 ust. 4 ustawy o systemie ubezpieczeń społecznych**. Uczeń szkoły
+ponadpodstawowej lub student, który nie ukończył 26 lat, wykonujący umowę zlecenia,
+**nie podlega ubezpieczeniom społecznym ani zdrowotnemu** z tego tytułu. ZUS ujmuje to
+krótko: „jeżeli jesteś studentem i nie ukończyłeś 26 lat, twój zleceniodawca nie płaci
+żadnych składek od umowy zlecenia". Do ubezpieczenia zdrowotnego student jest zgłaszany
+przez rodzica albo uczelnię — dlatego **zdrowotnej też nie ma**, a nie tylko społecznych.
+
+To największa pojedyncza różnica w całym modelu: z brutto znika ~22%, więc netto studenta
+jest o kilkadziesiąt procent wyższe niż etatowca z tą samą kwotą.
+
+Warunki i granice `[PEWNE]`:
+- status studenta liczy się **od dnia immatrykulacji** (nie od przyjęcia na studia);
+- **doktoranci nie są studentami** w tym rozumieniu — zwolnienie im nie przysługuje;
+- zwolnienie **nie działa**, gdy zlecenie zawarto z **własnym pracodawcą** albo jest
+  wykonywane na jego rzecz (wtedy jest to zbieg, składki jak przy etacie);
+- kończy się z dniem ukończenia 26 lat albo utraty statusu — co nastąpi wcześniej.
+
+**To zwolnienie jest składkowe, nie podatkowe.** Podatek znika osobno, przez ulgę dla
+młodych (F.4), i te dwie rzeczy są niezależne: 30-letni student ma zwolnienie ze składek
+bez ulgi podatkowej, 24-letni absolwent — odwrotnie. Typowy student ma oba, i wtedy netto
+potrafi się równać brutto co do grosza. Silnik trzyma je jako dwie osobne opcje właśnie
+dlatego.
+
+Źródła: <https://www.zus.pl/en/-/umowy-cywilnoprawne-w-ubezpieczeniach-spolecznych>,
+<https://www.zus.pl/en/-/zwolnienie-z-obowiazku-naliczania-skladek-od-umow-cywilnoprawnych>,
+<https://www.biznes.gov.pl/pl/portal/0098>
+
+## F.3. Kolejność operacji (roczna)
+
+Ta sama, co w części C, z podmienionym krokiem kosztów:
+
+```python
+def netto_roczne_zlecenie(brutto_mies, rok, opcje):
+    brutto_rok = brutto_mies * 12
+
+    if opcje.student_do_26:                      # F.2 — zero składek, zero zdrowotnej
+        s_spol = 0.0
+        s_zdrow = 0.0
+    else:
+        podstawa_er   = min(brutto_rok, LIMIT_30X)
+        podstawa_chor = min(brutto_rok, LIMIT_30X) if opcje.chorobowa else 0   # 12 × 250%
+        s_spol  = podstawa_er * (0.0976 + 0.0150) + podstawa_chor * 0.0245
+        s_zdrow = (brutto_rok - s_spol) * 0.09   # + kap art. 83, patrz F.6
+
+    zwolniony  = min(brutto_rok, 85_528) if opcje.ulga_pit0 else 0     # F.4
+    opodatk    = brutto_rok - zwolniony
+    kup        = 0.20 * max(0, opodatk - s_spol)                       # F.1
+    podstawa   = round_pln(max(0, opodatk - s_spol - kup))
+    podatek    = round_pln(podatek_roczny(podstawa, rok))              # ta sama skala, B.3
+
+    return brutto_rok - s_spol - s_zdrow - podatek - ppk
+```
+
+Zaokrąglenia bez zmian (art. 63 §1 OP): podstawa i podatek do pełnych złotych, składki
+i koszty do groszy.
+
+## F.4. Kwota zmniejszająca podatek i PIT-2
+
+`[PEWNE]` Kwota zmniejszająca **przysługuje zleceniobiorcy tak samo jak pracownikowi** —
+to cecha skali podatkowej (art. 27 ust. 1), a nie stosunku pracy. Różnica dotyczy wyłącznie
+**zaliczek w trakcie roku**:
+
+- **do 2022 r. włącznie** zleceniobiorca nie mógł złożyć PIT-2 wcale — płatnik pobierał
+  zaliczkę bez pomniejszenia, a podatnik odzyskiwał całość w zeznaniu rocznym;
+- **od 2023 r.** może złożyć oświadczenie i płatnik stosuje 1/12 kwoty zmniejszającej
+  (300 zł, albo 1/24 = 150 zł, albo 1/36 = 100 zł, u maksymalnie trzech płatników łącznie).
+
+**Dla modelu rocznego to nie ma znaczenia**: kwota zmniejszająca wchodzi raz w roku i tyle.
+PIT-2 nie jest więc parametrem silnika — ani przy etacie, ani przy zleceniu. Ma znaczenie
+tylko w jednym miejscu, i to pośrednio: w hipotetycznej zaliczce „z 31.12.2021" używanej
+do kapu składki zdrowotnej (F.6).
+
+Ma natomiast znaczenie **prezentacyjne**: zleceniobiorca bez PIT-2 zobaczy na przelewach
+kwoty niższe niż to, co pokazuje kalkulator, i odzyska różnicę dopiero w zeznaniu. Warto
+mu to napisać.
+
+Źródło: <https://www.podatki.gov.pl/poradniki-i-informatory/pit-2-pit-2a-pit-3-zasady-skladania-oswiadczen-o-stosowaniu-pomniejszenia-zaliczki-o-kwote-zmniejszajaca-podatek-112-124-lub-136>
+
+## F.5. Ulga dla młodych obejmuje zlecenie
+
+`[PEWNE]` **art. 21 ust. 1 pkt 148** wymienia wśród objętych źródeł, obok stosunku pracy
+i zasiłku macierzyńskiego, wprost **„umów zlecenia, o których mowa w art. 13 pkt 8"**.
+Ten sam wspólny limit **85 528 zł** przychodu rocznie (B.6), te same zasady:
+
+- zwolnienie dotyczy **przychodu**, nie dochodu;
+- składki nalicza się od **całości** — zwolnienie jest podatkowe, nie składkowe;
+- koszty 20% przysługują **tylko od części opodatkowanej** (F.1 pkt 3);
+- limit jest wspólny ze wszystkimi ulgami PIT-0 i wspólny dla wszystkich źródeł: student
+  pracujący pół roku na etacie i pół na zleceniu ma **jeden** limit na oba, nie dwa.
+  Silnik tego nie modeluje (liczy jedno źródło naraz) — tak samo jak przy etacie.
+
+**Umowa o dzieło zwolnieniem objęta NIE jest** (B.6) — i to jest jeden z powodów, dla
+których model jej nie obejmuje (F.7).
+
+## F.6. Kap składki zdrowotnej przy zleceniu
+
+`[PEWNE co do zasady]` Art. 83 ustawy zdrowotnej dotyczy „płatnika, o którym mowa w art. 85
+ust. 1–13", więc obejmuje i zleceniodawcę. Hipotetyczna zaliczka liczy się „wg przepisów
+obowiązujących na dzień 31.12.2021" — a te dla zlecenia oznaczają: stawka **17%**, koszty
+**20%**, i `[NIEJASNE — wnioskowanie]` **bez** miesięcznej kwoty zmniejszającej 43,76 zł,
+bo ta brała się z PIT-2, którego zleceniobiorca w 2021 r. złożyć nie mógł (F.4).
+
+Ustalenie o kwocie zmniejszającej dotyczy **sposobu** liczenia hipotetycznej zaliczki, a nie
+jej podstawy, więc poprawka z art. 83 ust. 2a (B.5, 20.08.2026) niczego w nim nie zmieniła —
+te dwie rzeczy są od siebie niezależne i obie obowiązują naraz.
+
+Praktyczna konsekwencja jest wygodna: **przy zleceniu kap nie wiąże nigdy**, przy żadnej
+kwocie brutto i niezależnie od ulg. Hipotetyczna zaliczka to 17% od 80% podstawy, czyli
+13,6% tego, od czego składka bierze 9% — a brak kwoty zmniejszającej jeszcze ją podnosi.
+Stąd trzy wnioski:
+
+- etatowego progu ~1 250 zł/mies (B.5) przy zleceniu **nie ma**;
+- uproszczenie „bez ulgi silnik kapu nie stosuje" nic tu nie kosztuje, bo nie ma kwoty,
+  przy której cokolwiek by zmieniło;
+- z ulgą PIT-0 składka zdrowotna zleceniobiorcy jest **identyczna** jak bez ulgi, przy
+  każdej kwocie brutto — co jest po prostu mocniejszą wersją tego, co B.5 mówi o etacie
+  (tam identyczna dopiero powyżej 1 250 zł/mies). Silnik ma na to sweep w testach.
+
+Uwaga praktyczna: dla **studenta do 26 lat** cała ta arytmetyka jest bezprzedmiotowa — on
+nie ma z tego tytułu ubezpieczenia zdrowotnego w ogóle, więc nie ma czego obniżać. Warto to
+odróżniać od kapu: zerowa składka studenta bierze się ze **zwolnienia ze składki** (F.2),
+a nie ze zbicia kapem, i dlatego działa także wtedy, gdy ulga dla młodych nie przysługuje.
+Silnik odzwierciedla to wprost — przy zwolnieniu studenckim składka jest ustawiana na zero
+przed kapem, a nie przez niego.
+
+## F.7. Czego model NIE obejmuje — i dlaczego
+
+Wypisane wprost, żeby nikt nie wziął tych przypadków za policzone:
+
+1. **Zbieg tytułów do ubezpieczeń.** `[PEWNE co do reguły, świadomie poza modelem]`
+   Kto ma etat u jednego podmiotu z wynagrodzeniem co najmniej minimalnym i zlecenie
+   u drugiego, płaci z tego zlecenia **wyłącznie składkę zdrowotną** — społeczne są
+   z niego dobrowolne. Reguła jest jasna, ale model jej nie liczy z innego powodu:
+   kalkulator przyjmuje **jedną kwotę brutto**, a przy zbiegu dochody z obu tytułów
+   sumują się w jednym zeznaniu i dzielą jedną kwotę wolną oraz jedne granice przedziałów.
+   Pokazanie „netto z samego zlecenia" przy istniejącym etacie byłoby liczbą nieprawdziwą
+   — zawyżoną o drugą kwotę zmniejszającą i o niższy przedział skali. Do tego trzeba
+   silnika z dwoma źródłami przychodu, nie flagi.
+   Źródła: <https://www.biznes.gov.pl/pl/portal/001785>,
+   <https://poradnikprzedsiebiorcy.pl/-zbieg-tytulow-ubezpieczen-umowa-o-prace-a-umowa-zlecenie-u-innego-pracodawcy>
+2. **Zlecenie z własnym pracodawcą.** Traktowane składkowo jak etat (i unieważnia
+   zwolnienie studenckie) — czyli „policz to jako umowę o pracę".
+3. **Umowy do 200 zł.** `[PEWNE]` Art. 30 ust. 1 pkt 5a: płatnik pobiera **zryczałtowany
+   podatek 12% od przychodu**, bez kosztów i bez kwoty zmniejszającej, a przychodu nie
+   wykazuje się w zeznaniu. Zupełnie inna konstrukcja; poza zakresem kalkulatora liczącego
+   wynagrodzenie miesięczne.
+4. **Koszty 50% (honorarium autorskie) i koszty faktyczne.** Ta sama luka co przy etacie
+   (B.4 opisuje 50% KUP, ale silnik ich nie liczy).
+5. **Umowa o dzieło.** Inne koszty (20%, ale od całego przychodu — składek nie ma),
+   brak ubezpieczeń, **brak ulgi dla młodych**. Osobna forma, nie wariant zlecenia.
+6. **Minimalna stawka godzinowa.** Model pyta o kwotę brutto, nie o godziny; a sama
+   wartość na 2026 r. jest w źródłach sporna (patrz E).
+
+## F.8. Walidacja — i dlaczego nie ma tu tabeli z prasy
+
+W przeciwieństwie do części D, **nie ma opublikowanych wyliczeń dla zlecenia, którym można
+zaufać**. Kalkulatory internetowe różnią się między sobą o kilkaset złotych miesięcznie,
+bo milcząco przyjmują różne założenia — a niektóre po prostu liczą źle:
+
+| Źródło (dostęp 20.08.2026) | 5 000 zł brutto → netto | Co przyjęto |
+|---|---|---|
+| wyliczenie z przepisów (niżej) | **3 812,19 zł** | chorobowa **tak**, PIT-2 **tak**, koszty od przychodu po składkach |
+| <https://znajdzprace.plus/kalkulator-wynagrodzen/5000-brutto/> | 3 625,23 zł | chorobowa **nie**, PIT-2 **nie** (składki: 488 + 75 + zdrowotna 399,33; zaliczka 412,44) |
+
+Same założenia bywają nieopisane, więc dwie liczby różniące się o 187 zł miesięcznie
+wyglądają jak sprzeczność, a są po prostu odpowiedziami na dwa różne pytania. Do tego
+dochodzi błąd, który przy zleceniu widuje się najczęściej: **koszty 20% liczone od całego
+brutto** zamiast od brutto po składkach (1 000 zł zamiast 862,90 zł) — niezgodne z art. 22
+ust. 9 pkt 4 i zaniżające podatek. Nie da się z zewnątrz stwierdzić, który kalkulator to
+robi, bo rozbicia zwykle nie pokazują.
+
+Zamiast przepisywać którąkolwiek z tych liczb, silnik jest sprawdzany **drugą, niezależną
+drogą**: testy zawierają osobną implementację pętli dwunastu zaliczek z kroków B.2, z
+miesięcznymi zaokrągleniami, napisaną od zera i nie dzielącą kodu z silnikiem. Dla
+5 000 zł/mies daje ona:
+
+```
+składki społeczne  488,00 + 75,00 + 122,50            =   685,50 zł
+koszty 20%         0,20 × (5 000 − 685,50)            =   862,90 zł
+podstawa           round_pln(5 000 − 685,50 − 862,90) = 3 452     zł
+zaliczka           round_pln(3 452 × 12% − 300)       =   114     zł
+zdrowotna          0,09 × (5 000 − 685,50)            =   388,31 zł
+NETTO              5 000 − 685,50 − 388,31 − 114      = 3 812,19 zł
+```
+
+Model roczny daje **3 812,03 zł/mies** — o 1,94 zł rocznie mniej, czyli dokładnie tyle,
+ile część C zapowiada jako różnicę z zaokrągleń (jedno roczne zamiast dwunastu
+miesięcznych). Test pilnuje tej zgodności dla sześciu kwot brutto i obu lat.
+
+### Progi opłacalności reformy dla zlecenia
+
+Wyprowadzone z modelu (dochód = 0,69032 × brutto_rok, chorobowa opłacana, bez ulg):
+
+| | umowa o pracę | umowa zlecenia | zlecenie + ulga dla młodych |
+|---|---|---|---|
+| Zysk rusza z zera przy | 11 879 zł/mies | **14 487 zł/mies** | 22 746 zł/mies |
+| Pełne 3 600 zł/rok od | 14 776 zł/mies | **18 108 zł/mies** | 25 981 zł/mies |
+
+Sens dla interfejsu: **zleceniobiorca zyskuje na zmianie skali dopiero od zarobków
+wyraźnie wyższych niż etatowiec** — bo koszty 20% wpychają go w niższe przedziały. Za to
+przy tej samej kwocie brutto ma dziś **wyższe** netto. Kalkulator ma pokazać jedno i drugie,
+a nie obiecywać zysk tam, gdzie go nie ma. Maksymalna korzyść jest ta sama — 3 600 zł
+rocznie, bo skala jest ta sama.
+
+### Rząd wielkości różnicy między formami (2026, chorobowa opłacana)
+
+| Brutto/mies | Etat netto/mies | Zlecenie netto/mies | Student ≤26 netto/mies |
+|---|---|---|---|
+| 5 000 | 3 738,45 | 3 812,03 | 5 000,00 |
+| 8 000 | 5 783,50 | 5 919,16 | 8 000,00 |
+| 13 000 | 8 998,44 | 9 431,19 | 12 736,25 |
+
+(Kolumna „student" zakłada zwolnienie ze składek **i** ulgę dla młodych — czyli typowy
+przypadek studenta poniżej 26. roku życia. Przy 13 000 zł/mies limit 85 528 zł już nie
+starcza na cały rok, więc podatek się pojawia.)

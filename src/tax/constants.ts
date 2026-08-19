@@ -20,9 +20,46 @@ export const LIMIT_30X: Record<Rok, number> = {
   2027: 299_130, // [NIEJASNE] 30 × 9 971 zł — prognoza z założeń makro, nie z ustawy budżetowej
 };
 
-/** Koszty uzyskania przychodu, miesięcznie. [PEWNE] */
+/**
+ * Miesięczny limit podstawy **dobrowolnej** składki chorobowej — 250%
+ * prognozowanego przeciętnego wynagrodzenia (art. 20 ust. 3 ustawy o systemie
+ * ubezpieczeń społecznych). [PEWNE dla 2026]
+ *
+ * Dotyczy tych, którzy chorobowemu podlegają dobrowolnie — czyli m.in.
+ * zleceniobiorców, a **nie** pracowników (u nich chorobowa jest obowiązkowa
+ * i tego limitu nie ma; patrz model.md B.2 krok 1).
+ *
+ * W skali roku 12 × 250% = 30 × przeciętnego wynagrodzenia, więc roczna granica
+ * jest **liczbowo tożsama** z 30-krotnością z `LIMIT_30X` — mimo że to zupełnie
+ * inny przepis i inne uzasadnienie. Model jest roczny i zakłada równe miesiące,
+ * więc korzysta z tej tożsamości (pilnuje jej test); przy nierównych wypłatach
+ * miesięczny limit obcinałby więcej niż roczna 30-krotność.
+ */
+export const LIMIT_CHOROBOWEJ_DOBROWOLNEJ_MIES: Record<Rok, number> = {
+  2026: 23_550, // [PEWNE] 250% × 9 420 zł
+  2027: 24_927.5, // [NIEJASNE] 250% × 9 971 zł — ta sama prognoza co przy 30-krotności
+};
+
+/** Koszty uzyskania przychodu pracownicze (umowa o pracę), miesięcznie. [PEWNE] */
 export const KUP_PODSTAWOWE_MIES = 250;
 export const KUP_PODWYZSZONE_MIES = 300;
+
+/**
+ * Zryczałtowane koszty uzyskania przychodu przy umowie zlecenia — 20%.
+ * [PEWNE] art. 22 ust. 9 pkt 4 ustawy o PIT.
+ *
+ * Konstrukcja jest zupełnie inna niż pracownicza kwota 250 zł/mies: to **udział
+ * w przychodzie**, i to nie w całym, tylko w przychodzie **pomniejszonym
+ * o potrącone składki** emerytalną, rentową i chorobową („z tym że koszty te
+ * oblicza się od przychodu pomniejszonego o potrącone przez płatnika w danym
+ * miesiącu składki…"). Nie ma tu żadnego limitu rocznego — limit z art. 22
+ * ust. 9a dotyczy wyłącznie kosztów 50% (ust. 9 pkt 1–3).
+ *
+ * Praktyczna konsekwencja dla kalkulatora: przy zleceniu koszty rosną wraz
+ * z wynagrodzeniem, więc powyżej ~1 450 zł/mies brutto są **wyższe** niż
+ * pracownicze 250 zł — model.md, część F.
+ */
+export const KUP_ZLECENIE_STAWKA = 0.2;
 
 /** Kwota wolna 30 000 zł ⇒ kwota zmniejszająca podatek. [PEWNE — bez zmian w 2027] */
 export const KWOTA_ZMNIEJSZAJACA_ROK = 3_600;
@@ -77,6 +114,20 @@ export const PPK_PRACODAWCA_PODSTAWOWY = 0.015;
 export const PLACA_MINIMALNA = 4_806;
 
 export type Rok = 2026 | 2027;
+
+/**
+ * Forma zatrudnienia objęta modelem (model.md, część F).
+ *
+ * Obie rozliczają się **tą samą skalą podatkową** (art. 27 ust. 1), więc
+ * zapowiadana zmiana dotyczy ich jednakowo — różnią się kosztami uzyskania
+ * przychodu i zestawem składek, nie stawkami podatku.
+ *
+ * `'umowaOPrace'` jest wartością domyślną wszędzie i dotychczasowe wyniki są
+ * przy niej identyczne co do grosza. Umowy o dzieło model **nie obejmuje**:
+ * ma inne koszty (20% od całego przychodu — bez składek, bo ich nie ma) i nie
+ * jest objęta ulgą dla młodych.
+ */
+export type FormaZatrudnienia = 'umowaOPrace' | 'zlecenie';
 
 /** Skala podatkowa. Progi jako punkty przełamania stawki. */
 export const SKALA: Record<Rok, Prog[]> = {

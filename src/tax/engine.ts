@@ -1,10 +1,11 @@
 /**
- * Silnik podatkowy — model roczny wynagrodzenia z umowy o pracę.
+ * Silnik podatkowy — model roczny wynagrodzenia z umowy o pracę i z umowy zlecenia.
  *
- * Odwzorowuje część B/C pliku model.md. Model roczny, nie miesięczna lista płac:
- * zaokrąglenia zachodzą raz w roku, a nie dwanaście razy, więc wynik może się
- * różnić od sumy dwunastu zaliczek o kilka–kilkanaście złotych. Do odpowiedzi
- * na pytanie „ile zyskam" to wystarcza; do listy płac trzeba pętli miesięcznej.
+ * Odwzorowuje część B/C pliku model.md (umowa o pracę) oraz część F (zlecenie).
+ * Model roczny, nie miesięczna lista płac: zaokrąglenia zachodzą raz w roku,
+ * a nie dwanaście razy, więc wynik może się różnić od sumy dwunastu zaliczek
+ * o kilka–kilkanaście złotych. Do odpowiedzi na pytanie „ile zyskam" to
+ * wystarcza; do listy płac trzeba pętli miesięcznej.
  */
 
 import {
@@ -12,6 +13,7 @@ import {
   KAP_2021_ZMNIEJSZAJACA_MIES,
   KUP_PODSTAWOWE_MIES,
   KUP_PODWYZSZONE_MIES,
+  KUP_ZLECENIE_STAWKA,
   KWOTA_ZMNIEJSZAJACA_ROK,
   LIMIT_30X,
   LIMIT_PIT_ZERO,
@@ -20,6 +22,7 @@ import {
   RATE_RENTOWA,
   RATE_ZDROWOTNA,
   SKALA,
+  type FormaZatrudnienia,
   type Rok,
 } from './constants';
 
@@ -76,15 +79,88 @@ export function podatekWgSkali(dochod: number, rok: Rok): number {
  * Stawka jest płaska 17%, choć w 2021 r. powyżej 85 528 zł dochodu wchodziło
  * 32%. Jest to bezpieczne uproszczenie: 17% zaniża kap, a kap i tak wiąże
  * dopiero poniżej ~1 250 zł/mies brutto — daleko od drugiego progu z 2021 r.
+ *
+ * `zKwotaZmniejszajaca` odróżnia umowę o pracę od zlecenia i dotyczy **sposobu**
+ * liczenia hipotetycznej zaliczki, nie jej podstawy — więc jest niezależne od
+ * poprawki z ust. 2a wyżej. Kwota 43,76 zł miesięcznie brała się z PIT-2,
+ * a PIT-2 **w 2021 r. przysługiwał wyłącznie pracownikom**; zleceniobiorca mógł
+ * go złożyć dopiero od 2023 r. Skoro hipotetyczna zaliczka liczy się „wg stanu
+ * na 31.12.2021", to przy zleceniu kwoty zmniejszającej w niej nie ma.
+ * Domyślnie `true`, czyli wariant pracowniczy.
+ *
+ * Przy zleceniu kap nie wiąże **nigdy**, przy żadnej kwocie brutto: koszty 20%
+ * zostawiają 80% podstawy, więc hipotetyczna zaliczka to 17% × 80% = 13,6%
+ * tego, od czego składka bierze 9%. Ta granica ~1 250 zł/mies jest więc
+ * wyłącznie etatowa (model.md F.6).
  */
-export function kapZdrowotnej(podstawaBezZwolnienia: number): number {
-  return round2(
-    Math.max(0, podstawaBezZwolnienia * KAP_2021_STAWKA - 12 * KAP_2021_ZMNIEJSZAJACA_MIES),
-  );
+export function kapZdrowotnej(
+  podstawaBezZwolnienia: number,
+  zKwotaZmniejszajaca = true,
+): number {
+  const zmniejszenie = zKwotaZmniejszajaca ? 12 * KAP_2021_ZMNIEJSZAJACA_MIES : 0;
+
+  return round2(Math.max(0, podstawaBezZwolnienia * KAP_2021_STAWKA - zmniejszenie));
 }
 
 export interface Opcje {
-  /** Zamieszkanie poza miejscowością zakładu pracy — KUP 300 zł zamiast 250 zł. */
+  /**
+   * Forma zatrudnienia. Domyślnie `'umowaOPrace'` — przy tej wartości silnik
+   * liczy dokładnie to co dotąd, co do grosza.
+   *
+   * `'zlecenie'` zmienia trzy rzeczy i **tylko** te trzy (model.md, część F):
+   * koszty uzyskania przychodu (20% przychodu po składkach zamiast 250 zł/mies),
+   * dobrowolność składki chorobowej (`chorobowaDobrowolna`) i dostępność
+   * zwolnienia studenckiego (`studentDo26`). Skala podatkowa, kwota
+   * zmniejszająca, składka zdrowotna, limit 30-krotności, ulga dla młodych
+   * i wspólne rozliczenie działają identycznie — bo to ta sama skala z art. 27
+   * ust. 1 i te same przepisy składkowe.
+   *
+   * Model zakłada, że zlecenie jest **jedynym tytułem do ubezpieczeń**. Zbiegu
+   * tytułów (etat u jednego podmiotu + zlecenie u drugiego) silnik nie liczy —
+   * patrz model.md F.7.
+   */
+  forma?: FormaZatrudnienia;
+  /**
+   * Dobrowolne ubezpieczenie chorobowe przy **zleceniu**. Domyślnie `true`.
+   *
+   * Przy umowie o pracę chorobowa jest obowiązkowa i ta opcja nic nie zmienia —
+   * jest ignorowana, żeby nie dało się nią przypadkiem podnieść netto etatowca.
+   *
+   * Domyślne `true` jest wyborem prezentacyjnym: dzięki niemu porównanie etatu
+   * ze zleceniem przy tej samej kwocie brutto pokazuje **wyłącznie** różnicę
+   * w kosztach uzyskania przychodu, a nie sumę dwóch niezależnych różnic.
+   * Zleceniobiorca, który do chorobowej nie przystąpił, ma o 2,45% brutto
+   * wyższe netto — wystarczy podać `false`.
+   */
+  chorobowaDobrowolna?: boolean;
+  /**
+   * Uczeń lub student do ukończenia 26. roku życia na **zleceniu** — pełne
+   * zwolnienie ze składek ZUS (art. 6 ust. 4 ustawy o systemie ubezpieczeń
+   * społecznych). Domyślnie wyłączone.
+   *
+   * Znaczy: zero składek społecznych **i zero składki zdrowotnej** — z tego
+   * zlecenia nie ma tytułu do żadnego z ubezpieczeń (do zdrowotnego student
+   * jest zgłaszany przez rodzica albo uczelnię). To największa pojedyncza
+   * różnica w całym silniku: z brutto znika ~22%.
+   *
+   * Trzy rzeczy, których ta opcja **nie** robi:
+   * 1. nie działa przy umowie o pracę (tam status studenta nic nie zmienia) —
+   *    jest wtedy ignorowana;
+   * 2. nie zwalnia z podatku. Zwolnienie ze składek to ZUS, a nie PIT; podatek
+   *    znika osobno, przez `ulgaDlaMlodych`, i te dwie opcje są niezależne
+   *    (30-letni student ma pierwsze bez drugiego, 24-latek po studiach
+   *    odwrotnie). Typowy student ma obie;
+   * 3. nie łączy się z PPK — bez obowiązkowych składek emerytalno-rentowych
+   *    zleceniobiorca nie jest „osobą zatrudnioną" w rozumieniu ustawy o PPK,
+   *    więc wpłaty są zerowane, nawet jeśli podano stawki.
+   */
+  studentDo26?: boolean;
+  /**
+   * Zamieszkanie poza miejscowością zakładu pracy — KUP 300 zł zamiast 250 zł.
+   *
+   * Wyłącznie pracownicze: przy zleceniu koszty są procentowe i tego wariantu
+   * nie mają, więc opcja jest wtedy ignorowana.
+   */
   kupPodwyzszone?: boolean;
   /**
    * Ulga dla młodych — PIT-0 do ukończenia 26. roku życia (art. 21 ust. 1
@@ -145,6 +221,8 @@ export interface Opcje {
  * jednej osoby rozliczającej się samotnie.
  */
 export interface SkladnikiOsoby {
+  /** Forma zatrudnienia, według której policzono tę osobę. */
+  forma: FormaZatrudnienia;
   bruttoMiesiecznie: number;
   bruttoRocznie: number;
   /**
@@ -198,10 +276,27 @@ export interface SkladnikiOsoby {
 function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby {
   const bruttoRocznie = bruttoMiesiecznie * 12;
 
-  // Emerytalna i rentowa podlegają limitowi 30-krotności; chorobowa nie.
-  const podstawaEmerRent = Math.min(bruttoRocznie, opcje.limit30x ?? LIMIT_30X[2026]);
+  const forma = opcje.forma ?? 'umowaOPrace';
+  const zlecenie = forma === 'zlecenie';
+  // Zwolnienie studenckie dotyczy wyłącznie zlecenia — przy etacie status
+  // studenta nie zmienia niczego, więc opcja jest tam po prostu ignorowana.
+  const bezZus = zlecenie && (opcje.studentDo26 ?? false);
+  const limit30x = opcje.limit30x ?? LIMIT_30X[2026];
+
+  // Emerytalna i rentowa podlegają limitowi 30-krotności.
+  //
+  // Chorobowa u pracownika jest obowiązkowa i limitu nie ma. Przy zleceniu jest
+  // dobrowolna — a wtedy jej podstawa ma **własny** limit: 250% prognozowanego
+  // przeciętnego wynagrodzenia miesięcznie (art. 20 ust. 3 ustawy o systemie
+  // ubezpieczeń społecznych). W modelu rocznym o równych miesiącach 12 × 250%
+  // to dokładnie 30-krotność, więc obie podstawy schodzą się do tej samej
+  // liczby — patrz `LIMIT_CHOROBOWEJ_DOBROWOLNEJ_MIES` i pilnujący tego test.
+  const chorobowa = zlecenie ? (opcje.chorobowaDobrowolna ?? true) : true;
+  const podstawaEmerRent = bezZus ? 0 : Math.min(bruttoRocznie, limit30x);
+  const podstawaChorobowej =
+    bezZus || !chorobowa ? 0 : zlecenie ? Math.min(bruttoRocznie, limit30x) : bruttoRocznie;
   const skladkiSpoleczne = round2(
-    podstawaEmerRent * (RATE_EMERYTALNA + RATE_RENTOWA) + bruttoRocznie * RATE_CHOROBOWA,
+    podstawaEmerRent * (RATE_EMERYTALNA + RATE_RENTOWA) + podstawaChorobowej * RATE_CHOROBOWA,
   );
 
   // Wpłata pracodawcy do PPK: przychód podatkowy pracownika, ale NIE podstawa
@@ -213,7 +308,11 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
   // uproszczenie — wpłata pracodawcy jest przychodem w miesiącu PRZEKAZANIA,
   // czyli zwykle miesiąc później (model.md B.7, krok 0 z B.2). W skali roku
   // przesunięcie znika; różnica pojawiłaby się tylko na styku lat.
-  const ppkPracodawcy = round2(bruttoRocznie * (opcje.ppkPracodawca ?? 0));
+  //
+  // Bez obowiązkowych składek emerytalno-rentowych nie ma „osoby zatrudnionej"
+  // w rozumieniu ustawy o PPK, więc student na zleceniu do programu nie
+  // przystępuje — obie wpłaty są wtedy zerowane, także gdy podano stawki.
+  const ppkPracodawcy = bezZus ? 0 : round2(bruttoRocznie * (opcje.ppkPracodawca ?? 0));
   const przychodPodatkowy = round2(bruttoRocznie + ppkPracodawcy);
 
   // Zwolnienie PIT-0 zdejmuje z podatku PRZYCHÓD, nie dochód, i nie dotyczy
@@ -230,23 +329,32 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
   const przychodZwolniony = opcje.ulgaDlaMlodych ? Math.min(przychodPodatkowy, LIMIT_PIT_ZERO) : 0;
   const przychodOpodatkowany = round2(przychodPodatkowy - przychodZwolniony);
 
-  // KUP stosuje się TYLKO do części opodatkowanej (model.md B.6) — przy
-  // przychodzie w całości zwolnionym nie ma ich wcale. Odliczyć da się przy tym
-  // najwyżej tyle, ile z tej części zostało po składkach; dzięki temu dochód
-  // zwykle wychodzi nieujemny sam z siebie i równa się różnicy pokazywanych
-  // w rozbiciu kwot.
+  // KUP stosuje się TYLKO do części opodatkowanej (model.md B.6, potwierdzone
+  // wprost dla zlecenia przez podatki.gov.pl: „od przychodów objętych ulgą nie
+  // obliczasz 20% kosztów uzyskania przychodów") — przy przychodzie w całości
+  // zwolnionym nie ma ich wcale. Odliczyć da się przy tym najwyżej tyle, ile
+  // z tej części zostało po składkach; dzięki temu dochód zwykle wychodzi
+  // nieujemny sam z siebie i równa się różnicy pokazywanych w rozbiciu kwot.
+  //
+  // Ta sama podstawa — „przychód minus składki" — pełni przy obu formach inną
+  // rolę: przy etacie jest tylko ogranicznikiem kwoty ryczałtowej, przy
+  // zleceniu jest tym, od czego liczy się 20% (art. 22 ust. 9 pkt 4).
   //
   // Obcięcie dochodu na zerze wchodzi w grę wyłącznie z ulgą: składki naliczone
   // od całości brutto potrafią przewyższyć samą część opodatkowaną (całość
   // zwolniona ⇒ przychód opodatkowany zero, a składki dodatnie). Bez ulgi
   // ogranicznik KUP powyżej gwarantuje nieujemność i `max` nigdy nie działa —
-  // wynik jest wtedy co do grosza taki jak przed wprowadzeniem ulgi.
+  // wynik jest wtedy co do grosza taki jak przed wprowadzeniem ulgi. Przy
+  // zleceniu jest tak zawsze: 20% czegoś nieujemnego nigdy tego nie przekroczy.
   //
   // Model.md (część C) odejmuje tu **całość** składek społecznych, także tę
   // przypadającą na przychód zwolniony, i tak jest to zaimplementowane.
   const kupRoczne = (opcje.kupPodwyzszone ? KUP_PODWYZSZONE_MIES : KUP_PODSTAWOWE_MIES) * 12;
   const podstawaZ = (przychod: number) => {
-    const kup = Math.min(kupRoczne, Math.max(0, przychod - skladkiSpoleczne));
+    const poSkladkach = Math.max(0, przychod - skladkiSpoleczne);
+    const kup = zlecenie
+      ? round2(KUP_ZLECENIE_STAWKA * poSkladkach)
+      : Math.min(kupRoczne, poSkladkach);
     return { kup, dochod: roundPln(Math.max(0, przychod - skladkiSpoleczne - kup)) };
   };
 
@@ -256,8 +364,8 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
   // od **całego** przychodu podatkowego, bez zdejmowania zwolnienia — bo
   // przepis każe wziąć kwotę, „którą płatnik obliczyłby, gdyby przychód
   // ubezpieczonego nie był zwolniony od podatku". Konsekwencja: pełne KUP
-  // (przysługują od całości, skoro całość jest w tym rachunku opodatkowana).
-  // Bez ulgi jest to dokładnie `dochod`.
+  // (przysługują od całości, skoro całość jest w tym rachunku opodatkowana) —
+  // przy zleceniu odpowiednio pełne 20%. Bez ulgi jest to dokładnie `dochod`.
   const podstawaBezZwolnienia = podstawaZ(przychodPodatkowy).dochod;
 
   // Zdrowotna: 9% po odjęciu społecznych, ale przed KUP — od CAŁOŚCI przychodu,
@@ -271,17 +379,27 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
   // wpłata pracodawcy do PPK jest nieoskładkowana także zdrowotnie (B.7). Kap
   // liczy się natomiast od podstawy z tą wpłatą — bo kapem jest hipotetyczna
   // zaliczka na PIT, a ta widzi cały przychód podatkowy.
-  const skladkaZdrowotna = Math.min(
-    round2((bruttoRocznie - skladkiSpoleczne) * RATE_ZDROWOTNA),
-    // Bez ulgi kap wiązałby dopiero poniżej ~1 250 zł/mies brutto — patrz
-    // komentarz przy `kapZdrowotnej` w engine.test.ts. Nie stosujemy go tam,
-    // żeby włączenie ulgi było jedyną rzeczą zmieniającą dotychczasowe wyniki.
-    // Po poprawce kap ma tu i tak tę samą wartość co bez ulgi, więc różnica
-    // między gałęziami została już tylko w tym ćwiartce płacy minimalnej.
-    przychodZwolniony > 0 ? kapZdrowotnej(podstawaBezZwolnienia) : Infinity,
-  );
+  //
+  // Student na zleceniu nie ma z tego tytułu ubezpieczenia zdrowotnego w ogóle
+  // (zgłasza go rodzic albo uczelnia), więc nie ma tu czego liczyć ani czapkować.
+  // To jest zwolnienie ze **składki**, a nie kap zbity do zera — różnica
+  // widoczna choćby w tym, że działa też bez ulgi dla młodych.
+  const skladkaZdrowotna = bezZus
+    ? 0
+    : Math.min(
+        round2((bruttoRocznie - skladkiSpoleczne) * RATE_ZDROWOTNA),
+        // Bez ulgi kap wiązałby dopiero poniżej ~1 250 zł/mies brutto — patrz
+        // komentarz przy `kapZdrowotnej` w engine.test.ts. Nie stosujemy go tam,
+        // żeby włączenie ulgi było jedyną rzeczą zmieniającą dotychczasowe wyniki.
+        // Po poprawce z ust. 2a kap ma tu i tak tę samą wartość co bez ulgi,
+        // więc różnica między gałęziami została już tylko w tej ćwiartce płacy
+        // minimalnej — a przy zleceniu nie ma jej wcale, bo tam kap nie wiąże
+        // przy żadnej kwocie (17% × 80% = 13,6% > 9%).
+        przychodZwolniony > 0 ? kapZdrowotnej(podstawaBezZwolnienia, !zlecenie) : Infinity,
+      );
 
   return {
+    forma,
     bruttoMiesiecznie,
     bruttoRocznie,
     przychodPodatkowy,
@@ -291,13 +409,20 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
     skladkaZdrowotna,
     kup,
     dochod,
-    ppk: round2(bruttoRocznie * (opcje.ppkPracownik ?? 0)),
+    ppk: bezZus ? 0 : round2(bruttoRocznie * (opcje.ppkPracownik ?? 0)),
     ppkPracodawcy,
   };
 }
 
 export interface Wynik {
   rok: Rok;
+  /**
+   * Forma zatrudnienia, według której policzono wynik.
+   *
+   * Przy wspólnym rozliczeniu (`WynikWspolny`) jest to forma **Twoja**;
+   * małżonek może mieć inną i jego wartość siedzi w `osoby[1].forma`.
+   */
+  forma: FormaZatrudnienia;
   bruttoMiesiecznie: number;
   bruttoRocznie: number;
   /** Przychód podatkowy: brutto + wpłata pracodawcy do PPK. */
@@ -334,6 +459,7 @@ export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): 
 
   return {
     rok,
+    forma: osoba.forma,
     bruttoMiesiecznie,
     bruttoRocznie: osoba.bruttoRocznie,
     przychodPodatkowy: osoba.przychodPodatkowy,
@@ -377,13 +503,15 @@ export function porownaj(bruttoMiesiecznie: number, opcje: Opcje = {}): Porownan
 export interface OpcjeWspolne extends Opcje {
   /**
    * Opcje małżonka, jeśli inne niż Twoje. Domyślnie te same — **z wyjątkiem
-   * `ulgaDlaMlodych`**.
+   * `ulgaDlaMlodych` i `studentDo26`**.
    *
    * Ulga dla młodych jest cechą osoby (wiek), a nie ustawieniem gospodarstwa:
    * to, że Ty masz mniej niż 26 lat, nie mówi nic o małżonku. Gdyby dziedziczyła
    * się razem z resztą opcji, `{ ulgaDlaMlodych: true }` po cichu zwalniałoby
-   * oboje i zawyżało netto pary o kilka tysięcy złotych. Dlatego pole z tego
-   * obiektu **nie przechodzi** na małżonka — jego ulgę trzeba włączyć wprost:
+   * oboje i zawyżało netto pary o kilka tysięcy złotych. Dokładnie to samo
+   * dotyczy `studentDo26`, i to jeszcze mocniej: ciche odziedziczenie zdjęłoby
+   * małżonkowi całe ~22% składek. Oba pola z tego obiektu **nie przechodzą** na
+   * małżonka — jego ulgę trzeba włączyć wprost:
    *
    * ```ts
    * porownajWspolnie(a, b, { ulgaDlaMlodych: true });                          // tylko Ty
@@ -392,8 +520,12 @@ export interface OpcjeWspolne extends Opcje {
    *                          malzonek: { ulgaDlaMlodych: true } });            // oboje
    * ```
    *
-   * Pozostałe opcje (KUP, PPK, limit 30-krotności) dziedziczą się jak dotąd,
-   * o ile `malzonek` nie został podany.
+   * Pozostałe opcje (forma zatrudnienia, chorobowa, KUP, PPK, limit
+   * 30-krotności) dziedziczą się jak dotąd, o ile `malzonek` nie został podany.
+   * Forma zatrudnienia dziedziczy się celowo: pomyłka polega tu najwyżej na
+   * policzeniu małżonkowi innych kosztów uzyskania przychodu, a nie na zdjęciu
+   * mu składek albo podatku — więc jest o rząd wielkości mniej kosztowna niż
+   * przy dwóch polach wyżej, a para na dwóch zleceniach to sytuacja realna.
    */
   malzonek?: Opcje;
 }
@@ -433,8 +565,9 @@ export function obliczWspolnie(
   const { malzonek, ...moje } = opcje;
   const osoby: [SkladnikiOsoby, SkladnikiOsoby] = [
     skladniki(bruttoMiesiecznie, moje),
-    // Ulga dla młodych nie dziedziczy się przez `?? moje` — patrz `OpcjeWspolne`.
-    skladniki(bruttoMalzonka, malzonek ?? { ...moje, ulgaDlaMlodych: false }),
+    // Ulga dla młodych i zwolnienie studenckie nie dziedziczą się przez
+    // `?? moje` — patrz `OpcjeWspolne`.
+    skladniki(bruttoMalzonka, malzonek ?? { ...moje, ulgaDlaMlodych: false, studentDo26: false }),
   ];
 
   const suma = (wybierz: (o: SkladnikiOsoby) => number) => wybierz(osoby[0]) + wybierz(osoby[1]);
@@ -460,6 +593,9 @@ export function obliczWspolnie(
 
   return {
     rok,
+    // Forma gospodarstwa jako całości nie istnieje — małżonkowie mogą mieć
+    // różne. Na wierzchu jest Twoja, rozbicie na osoby siedzi w `osoby`.
+    forma: osoby[0].forma,
     osoby,
     bruttoMiesiecznie: bruttoMiesiecznie + bruttoMalzonka,
     bruttoRocznie,
@@ -528,6 +664,24 @@ export function progiWspolne(
   };
 }
 
+/**
+ * To samo dla jednej osoby, przy dowolnym zestawie opcji.
+ *
+ * Progi przesuwają się z każdą rzeczą, która zmienia drogę od brutto do
+ * dochodu: forma zatrudnienia (koszty 20% zamiast 250 zł/mies), ulga dla
+ * młodych, zwolnienie studenckie, chorobowa. Stałe niżej pokrywają cztery
+ * najczęstsze przypadki i są testowane co do złotówki; ta funkcja obsługuje
+ * resztę kombinacji, żeby interfejs nie musiał ich zgadywać ani mnożyć stałych.
+ */
+export function progiIndywidualne(opcje: Opcje = {}): { poczatek: number; pelna: number } {
+  const zysk = (brutto: number) => porownaj(brutto, opcje).zyskRocznie;
+
+  return {
+    poczatek: pierwszeBrutto((brutto) => zysk(brutto) > 0),
+    pelna: pierwszeBrutto((brutto) => zysk(brutto) >= MAKSYMALNA_KORZYSC_ROCZNA),
+  };
+}
+
 /** Najmniejsze pełne złote brutto spełniające warunek niemalejący; GORNA, gdy żadne. */
 function pierwszeBrutto(warunek: (brutto: number) => boolean): number {
   const GORNA = 200_000;
@@ -570,6 +724,24 @@ export const MAKSYMALNA_KORZYSC_ROCZNA = 3_600;
  */
 export const BRUTTO_POCZATEK_KORZYSCI_ULGA = 20_139;
 export const BRUTTO_PELNA_KORZYSC_ULGA = 23_036;
+
+/**
+ * To samo dla **umowy zlecenia** (chorobowa opłacana, bez ulg).
+ *
+ * Progi leżą wyżej niż etatowe, i to sporo — bo koszty 20% zjadają jedną piątą
+ * przychodu po składkach, zamiast 3 000 zł rocznie. Dochód = 0,8 × 0,8629 ×
+ * brutto_rok = 0,69032 × brutto_rok, więc granica 120 000 zł wypada przy
+ * 173 833 zł rocznie ⇒ **14 487 zł/mies**, a 150 000 zł przy 217 291 zł ⇒
+ * **18 108 zł/mies**.
+ *
+ * Sens dla interfejsu jest taki sam jak przy uldze dla młodych: zleceniobiorca
+ * zyskuje na zmianie skali dopiero od zarobków wyraźnie wyższych niż etatowiec
+ * z tą samą kwotą brutto — ale za to jego bieżące netto jest wyższe. Wartości
+ * są sprawdzane co do złotówki na krawędzi (patrz engine.test.ts); pozostałe
+ * kombinacje opcji liczy `progiIndywidualne`.
+ */
+export const BRUTTO_POCZATEK_KORZYSCI_ZLECENIE = 14_487;
+export const BRUTTO_PELNA_KORZYSC_ZLECENIE = 18_108;
 
 /**
  * Przy wspólnym rozliczeniu maksimum jest dwukrotne, bo obie granice skali

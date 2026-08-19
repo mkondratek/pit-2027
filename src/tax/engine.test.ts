@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   BRUTTO_PELNA_KORZYSC,
   BRUTTO_PELNA_KORZYSC_ULGA,
+  BRUTTO_PELNA_KORZYSC_ZLECENIE,
   BRUTTO_POCZATEK_KORZYSCI,
   BRUTTO_POCZATEK_KORZYSCI_ULGA,
+  BRUTTO_POCZATEK_KORZYSCI_ZLECENIE,
   MAKSYMALNA_KORZYSC_ROCZNA,
   MAKSYMALNA_KORZYSC_WSPOLNA,
   kapZdrowotnej,
@@ -13,14 +15,23 @@ import {
   podatekWgSkali,
   porownaj,
   porownajWspolnie,
+  progiIndywidualne,
   progiWspolne,
+  round2,
   roundPln,
 } from './engine';
 import {
+  KUP_ZLECENIE_STAWKA,
+  KWOTA_ZMNIEJSZAJACA_ROK,
+  LIMIT_30X,
+  LIMIT_CHOROBOWEJ_DOBROWOLNEJ_MIES,
   LIMIT_PIT_ZERO,
   PLACA_MINIMALNA,
   PPK_PRACODAWCA_PODSTAWOWY,
   PPK_PRACOWNIK_PODSTAWOWY,
+  RATE_CHOROBOWA,
+  RATE_ZDROWOTNA,
+  SKALA,
   type Rok,
 } from './constants';
 
@@ -1082,6 +1093,824 @@ describe('PPK (model.md B.7)', () => {
       ]) {
         expect(obliczWspolnie(a, b, 2027, { ppkPracownik: 0, ppkPracodawca: 0 })).toEqual(
           obliczWspolnie(a, b, 2027),
+        );
+      }
+    });
+  });
+});
+
+/**
+ * Umowa zlecenia (model.md, część F).
+ *
+ * Zapowiadana zmiana dotyczy całej skali podatkowej (art. 27 ust. 1), więc
+ * obejmuje i zleceniobiorców — a kalkulator liczył dotąd wyłącznie etat.
+ * Zlecenie różni się od umowy o pracę w trzech miejscach i **tylko** w trzech:
+ *
+ * 1. **koszty uzyskania przychodu** — 20% przychodu *pomniejszonego o składki*
+ *    (art. 22 ust. 9 pkt 4), a nie 250 zł miesięcznie; bez limitu rocznego,
+ *    bo art. 22 ust. 9a dotyczy wyłącznie kosztów 50%;
+ * 2. **składka chorobowa** jest dobrowolna, a jej podstawa ma własny limit
+ *    (250% przeciętnego wynagrodzenia miesięcznie);
+ * 3. **student do 26 lat** nie podlega z tego tytułu żadnym ubezpieczeniom —
+ *    ani społecznym, ani zdrowotnemu.
+ *
+ * Wszystko inne — skala, kwota zmniejszająca, 9% zdrowotnej, 30-krotność,
+ * ulga dla młodych, wspólne rozliczenie — jest wspólne. Testy niżej sprawdzają
+ * jedno i drugie: że różnice są tam, gdzie mają być, i że nie ma ich nigdzie
+ * indziej.
+ */
+describe('umowa zlecenia (model.md część F)', () => {
+  const lata: Rok[] = [2026, 2027];
+  const Z = { forma: 'zlecenie' } as const;
+  const U = { ulgaDlaMlodych: true } as const;
+  const STUDENT = { ...Z, studentDo26: true } as const;
+  const brutta = [3_000, 5_000, 8_000, 13_000, 20_000, 30_000];
+
+  /**
+   * Podatek wg skali **bez** kwoty zmniejszającej — druga, niezależna
+   * implementacja przejścia po przedziałach.
+   *
+   * Celowo napisana tu od nowa, a nie zaimportowana: służy do sprawdzania
+   * silnika, więc nie może dzielić z nim kodu. Kwota zmniejszająca jest z niej
+   * wyjęta, bo w miesięcznej liście płac odejmuje się ją po 1/12 na miesiąc
+   * (krok 7 z B.2), a nie raz od całości.
+   */
+  function skalaBrutto(dochod: number, rok: Rok): number {
+    let podatek = 0;
+    let dolna = 0;
+
+    for (const prog of SKALA[rok]) {
+      if (dochod <= dolna) break;
+      podatek += (Math.min(dochod, prog.do) - dolna) * prog.stawka;
+      dolna = prog.do;
+    }
+
+    return podatek;
+  }
+
+  /*
+   * Właściwość 0 — domyślnie nic się nie zmienia.
+   *
+   * Cała wartość tego kalkulatora bierze się z tego, że jego liczby zgadzają
+   * się co do złotówki z wyliczeniami redakcji (część D model.md). Dołożenie
+   * drugiej formy zatrudnienia nie może ruszyć ani grosza po stronie etatu —
+   * i to jest sprawdzane na całym wyniku przez `toEqual`, a nie na wybranych
+   * polach, bo przeciek mógłby siedzieć w dowolnym z nich.
+   */
+  describe('umowa o pracę pozostaje domyślna i nietknięta', () => {
+    it('jawne "umowaOPrace" to dokładnie to samo co brak opcji', () => {
+      for (const rok of lata) {
+        for (const brutto of [0, 1_000, 4_806, 8_000, 12_345.67, 13_000, 30_000]) {
+          expect(oblicz(brutto, rok, { forma: 'umowaOPrace' })).toEqual(oblicz(brutto, rok));
+        }
+      }
+    });
+
+    it('opcje zlecenia nie działają na etacie', () => {
+      // Obie potrafiłyby przy zleceniu podnieść netto o tysiące złotych; przy
+      // etacie muszą być martwe, bo tam chorobowa jest obowiązkowa, a status
+      // studenta nie zwalnia z niczego.
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          expect(oblicz(brutto, rok, { chorobowaDobrowolna: false })).toEqual(oblicz(brutto, rok));
+          expect(oblicz(brutto, rok, { studentDo26: true })).toEqual(oblicz(brutto, rok));
+          expect(oblicz(brutto, rok, { studentDo26: true, chorobowaDobrowolna: false })).toEqual(
+            oblicz(brutto, rok),
+          );
+        }
+      }
+    });
+
+    it('nie rusza też wspólnego rozliczenia ani opcji, które już były', () => {
+      for (const [a, b] of [
+        [12_000, 0],
+        [13_000, 7_000],
+        [30_000, 4_806],
+      ]) {
+        expect(obliczWspolnie(a, b, 2027, { forma: 'umowaOPrace' })).toEqual(
+          obliczWspolnie(a, b, 2027),
+        );
+        expect(obliczWspolnie(a, b, 2027, { studentDo26: true })).toEqual(
+          obliczWspolnie(a, b, 2027),
+        );
+      }
+
+      expect(oblicz(10_000, 2026, { forma: 'umowaOPrace', kupPodwyzszone: true })).toEqual(
+        oblicz(10_000, 2026, { kupPodwyzszone: true }),
+      );
+      expect(oblicz(10_000, 2026, { forma: 'umowaOPrace', ...U })).toEqual(oblicz(10_000, 2026, U));
+    });
+
+    it('wynik mówi, co policzył', () => {
+      expect(oblicz(8_000, 2026).forma).toBe('umowaOPrace');
+      expect(oblicz(8_000, 2026, Z).forma).toBe('zlecenie');
+      expect(obliczWspolnie(8_000, 8_000, 2026, Z).osoby[1].forma).toBe('zlecenie');
+    });
+  });
+
+  /*
+   * Właściwość 1 — koszty uzyskania przychodu.
+   *
+   * Najczęstszy błąd w internetowych kalkulatorach zlecenia: 20% liczone od
+   * całego brutto zamiast od brutto po składkach. Przy 5 000 zł/mies daje to
+   * koszty 1 000 zł zamiast 862,90 zł, czyli zaniżony podatek. Dlatego test
+   * idzie na dokładną kwotę, a nie na „koszty są większe niż etatowe".
+   */
+  describe('koszty uzyskania przychodu — 20% przychodu PO składkach', () => {
+    it('są dokładnie jedną piątą podstawy po składkach', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const w = oblicz(brutto, rok, Z);
+          const poSkladkach = w.przychodOpodatkowany - w.skladkiSpoleczne;
+
+          expect(w.kup).toBeCloseTo(KUP_ZLECENIE_STAWKA * poSkladkach, 2);
+          // …czyli NIE jedną piątą samego brutto. Przy 5 000 zł/mies różnica
+          // to 1 645 zł kosztów rocznie, a więc ~200 zł podatku.
+          expect(w.kup).toBeLessThan(KUP_ZLECENIE_STAWKA * w.bruttoRocznie);
+        }
+      }
+    });
+
+    it('dochód to równe 80% podstawy po składkach', () => {
+      for (const brutto of brutta) {
+        const w = oblicz(brutto, 2026, Z);
+
+        expect(w.podstawaOpodatkowania).toBe(
+          roundPln(0.8 * (w.przychodOpodatkowany - w.skladkiSpoleczne)),
+        );
+      }
+    });
+
+    it('nie mają limitu rocznego — rosną wraz z wynagrodzeniem bez końca', () => {
+      // Limit z art. 22 ust. 9a dotyczy wyłącznie kosztów 50% (ust. 9 pkt 1–3).
+      // Gdyby ktoś przez pomyłkę podpiął go pod 20%, koszty spłaszczyłyby się
+      // na 120 000 zł — a tu przy 100 000 zł/mies są grubo powyżej.
+      let poprzednie = -1;
+      for (const brutto of [1_000, 5_000, 20_000, 50_000, 100_000]) {
+        const kup = oblicz(brutto, 2026, Z).kup;
+        expect(kup).toBeGreaterThan(poprzednie);
+        poprzednie = kup;
+      }
+      expect(oblicz(100_000, 2026, Z).kup).toBeGreaterThan(120_000);
+    });
+
+    it('przewyższają koszty pracownicze dopiero od 1 449 zł/mies brutto', () => {
+      // 0,2 × 0,8629 × brutto_rok = 3 000 ⇒ brutto_rok = 17 383 zł. Poniżej tej
+      // granicy zleceniobiorca ma koszty NIŻSZE niż etatowiec — o czym łatwo
+      // zapomnieć, patrząc na „20% to dużo więcej niż 250 zł".
+      expect(oblicz(1_448, 2026, Z).kup).toBeLessThan(oblicz(1_448, 2026).kup);
+      expect(oblicz(1_449, 2026, Z).kup).toBeGreaterThan(oblicz(1_449, 2026).kup);
+    });
+
+    it('podwyższone KUP są przy zleceniu ignorowane — nie ma tam takiego wariantu', () => {
+      for (const brutto of brutta) {
+        expect(oblicz(brutto, 2026, { ...Z, kupPodwyzszone: true })).toEqual(
+          oblicz(brutto, 2026, Z),
+        );
+      }
+    });
+  });
+
+  /*
+   * Właściwość 2 — składki.
+   *
+   * Przy chorobowej opłacanej zestaw składek jest identyczny jak na etacie
+   * (wypadkową finansuje zleceniodawca, więc netto nie dotyka). To ważne dla
+   * uczciwości porównania: różnica w netto między etatem a zleceniem ma
+   * pochodzić z kosztów, a nie z po cichu pominiętej składki.
+   */
+  describe('składki', () => {
+    it('przy opłacanej chorobowej są co do grosza takie jak na etacie', () => {
+      for (const rok of lata) {
+        for (const brutto of [3_000, 5_000, 8_000, 13_000, 20_000]) {
+          const z = oblicz(brutto, rok, Z);
+          const etat = oblicz(brutto, rok);
+
+          expect(z.skladkiSpoleczne).toBe(etat.skladkiSpoleczne);
+          expect(z.skladkaZdrowotna).toBe(etat.skladkaZdrowotna);
+        }
+      }
+    });
+
+    it('rezygnacja z chorobowej zdejmuje dokładnie 2,45% brutto', () => {
+      for (const brutto of [3_000, 8_000, 20_000]) {
+        const z = oblicz(brutto, 2026, Z);
+        const bez = oblicz(brutto, 2026, { ...Z, chorobowaDobrowolna: false });
+
+        expect(z.skladkiSpoleczne - bez.skladkiSpoleczne).toBeCloseTo(
+          brutto * 12 * RATE_CHOROBOWA,
+          2,
+        );
+        // Mniej składek to wyższa podstawa zdrowotnej i wyższy podatek, ale
+        // netto i tak rośnie — składka chorobowa jest kosztem netto.
+        expect(bez.nettoRocznie).toBeGreaterThan(z.nettoRocznie);
+      }
+    });
+
+    it('podstawa dobrowolnej chorobowej ma własny limit: 12 × 250% = 30-krotność', () => {
+      // Tożsamość, na której opiera się model roczny — gdyby prognoza
+      // przeciętnego wynagrodzenia trafiła kiedyś tylko do jednej z tych
+      // stałych, ten test pęknie, zamiast po cichu przesunąć składki wysoko
+      // zarabiającym.
+      for (const rok of lata) {
+        expect(12 * LIMIT_CHOROBOWEJ_DOBROWOLNEJ_MIES[rok]).toBe(LIMIT_30X[rok]);
+      }
+    });
+
+    it('powyżej 30-krotności zleceniobiorca płaci MNIEJ niż etatowiec', () => {
+      // Etatowa chorobowa nie zna limitu, dobrowolna — zna. Przy 30 000 zł/mies
+      // (360 000 zł rocznie, limit 282 600 zł) różnica to 2,45% od nadwyżki.
+      const z = oblicz(30_000, 2026, Z);
+      const etat = oblicz(30_000, 2026);
+
+      expect(etat.skladkiSpoleczne - z.skladkiSpoleczne).toBeCloseTo(
+        (360_000 - LIMIT_30X[2026]) * RATE_CHOROBOWA,
+        2,
+      );
+    });
+
+    it('zdrowotna to nadal 9% podstawy po składkach społecznych', () => {
+      for (const brutto of brutta) {
+        for (const opcje of [Z, { ...Z, chorobowaDobrowolna: false }]) {
+          const w = oblicz(brutto, 2026, opcje);
+
+          expect(w.skladkaZdrowotna).toBeCloseTo(
+            (w.bruttoRocznie - w.skladkiSpoleczne) * RATE_ZDROWOTNA,
+            2,
+          );
+        }
+      }
+    });
+  });
+
+  /*
+   * Właściwość 3 — porównanie przy tej samej kwocie brutto.
+   *
+   * To jest liczba, po którą przyjdzie użytkownik: „mam 8 000 zł na zleceniu,
+   * ile mi zostanie i czy to więcej niż na etacie". Zleceniobiorca z tą samą
+   * kwotą brutto ma **wyższe** netto, bo ma wyższe koszty — cała różnica
+   * siedzi w podatku, a nie w składkach.
+   */
+  describe('zlecenie kontra etat przy tej samej kwocie brutto', () => {
+    it('netto nigdy nie jest niższe, a różnica to wyłącznie podatek', () => {
+      for (const rok of lata) {
+        for (let brutto = 1_500; brutto <= 40_000; brutto += 250) {
+          const z = oblicz(brutto, rok, Z);
+          const etat = oblicz(brutto, rok);
+
+          expect(z.nettoRocznie).toBeGreaterThanOrEqual(etat.nettoRocznie);
+          expect(z.podatek).toBeLessThanOrEqual(etat.podatek);
+        }
+      }
+    });
+
+    it('poniżej granicy kosztów jest odwrotnie — i to też musi się zgadzać', () => {
+      // Przy 1 200 zł/mies koszty zlecenia (20% po składkach) są niższe niż
+      // pracownicze 250 zł/mies, więc podstawa wyższa. Podatku i tak nie ma
+      // (dochód poniżej kwoty wolnej), ale podstawa opodatkowania różnicę widzi.
+      expect(oblicz(1_200, 2026, Z).podstawaOpodatkowania).toBeGreaterThan(
+        oblicz(1_200, 2026).podstawaOpodatkowania,
+      );
+    });
+
+    it('składki i zdrowotna są takie same — różnicy nie robi ZUS', () => {
+      for (const brutto of [5_000, 8_000, 13_000]) {
+        const z = oblicz(brutto, 2026, Z);
+        const etat = oblicz(brutto, 2026);
+
+        expect(z.nettoRocznie - etat.nettoRocznie).toBeCloseTo(etat.podatek - z.podatek, 2);
+      }
+    });
+  });
+
+  /*
+   * Właściwość 4 — model roczny kontra dwanaście zaliczek.
+   *
+   * Dla zlecenia nie ma opublikowanych wyliczeń, którym dałoby się zaufać:
+   * kalkulatory internetowe różnią się między sobą o ponad 180 zł miesięcznie
+   * przy 5 000 zł brutto, bo jedne zakładają chorobową i PIT-2, inne nie
+   * (model.md F.8). Zamiast przepisywać którąkolwiek z tych liczb, liczymy tu
+   * **niezależną drogą** — pętlą dwunastu zaliczek z kroków B.2 model.md,
+   * z zaokrągleniami miesięcznymi — i sprawdzamy, że model roczny się z nią
+   * spina z dokładnością, którą część C model.md sama zapowiada.
+   *
+   * Ta pętla jest jedynym miejscem w testach, gdzie cała droga od brutto do
+   * netto jest policzona drugi raz, od zera i inaczej.
+   */
+  describe('zgodność z listą płac (dwanaście zaliczek)', () => {
+    /** Roczne netto policzone miesiąc po miesiącu — model.md B.2, wariant zlecenia. */
+    function nettoZListyPlac(bruttoMiesiecznie: number, rok: Rok): number {
+      let netto = 0;
+      let dochodNarastajaco = 0;
+      let naliczoneNarastajaco = 0;
+      let podstawaErNarastajaco = 0;
+
+      // Limity są z 2026 r. po obu stronach porównania — silnik trzyma je stałe
+      // celowo, żeby nie mieszać efektu reformy z waloryzacją ZUS (patrz
+      // `Opcje.limit30x`). Pętla musi robić to samo, inaczej porównywałaby
+      // dwa różne światy zamiast dwóch dróg liczenia.
+      for (let miesiac = 0; miesiac < 12; miesiac++) {
+        const doLimitu = Math.max(0, LIMIT_30X[2026] - podstawaErNarastajaco);
+        const podstawaEr = Math.min(bruttoMiesiecznie, doLimitu);
+        podstawaErNarastajaco += podstawaEr;
+
+        const podstawaChorobowej = Math.min(
+          bruttoMiesiecznie,
+          LIMIT_CHOROBOWEJ_DOBROWOLNEJ_MIES[2026],
+        );
+        const spoleczne =
+          round2(podstawaEr * 0.0976) +
+          round2(podstawaEr * 0.015) +
+          round2(podstawaChorobowej * RATE_CHOROBOWA);
+
+        const zdrowotna = round2((bruttoMiesiecznie - spoleczne) * RATE_ZDROWOTNA);
+        const kup = round2(KUP_ZLECENIE_STAWKA * (bruttoMiesiecznie - spoleczne));
+
+        // Kroki 6–8 z B.2: podatek liczy się narastająco od początku roku, ale
+        // kwota zmniejszająca schodzi po 1/12 w każdym miesiącu (PIT-2).
+        dochodNarastajaco += roundPln(bruttoMiesiecznie - spoleczne - kup);
+        const naleznyDotad = skalaBrutto(dochodNarastajaco, rok);
+        const zaliczkaBrutto = naleznyDotad - naliczoneNarastajaco;
+        naliczoneNarastajaco = naleznyDotad;
+        const zaliczka = roundPln(Math.max(0, zaliczkaBrutto - KWOTA_ZMNIEJSZAJACA_ROK / 12));
+
+        netto = round2(netto + (bruttoMiesiecznie - spoleczne - zdrowotna - zaliczka));
+      }
+
+      return netto;
+    }
+
+    it.each([3_000, 5_000, 8_000, 13_000, 20_000, 30_000])(
+      'przy %i zł/mies obie drogi schodzą się na kilka złotych rocznie',
+      (brutto) => {
+        for (const rok of lata) {
+          const roczny = oblicz(brutto, rok, Z).nettoRocznie;
+          const zListy = nettoZListyPlac(brutto, rok);
+
+          // Model.md (część C) zapowiada „kilka–kilkanaście złotych" różnicy
+          // z samych zaokrągleń. Trzymamy 30 zł na cały rok jako granicę tego,
+          // co jeszcze jest zaokrągleniem, a nie błędem w konstrukcji.
+          expect(Math.abs(roczny - zListy)).toBeLessThanOrEqual(30);
+        }
+      },
+    );
+
+    it('dla 5 000 zł/mies lista płac daje 3 812,19 zł netto miesięcznie', () => {
+      // Punkt kontrolny policzony ręcznie z przepisów: składki 685,50 zł
+      // (488,00 + 75,00 + 122,50), koszty 20% × 4 314,50 = 862,90 zł, podstawa
+      // 3 452 zł, zaliczka 12% − 300 zł = 114 zł, zdrowotna 9% × 4 314,50 =
+      // 388,31 zł. Zostaje 3 812,19 zł.
+      expect(nettoZListyPlac(5_000, 2026)).toBeCloseTo(12 * 3_812.19, 2);
+    });
+  });
+
+  /*
+   * Właściwość 5 — student do 26 lat.
+   *
+   * Największa pojedyncza różnica w całym silniku i osobny, bardzo częsty
+   * przypadek. Zwolnienie jest **składkowe** (art. 6 ust. 4 ustawy o systemie
+   * ubezpieczeń społecznych), a nie podatkowe — i to jest tu sedno: bez ulgi
+   * dla młodych podatek nadal jest, mimo zerowego ZUS-u. Typowy student ma
+   * jedno i drugie, ale kalkulator musi umieć rozdzielić te dwie rzeczy,
+   * bo 30-letni student i 24-letni absolwent mają po jednej z nich.
+   */
+  describe('student do 26 lat', () => {
+    it('nie płaci żadnych składek — ani społecznych, ani zdrowotnej', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const w = oblicz(brutto, rok, STUDENT);
+
+          expect(w.skladkiSpoleczne).toBe(0);
+          expect(w.skladkaZdrowotna).toBe(0);
+        }
+      }
+    });
+
+    it('koszty liczą się wtedy od pełnego przychodu — nie ma czego odejmować', () => {
+      for (const brutto of brutta) {
+        const w = oblicz(brutto, 2026, STUDENT);
+
+        expect(w.kup).toBeCloseTo(KUP_ZLECENIE_STAWKA * w.bruttoRocznie, 2);
+      }
+    });
+
+    it('zwolnienie jest składkowe, nie podatkowe — podatek zostaje', () => {
+      // 8 000 zł/mies, student bez ulgi dla młodych (np. 30-letni): ZUS zero,
+      // ale dochód 76 800 zł i podatek jak najbardziej jest.
+      const w = oblicz(8_000, 2026, STUDENT);
+
+      expect(w.podatek).toBeGreaterThan(0);
+      expect(w.nettoRocznie).toBe(round2(w.bruttoRocznie - w.podatek));
+    });
+
+    it('z ulgą dla młodych netto potrafi być równe brutto co do grosza', () => {
+      // Nie ma składek, a to, co zostaje ponad limit 85 528 zł, mieści się po
+      // kosztach w kwocie wolnej. Przy 8 000 zł/mies zostaje całe 96 000 zł.
+      for (const rok of lata) {
+        const w = oblicz(8_000, rok, { ...STUDENT, ...U });
+
+        expect(w.przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+        expect(w.podatek).toBe(0);
+        expect(w.nettoRocznie).toBe(w.bruttoRocznie);
+      }
+    });
+
+    it('dwie niezależne opcje: składki i podatek znikają osobno', () => {
+      const samStudent = oblicz(10_000, 2026, STUDENT);
+      const samaUlga = oblicz(10_000, 2026, { ...Z, ...U });
+      const oba = oblicz(10_000, 2026, { ...STUDENT, ...U });
+
+      expect(samStudent.skladkiSpoleczne).toBe(0);
+      expect(samStudent.podatek).toBeGreaterThan(0);
+      expect(samaUlga.skladkiSpoleczne).toBeGreaterThan(0);
+      expect(samaUlga.podatek).toBe(0);
+      expect(oba.skladkiSpoleczne).toBe(0);
+      expect(oba.podatek).toBe(0);
+    });
+
+    it('nie przystępuje do PPK, nawet gdy podano stawki', () => {
+      // Bez obowiązkowych składek emerytalno-rentowych nie ma „osoby
+      // zatrudnionej" w rozumieniu ustawy o PPK. Gdyby wpłata pracownika
+      // przeciekła, kalkulator zabrałby studentowi 2% brutto, których nikt
+      // z jego wypłaty nie potrąca.
+      const w = oblicz(10_000, 2026, {
+        ...STUDENT,
+        ppkPracownik: PPK_PRACOWNIK_PODSTAWOWY,
+        ppkPracodawca: PPK_PRACODAWCA_PODSTAWOWY,
+      });
+
+      expect(w.ppk).toBe(0);
+      expect(w.ppkPracodawcy).toBe(0);
+      expect(w).toEqual(oblicz(10_000, 2026, STUDENT));
+    });
+
+    it('chorobowa przy zerowym ZUS-ie nie ma czego zmieniać', () => {
+      for (const brutto of brutta) {
+        expect(oblicz(brutto, 2026, { ...STUDENT, chorobowaDobrowolna: true })).toEqual(
+          oblicz(brutto, 2026, { ...STUDENT, chorobowaDobrowolna: false }),
+        );
+      }
+    });
+
+    it('ma najwyższe netto ze wszystkich wariantów przy tym samym brutto', () => {
+      for (let brutto = 1_000; brutto <= 30_000; brutto += 500) {
+        const student = oblicz(brutto, 2026, STUDENT).nettoRocznie;
+
+        expect(student).toBeGreaterThanOrEqual(oblicz(brutto, 2026, Z).nettoRocznie);
+        expect(student).toBeGreaterThanOrEqual(oblicz(brutto, 2026).nettoRocznie);
+      }
+    });
+  });
+
+  /*
+   * Właściwość 6 — ulga dla młodych obejmuje zlecenie.
+   *
+   * Art. 21 ust. 1 pkt 148 wymienia „umowy zlecenia, o których mowa w art. 13
+   * pkt 8" obok stosunku pracy, i dzieli z nimi jeden limit 85 528 zł. Reguły
+   * są te same co przy etacie — sprawdzamy więc, że rzeczywiście te same,
+   * a nie napisane drugi raz nieco inaczej.
+   */
+  describe('ulga dla młodych na zleceniu', () => {
+    it('zwalnia przychód do 85 528 zł, tak samo jak na etacie', () => {
+      for (const brutto of [5_000, 8_000, 20_000]) {
+        expect(oblicz(brutto, 2026, { ...Z, ...U }).przychodZwolniony).toBe(
+          oblicz(brutto, 2026, U).przychodZwolniony,
+        );
+      }
+    });
+
+    it('koszty przysługują tylko od części opodatkowanej', () => {
+      // podatki.gov.pl wprost: „od przychodów objętych ulgą nie obliczasz 20%
+      // kosztów uzyskania przychodów".
+      expect(oblicz(5_000, 2026, { ...Z, ...U }).kup).toBe(0);
+
+      const w = oblicz(20_000, 2026, { ...Z, ...U });
+      expect(w.kup).toBeCloseTo(
+        KUP_ZLECENIE_STAWKA * (w.przychodOpodatkowany - w.skladkiSpoleczne),
+        2,
+      );
+    });
+
+    it('składki nalicza się od całości — zwolnienie jest podatkowe', () => {
+      for (const brutto of brutta) {
+        expect(oblicz(brutto, 2026, { ...Z, ...U }).skladkiSpoleczne).toBe(
+          oblicz(brutto, 2026, Z).skladkiSpoleczne,
+        );
+      }
+    });
+
+    /*
+     * Zdrowotna przy pełnym zwolnieniu — tak samo jak na etacie: podatek zero,
+     * ale składka **zostaje**. Kap z art. 83 ust. 2a liczy się od podstawy
+     * sprzed zwolnienia, więc wychodzi tyle, ile osobie bez ulgi. Przy zleceniu
+     * jest to jeszcze mocniejsze niż przy etacie: kap nie wiąże tam przy żadnej
+     * kwocie brutto (test niżej), więc składka jest zawsze pełne 9%.
+     */
+    it('przy przychodzie w całości zwolnionym zdrowotna zostaje w pełnej wysokości', () => {
+      for (const rok of lata) {
+        for (const brutto of [3_000, 5_000, 7_127]) {
+          const w = oblicz(brutto, rok, { ...Z, ...U });
+
+          expect(w.podatek).toBe(0);
+          expect(w.podstawaOpodatkowania).toBe(0);
+          expect(w.skladkaZdrowotna).toBe(oblicz(brutto, rok, Z).skladkaZdrowotna);
+          expect(w.skladkaZdrowotna).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it('składka zdrowotna z ulgą jest identyczna jak bez niej, przy każdej kwocie', () => {
+      // Na etacie ta równość zaczyna się dopiero od ~1 250 zł/mies, bo niżej kap
+      // wiąże także osobie bez ulgi. Przy zleceniu nie ma takiej granicy.
+      for (const rok of lata) {
+        for (let brutto = 100; brutto <= 40_000; brutto += 100) {
+          expect(oblicz(brutto, rok, { ...Z, ...U }).skladkaZdrowotna).toBe(
+            oblicz(brutto, rok, Z).skladkaZdrowotna,
+          );
+        }
+      }
+    });
+
+    it('nigdy nie pogarsza netto', () => {
+      for (const rok of lata) {
+        for (let brutto = 0; brutto <= 40_000; brutto += 500) {
+          expect(oblicz(brutto, rok, { ...Z, ...U }).nettoRocznie).toBeGreaterThanOrEqual(
+            oblicz(brutto, rok, Z).nettoRocznie,
+          );
+        }
+      }
+    });
+
+    it('kap zdrowotnej dla zlecenia liczy się bez kwoty zmniejszającej z 2021 r.', () => {
+      // PIT-2 przysługiwał w 2021 r. wyłącznie pracownikom, a hipotetyczna
+      // zaliczka jest „wg stanu na 31.12.2021" — więc przy zleceniu nie ma
+      // z czego odjąć 12 × 43,76 zł.
+      expect(kapZdrowotnej(10_000, false)).toBeCloseTo(10_000 * 0.17, 2);
+      expect(kapZdrowotnej(10_000, false) - kapZdrowotnej(10_000)).toBeCloseTo(12 * 43.76, 2);
+      // Domyślnie wariant pracowniczy — dotychczasowe wywołania bez zmian.
+      expect(kapZdrowotnej(10_000, true)).toBe(kapZdrowotnej(10_000));
+    });
+
+    it('kap przy zleceniu nie wiąże przy żadnej kwocie brutto', () => {
+      // 17% od 80% podstawy to 13,6% — zawsze więcej niż 9% składki. Dlatego
+      // pominięcie kapu poza ulgą (świadome uproszczenie odziedziczone po
+      // etacie) przy zleceniu nic nie kosztuje, a z ulgą kap i tak przepuszcza
+      // pełną składkę. Sprawdzane od dołu skali, gdzie na etacie kap wiąże.
+      for (const brutto of [500, 1_000, 1_200, 3_000, PLACA_MINIMALNA, 20_000]) {
+        const w = oblicz(brutto, 2026, Z);
+
+        expect(kapZdrowotnej(w.podstawaOpodatkowania, false)).toBeGreaterThanOrEqual(
+          w.skladkaZdrowotna,
+        );
+      }
+      // …a na etacie przy 1 200 zł/mies wiąże — czyli to nie jest własność
+      // samego kapu, tylko kosztów 20%.
+      const etat = oblicz(1_200, 2026);
+      expect(kapZdrowotnej(etat.podstawaOpodatkowania)).toBeLessThan(etat.skladkaZdrowotna);
+    });
+  });
+
+  /*
+   * Właściwość 7 — zysk z reformy.
+   *
+   * Skala jest ta sama, więc maksymalna korzyść też: 3 600 zł rocznie, ani
+   * grosza więcej. Przesuwają się natomiast progi, bo koszty 20% odsuwają
+   * granice przedziałów w prawo — dokładnie jak zwolnienie przy uldze dla
+   * młodych, tylko proporcjonalnie zamiast kwotowo.
+   */
+  describe('zysk ze zmiany skali', () => {
+    it('nowa skala nigdy nie jest gorsza od obecnej', () => {
+      for (const opcje of [Z, { ...Z, ...U }, STUDENT, { ...Z, chorobowaDobrowolna: false }]) {
+        for (let brutto = 0; brutto <= 60_000; brutto += 500) {
+          const { przed, po, zyskRocznie } = porownaj(brutto, opcje);
+
+          expect(po.podatek).toBeLessThanOrEqual(przed.podatek);
+          expect(zyskRocznie).toBeGreaterThanOrEqual(0);
+          expect(zyskRocznie).toBeLessThanOrEqual(MAKSYMALNA_KORZYSC_ROCZNA);
+        }
+      }
+    });
+
+    it('progi zlecenia trafiają w krawędź co do złotówki', () => {
+      expect(porownaj(BRUTTO_POCZATEK_KORZYSCI_ZLECENIE - 1, Z).zyskRocznie).toBe(0);
+      expect(porownaj(BRUTTO_POCZATEK_KORZYSCI_ZLECENIE, Z).zyskRocznie).toBeGreaterThan(0);
+      expect(porownaj(BRUTTO_PELNA_KORZYSC_ZLECENIE - 1, Z).zyskRocznie).toBeLessThan(
+        MAKSYMALNA_KORZYSC_ROCZNA,
+      );
+      expect(porownaj(BRUTTO_PELNA_KORZYSC_ZLECENIE, Z).zyskRocznie).toBe(
+        MAKSYMALNA_KORZYSC_ROCZNA,
+      );
+    });
+
+    it('leżą wyżej niż etatowe — koszty 20% odsuwają granice przedziałów', () => {
+      expect(BRUTTO_POCZATEK_KORZYSCI_ZLECENIE).toBeGreaterThan(BRUTTO_POCZATEK_KORZYSCI);
+      expect(BRUTTO_PELNA_KORZYSC_ZLECENIE).toBeGreaterThan(BRUTTO_PELNA_KORZYSC);
+      // …ale niżej niż przy uldze dla młodych, która zdejmuje 85 528 zł z góry.
+      expect(BRUTTO_POCZATEK_KORZYSCI_ZLECENIE).toBeLessThan(BRUTTO_POCZATEK_KORZYSCI_ULGA);
+    });
+
+    it('rośnie monotonicznie', () => {
+      let poprzedni = -1;
+      for (let brutto = 14_000; brutto <= 19_000; brutto += 50) {
+        const zysk = porownaj(brutto, Z).zyskRocznie;
+        expect(zysk).toBeGreaterThanOrEqual(poprzedni);
+        poprzedni = zysk;
+      }
+    });
+  });
+
+  /*
+   * Właściwość 8 — `progiIndywidualne` wyprowadza to, co stałe mają wpisane.
+   *
+   * Stałe są w kodzie liczbami; ta funkcja liczy je z modelu. Zgodność jednego
+   * z drugim jest jedynym powodem, dla którego stałym można wierzyć — a przy
+   * kombinacjach opcji, dla których stałych nie ma (student, brak chorobowej),
+   * funkcja jest jedynym źródłem.
+   */
+  describe('progiIndywidualne', () => {
+    it('odtwarza stałe dla zlecenia i dla ulgi dla młodych', () => {
+      expect(progiIndywidualne(Z)).toEqual({
+        poczatek: BRUTTO_POCZATEK_KORZYSCI_ZLECENIE,
+        pelna: BRUTTO_PELNA_KORZYSC_ZLECENIE,
+      });
+      expect(progiIndywidualne(U)).toEqual({
+        poczatek: BRUTTO_POCZATEK_KORZYSCI_ULGA,
+        pelna: BRUTTO_PELNA_KORZYSC_ULGA,
+      });
+    });
+
+    it('dla etatu zgadza się z opublikowanymi progami', () => {
+      const { poczatek, pelna } = progiIndywidualne();
+
+      expect(pelna).toBe(BRUTTO_PELNA_KORZYSC);
+      // `BRUTTO_POCZATEK_KORZYSCI` to zaokrąglona liczba z prasy („≈ 11 880 zł"),
+      // przy której zysku jeszcze NIE ma — pierwsza złotówka zysku jest o złoty
+      // wyżej. Ta różnica jest opisana przy stałej i w model.md, część D.
+      expect(poczatek).toBe(BRUTTO_POCZATEK_KORZYSCI + 1);
+      expect(porownaj(poczatek - 1).zyskRocznie).toBe(0);
+    });
+
+    it('trafia w krawędź także tam, gdzie stałych nie ma', () => {
+      for (const opcje of [STUDENT, { ...Z, chorobowaDobrowolna: false }, { ...Z, ...U }]) {
+        const { poczatek, pelna } = progiIndywidualne(opcje);
+
+        expect(porownaj(poczatek - 1, opcje).zyskRocznie).toBe(0);
+        expect(porownaj(poczatek, opcje).zyskRocznie).toBeGreaterThan(0);
+        expect(porownaj(pelna, opcje).zyskRocznie).toBe(MAKSYMALNA_KORZYSC_ROCZNA);
+      }
+    });
+  });
+
+  /*
+   * Właściwość 9 — kwota zmniejszająca podatek.
+   *
+   * Przy zleceniu PIT-2 działa inaczej niż na etacie (zleceniobiorca może go
+   * złożyć dopiero od 2023 r., a wcześniej nie mógł wcale), ale to jest
+   * wyłącznie sprawa **zaliczek**: w rozliczeniu rocznym kwota zmniejszająca
+   * przysługuje tak czy inaczej. Model jest roczny, więc PIT-2 nie jest jego
+   * parametrem — i ten test pilnuje, żeby ktoś kiedyś nie „naprawił" tego,
+   * dodając zleceniobiorcy podatek, którego on w zeznaniu nie zapłaci.
+   */
+  it('kwota zmniejszająca przysługuje przy zleceniu tak samo jak przy etacie', () => {
+    for (const rok of lata) {
+      for (const brutto of [3_000, 8_000, 13_000]) {
+        const w = oblicz(brutto, rok, Z);
+
+        expect(w.podatek).toBe(roundPln(podatekWgSkali(w.podstawaOpodatkowania, rok)));
+        // Gdyby jej zabrakło, zleceniobiorca zapłaciłby o 3 600 zł więcej.
+        expect(roundPln(skalaBrutto(w.podstawaOpodatkowania, rok)) - w.podatek).toBe(
+          brutto === 3_000
+            ? // Przy 3 000 zł/mies dochód mieści się w kwocie wolnej, więc
+              // zmniejszenie zjada cały podatek i nie ma z czego odjąć reszty.
+              roundPln(skalaBrutto(w.podstawaOpodatkowania, rok))
+            : KWOTA_ZMNIEJSZAJACA_ROK,
+        );
+      }
+    }
+  });
+
+  /*
+   * Właściwość 10 — wspólne rozliczenie.
+   *
+   * Forma zatrudnienia dziedziczy się na małżonka (jak KUP i PPK), bo para na
+   * dwóch zleceniach to sytuacja realna, a pomyłka kosztuje najwyżej inne
+   * koszty uzyskania przychodu. Zwolnienie studenckie — nie, bo zdjęłoby
+   * małżonkowi cały ZUS.
+   */
+  describe('wspólne rozliczenie', () => {
+    it('forma dziedziczy się na małżonka, a zwolnienie studenckie nie', () => {
+      const oboje = obliczWspolnie(8_000, 8_000, 2026, { ...Z, studentDo26: true });
+
+      expect(oboje.osoby[0].forma).toBe('zlecenie');
+      expect(oboje.osoby[1].forma).toBe('zlecenie');
+      expect(oboje.osoby[0].skladkiSpoleczne).toBe(0);
+      expect(oboje.osoby[1].skladkiSpoleczne).toBeGreaterThan(0);
+    });
+
+    it('pozwala każdemu małżonkowi na inną formę', () => {
+      const mieszane = obliczWspolnie(8_000, 8_000, 2026, {
+        ...Z,
+        malzonek: { forma: 'umowaOPrace' },
+      });
+
+      expect(mieszane.osoby[0].kup).toBe(oblicz(8_000, 2026, Z).kup);
+      expect(mieszane.osoby[1].kup).toBe(3_000);
+      expect(mieszane.kup).toBe(mieszane.osoby[0].kup + mieszane.osoby[1].kup);
+    });
+
+    it('dwoje zleceniobiorców o równych zarobkach to dwa razy rozliczenie osobne (± 1 zł)', () => {
+      for (const brutto of [5_000, 8_000, 20_000]) {
+        for (const rok of lata) {
+          const para = obliczWspolnie(brutto, brutto, rok, Z);
+          const sam = oblicz(brutto, rok, Z);
+
+          expect(Math.abs(para.nettoRocznie - 2 * sam.nettoRocznie)).toBeLessThanOrEqual(1);
+        }
+      }
+    });
+
+    it('para na zleceniu też nie traci na wspólnym rozliczeniu', () => {
+      for (const [a, b] of [
+        [13_000, 0],
+        [20_000, 3_000],
+        [8_000, 8_000],
+        [30_000, 0],
+      ]) {
+        for (const rok of lata) {
+          const wspolnie = obliczWspolnie(a, b, rok, Z);
+          const osobno = oblicz(a, rok, Z).nettoRocznie + oblicz(b, rok, Z).nettoRocznie;
+
+          expect(wspolnie.nettoRocznie).toBeGreaterThanOrEqual(osobno - 1);
+        }
+      }
+    });
+
+    it('zysk pary na zleceniu nie przekracza podwójnego maksimum', () => {
+      for (let a = 0; a <= 40_000; a += 4_000) {
+        for (let b = 0; b <= 40_000; b += 4_000) {
+          const zysk = porownajWspolnie(a, b, Z).zyskRocznie;
+
+          expect(zysk).toBeGreaterThanOrEqual(0);
+          expect(zysk).toBeLessThanOrEqual(MAKSYMALNA_KORZYSC_WSPOLNA);
+        }
+      }
+    });
+
+    it('progiWspolne działają także dla zlecenia', () => {
+      const { poczatek, pelna } = progiWspolne(0, Z);
+
+      expect(porownajWspolnie(poczatek - 1, 0, Z).zyskRocznie).toBe(0);
+      expect(porownajWspolnie(pelna, 0, Z).zyskRocznie).toBe(MAKSYMALNA_KORZYSC_WSPOLNA);
+      // Przy małżonku bez dochodu progi leżą wyżej niż indywidualne — tak samo
+      // jak przy etacie, bo granice skali działają wtedy podwójnie.
+      expect(poczatek).toBeGreaterThan(BRUTTO_POCZATEK_KORZYSCI_ZLECENIE);
+    });
+  });
+
+  /*
+   * Właściwość 11 — PPK na zleceniu działa jak na etacie.
+   *
+   * Zleceniobiorca podlegający obowiązkowo ubezpieczeniom emerytalno-rentowym
+   * jest „osobą zatrudnioną" w rozumieniu ustawy o PPK, więc obie wpłaty mają
+   * ten sam sens co przy umowie o pracę. Zerowanie dotyczy wyłącznie studenta
+   * (test wyżej).
+   */
+  describe('PPK', () => {
+    it('wpłata pracownika obniża netto, wpłata pracodawcy tylko podatek', () => {
+      const bez = oblicz(10_000, 2026, Z);
+      const zPpk = oblicz(10_000, 2026, {
+        ...Z,
+        ppkPracownik: PPK_PRACOWNIK_PODSTAWOWY,
+        ppkPracodawca: PPK_PRACODAWCA_PODSTAWOWY,
+      });
+
+      expect(zPpk.ppk).toBeCloseTo(120_000 * 0.02, 2);
+      expect(zPpk.ppkPracodawcy).toBeCloseTo(120_000 * 0.015, 2);
+      expect(zPpk.skladkiSpoleczne).toBe(bez.skladkiSpoleczne);
+      expect(zPpk.skladkaZdrowotna).toBe(bez.skladkaZdrowotna);
+      expect(bez.nettoRocznie - zPpk.nettoRocznie).toBeCloseTo(
+        zPpk.ppk + (zPpk.podatek - bez.podatek),
+        2,
+      );
+    });
+
+    it('wpłata pracodawcy dostaje koszty 20% jak reszta przychodu', () => {
+      // Rozstrzygnięcie, nie ustalenie — patrz model.md, część E. Wpłata jest
+      // przychodem z tego samego źródła (art. 13 pkt 8), więc liczy się jej te
+      // same koszty; przy okazji nie jest oskładkowana, więc podstawy kosztów
+      // nie pomniejsza.
+      const w = oblicz(10_000, 2026, { ...Z, ppkPracodawca: PPK_PRACODAWCA_PODSTAWOWY });
+
+      expect(w.kup).toBeCloseTo(
+        KUP_ZLECENIE_STAWKA * (w.przychodPodatkowy - w.skladkiSpoleczne),
+        2,
+      );
+    });
+
+    it('wyłączone nie zmienia wyniku', () => {
+      for (const brutto of brutta) {
+        expect(oblicz(brutto, 2026, { ...Z, ppkPracownik: 0, ppkPracodawca: 0 })).toEqual(
+          oblicz(brutto, 2026, Z),
         );
       }
     });
