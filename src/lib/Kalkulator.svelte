@@ -1,7 +1,6 @@
 <script lang="ts">
   import { PLACA_MINIMALNA } from '../tax/constants';
   import {
-    BRUTTO_PELNA_KORZYSC,
     BRUTTO_POCZATEK_KORZYSCI,
     MAKSYMALNA_KORZYSC_ROCZNA,
     porownaj,
@@ -35,7 +34,6 @@
   const wynik = $derived(porownaj(brutto));
   const zyskuje = $derived(wynik.zyskRocznie > 0);
   const doProgu = $derived(Math.max(0, BRUTTO_POCZATEK_KORZYSCI - brutto));
-  const naPlaskowyzu = $derived(brutto > BRUTTO_PELNA_KORZYSC);
   const ponizejMinimalnej = $derived(brutto < PLACA_MINIMALNA);
 
   // Jednorazowo po wczytaniu, żeby adres dało się skopiować, zanim ktoś dotknie
@@ -115,9 +113,9 @@
 <!-- Treść akapitu w jednym miejscu, bo obok wersji widocznej renderujemy jeszcze
      wersje-duchy, które rezerwują wysokość (patrz `.stos` niżej). -->
 {#snippet tekstZysku(zyskRocznie: number)}
-  To {kwota(zyskRocznie)} przez cały rok
+  To {kwota(zyskRocznie)} przez cały rok.
   {#if zyskRocznie === MAKSYMALNA_KORZYSC_ROCZNA}
-    — czyli maksimum, jakie ta zmiana daje komukolwiek
+    To maksimum — wyższa pensja da wyższe netto, ale z tej zmiany zawsze wychodzi tyle samo.
   {/if}
 {/snippet}
 
@@ -249,15 +247,9 @@
   </p>
 </details>
 
-<!-- Uwagi na końcu treści: tutaj ich pojawianie się i znikanie nic nie przesuwa,
-     więc nie trzeba rezerwować miejsca i nie zostaje pusty pas pod wykresem. -->
-{#if naPlaskowyzu}
-  <p class="uwaga">
-    Powyżej {kwota(BRUTTO_PELNA_KORZYSC)} brutto sam zysk już nie rośnie — wyższa pensja oznacza
-    wyższe netto, ale ta konkretna zmiana daje zawsze te same {kwota(MAKSYMALNA_KORZYSC_ROCZNA)}
-    rocznie.
-  </p>
-{:else if ponizejMinimalnej}
+<!-- Na końcu treści: pojawienie się tej uwagi nic nie przesuwa, więc nie trzeba
+     rezerwować na nią miejsca i nie zostaje pusty pas pod wykresem. -->
+{#if ponizejMinimalnej}
   <p class="uwaga">
     To mniej niż płaca minimalna ({kwota(PLACA_MINIMALNA)} w 2026 r.), która obowiązuje przy pełnym
     etacie. Przy niepełnym taka kwota jest jak najbardziej możliwa i wyliczenie pozostaje poprawne.
@@ -355,9 +347,16 @@
     visibility: hidden;
   }
 
+  /* Miara szersza, niż chciałoby się dla zwykłego akapitu, bo ten nie jest
+     zwykły: wszystkie warianty leżą w jednej komórce `.stos`, więc najdłuższy
+     z nich dyktuje wysokość panelu każdemu. Przy 28rem wariant bez zysku łamał
+     się na trzy wiersze, z sierotą w ostatnim. Próg dwóch wierszy wypada przy
+     ~32rem (mierzone na najdłuższym duchu, „brakuje 11 878 zł"); 35rem daje
+     zapas na inny krój systemowy, a i tak zostaje wyraźnie węższe od panelu,
+     więc akapit nadal czyta się jak wtrącenie pod liczbą, nie jak jej ramka. */
   .rocznie {
     margin: 0.75rem auto 0;
-    max-width: 28rem;
+    max-width: 35rem;
     font-size: 0.9375rem;
     color: var(--tekst-cichy);
   }
