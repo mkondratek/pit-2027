@@ -19,6 +19,49 @@
 
   <Kalkulator />
 
+  <section class="zrodla">
+    <h2>Na czym to się opiera</h2>
+
+    <p>
+      Kształt zapowiadanej skali pochodzi z komunikatów rządowych z 19 sierpnia 2026 r., nie
+      z doniesień prasowych:
+    </p>
+
+    <ul>
+      <li>
+        <a href="https://www.gov.pl/web/finanse/korzystne-zmiany-w-systemie-podatkowym">
+          Ministerstwo Finansów — Korzystne zmiany w systemie podatkowym
+        </a>
+      </li>
+      <li>
+        <a href="https://www.gov.pl/web/premier/sprawiedliwy-system-podatkowy--propozycje-zmian">
+          KPRM — Sprawiedliwy system podatkowy: propozycje zmian
+        </a>
+      </li>
+      <li>
+        <a
+          href="https://www.gov.pl/web/premier/sprawiedliwsze-podatki-i-wiecej-w-portfelach-polek-i-polakow"
+        >
+          KPRM — Sprawiedliwsze podatki i więcej w portfelach Polek i Polaków
+        </a>
+      </li>
+    </ul>
+
+    <p>
+      W chwili publikacji nie istnieje projekt ustawy — nie ma go ani w wykazie prac
+      legislacyjnych, ani na RCL, ani jako druk sejmowy. Dlatego kalkulator pokazuje, co
+      wynikałoby z zapowiedzi, a nie co obowiązuje.
+    </p>
+
+    <p>
+      Sam sposób liczenia wynagrodzenia jest zwykłą listą płac: składki 13,71%, zdrowotna 9%,
+      koszty uzyskania przychodu 250 zł, kwota zmniejszająca 300 zł miesięcznie, zaokrąglenia
+      wg art. 63 §1 Ordynacji podatkowej. Model odtwarza kwoty, które przy tej zapowiedzi
+      opublikowały Bankier i money.pl — jeśli któraś się nie zgadza, to mój błąd i chętnie go
+      poprawię.
+    </p>
+  </section>
+
   <footer>
     <p>
       Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada umowę o pracę,
@@ -74,8 +117,35 @@
     max-width: 34rem;
   }
 
-  footer {
+  .zrodla {
     margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--linia);
+    font-size: 0.875rem;
+    color: var(--tekst-cichy);
+  }
+
+  .zrodla h2 {
+    font-size: 0.9375rem;
+    color: var(--tekst);
+    margin: 0 0 0.75rem;
+  }
+
+  .zrodla p {
+    margin: 0 0 0.75rem;
+  }
+
+  .zrodla ul {
+    margin: 0 0 0.75rem;
+    padding-left: 1.1rem;
+  }
+
+  .zrodla li {
+    margin-bottom: 0.25rem;
+  }
+
+  footer {
+    margin-top: 2rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--linia);
     font-size: 0.8125rem;
