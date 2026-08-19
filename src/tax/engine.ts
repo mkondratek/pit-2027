@@ -91,8 +91,28 @@ export interface Opcje {
    * patrz `OpcjeWspolne.malzonek`.
    */
   ulgaDlaMlodych?: boolean;
-  /** Wpłata pracownika do PPK, ułamek (0,02 = 2%). Potrącana z netto. */
+  /**
+   * Wpłata **pracownika** do PPK, ułamek (0,02 = 2%). Domyślnie zero.
+   *
+   * Potrącana z netto — po podatku i po ZUS — więc obniża wypłatę dokładnie
+   * o swoją wartość i nie rusza ani podstawy opodatkowania, ani składek
+   * (model.md B.7, krok 9 z B.2).
+   */
   ppkPracownik?: number;
+  /**
+   * Wpłata **pracodawcy** do PPK, ułamek (0,015 = 1,5%). Domyślnie zero.
+   *
+   * Nie jest potrącana z wypłaty — to dopłata ponad wynagrodzenie — ale jest
+   * **przychodem podatkowym pracownika**: powiększa podstawę opodatkowania,
+   * przy tym **nie wchodząc** do podstawy składek społecznych ani zdrowotnej
+   * (model.md B.7). Kosztem dla pracownika jest więc sam podatek od niej,
+   * a nie cała kwota; kwota trafia na jego rachunek PPK i jest wystawiona
+   * w wyniku jako `ppkPracodawcy`.
+   *
+   * Pominięcie tego składnika zaniżałoby podatek — dlatego opcja istnieje
+   * mimo że dla samego „ile mi zostanie w kieszeni" wygodniej byłoby jej nie mieć.
+   */
+  ppkPracodawca?: number;
   /**
    * Roczny limit podstawy składki emerytalnej i rentowej.
    *
@@ -120,12 +140,20 @@ export interface SkladnikiOsoby {
   bruttoMiesiecznie: number;
   bruttoRocznie: number;
   /**
+   * Przychód podatkowy: brutto + wpłata pracodawcy do PPK.
+   *
+   * Różni się od brutto wyłącznie wtedy, gdy pracodawca wpłaca do PPK — i to
+   * jest właśnie ta różnica, od której liczy się podatek, a nie liczą się
+   * składki. Bez PPK pracodawcy równa się `bruttoRocznie` co do grosza.
+   */
+  przychodPodatkowy: number;
+  /**
    * Przychód zwolniony z podatku w ramach PIT-0 (ulga dla młodych) — zero, gdy
    * ulga wyłączona. Wystawione osobno, żeby dało się to pokazać w rozbiciu:
    * inaczej z samego niższego podatku nie widać, skąd się wziął.
    */
   przychodZwolniony: number;
-  /** Przychód podlegający opodatkowaniu: brutto − przychód zwolniony. */
+  /** Przychód podlegający opodatkowaniu: przychód podatkowy − przychód zwolniony. */
   przychodOpodatkowany: number;
   skladkiSpoleczne: number;
   skladkaZdrowotna: number;
@@ -144,7 +172,18 @@ export interface SkladnikiOsoby {
    * pełnych złotych i obcięty na zerze.
    */
   dochod: number;
+  /** Wpłata pracownika do PPK — potrącana z netto. */
   ppk: number;
+  /**
+   * Wpłata pracodawcy do PPK — **nie** jest odejmowana od netto.
+   *
+   * Dla pracownika to nie jest koszt, tylko pieniądze, które dostaje na
+   * rachunek PPK ponad wynagrodzenie; kosztuje go wyłącznie podatek od niej,
+   * widoczny już w `podatek`. Wystawiona osobno właśnie po to, żeby dało się to
+   * w rozbiciu pokazać uczciwie — inaczej z samego wyższego podatku wyglądałaby
+   * jak strata.
+   */
+  ppkPracodawcy: number;
 }
 
 /** Część wyliczenia, która przy wspólnym rozliczeniu zostaje przy jednej osobie. */
@@ -157,11 +196,31 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
     podstawaEmerRent * (RATE_EMERYTALNA + RATE_RENTOWA) + bruttoRocznie * RATE_CHOROBOWA,
   );
 
+  // Wpłata pracodawcy do PPK: przychód podatkowy pracownika, ale NIE podstawa
+  // składek (model.md B.7). Dlatego pojawia się dopiero tutaj — po policzeniu
+  // składek społecznych i poza podstawą zdrowotnej niżej.
+  //
+  // Podstawą wpłat jest brutto: wpłat PPK nie ogranicza 30-krotność, więc nie
+  // jest to `podstawaEmerRent`. Model jest roczny, co zaciera jedno
+  // uproszczenie — wpłata pracodawcy jest przychodem w miesiącu PRZEKAZANIA,
+  // czyli zwykle miesiąc później (model.md B.7, krok 0 z B.2). W skali roku
+  // przesunięcie znika; różnica pojawiłaby się tylko na styku lat.
+  const ppkPracodawcy = round2(bruttoRocznie * (opcje.ppkPracodawca ?? 0));
+  const przychodPodatkowy = round2(bruttoRocznie + ppkPracodawcy);
+
   // Zwolnienie PIT-0 zdejmuje z podatku PRZYCHÓD, nie dochód, i nie dotyczy
   // składek: te wyżej naliczyły się od całości brutto. Zwolnienie jest
   // podatkowe, nie składkowe (model.md B.6).
-  const przychodZwolniony = opcje.ulgaDlaMlodych ? Math.min(bruttoRocznie, LIMIT_PIT_ZERO) : 0;
-  const przychodOpodatkowany = bruttoRocznie - przychodZwolniony;
+  //
+  // Wpłata pracodawcy do PPK wchodzi tu do przychodu objętego zwolnieniem
+  // i zużywa limit 85 528 zł na równi z wynagrodzeniem. Podstawa: B.6 wymienia
+  // wśród objętych przychodów „stosunek pracy", a wpłata pracodawcy jest
+  // przychodem właśnie z tego źródła — to jedyny powód, dla którego w ogóle
+  // jest opodatkowana. Model.md nie przesądza tego wprost, więc rozstrzygnięcie
+  // jest odnotowane w części E („Otwarte pytania"); dotyczy wyłącznie osób
+  // z ulgą i tylko na krawędzi limitu.
+  const przychodZwolniony = opcje.ulgaDlaMlodych ? Math.min(przychodPodatkowy, LIMIT_PIT_ZERO) : 0;
+  const przychodOpodatkowany = round2(przychodPodatkowy - przychodZwolniony);
 
   // KUP stosuje się TYLKO do części opodatkowanej (model.md B.6) — przy
   // przychodzie w całości zwolnionym nie ma ich wcale. Odliczyć da się przy tym
@@ -186,6 +245,11 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
   // Zdrowotna: 9% po odjęciu społecznych, ale przed KUP — od CAŁOŚCI przychodu,
   // bo zwolnienie nie jest składkowe. Podlega jednak kapowi z art. 83 (B.5),
   // który przy przychodzie zwolnionym z podatku ściąga ją aż do zera.
+  //
+  // Podstawą jest tu `bruttoRocznie`, a nie `przychodPodatkowy`: wpłata
+  // pracodawcy do PPK jest nieoskładkowana także zdrowotnie (B.7). Kap liczy się
+  // natomiast od `dochod`, czyli już z tą wpłatą — bo kapem jest hipotetyczna
+  // zaliczka na PIT, a ta widzi cały przychód podatkowy.
   const skladkaZdrowotna = Math.min(
     round2((bruttoRocznie - skladkiSpoleczne) * RATE_ZDROWOTNA),
     // Bez ulgi kap wiązałby dopiero poniżej ~1 250 zł/mies brutto — patrz
@@ -197,6 +261,7 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
   return {
     bruttoMiesiecznie,
     bruttoRocznie,
+    przychodPodatkowy,
     przychodZwolniony,
     przychodOpodatkowany,
     skladkiSpoleczne,
@@ -204,6 +269,7 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
     kup,
     dochod,
     ppk: round2(bruttoRocznie * (opcje.ppkPracownik ?? 0)),
+    ppkPracodawcy,
   };
 }
 
@@ -211,16 +277,21 @@ export interface Wynik {
   rok: Rok;
   bruttoMiesiecznie: number;
   bruttoRocznie: number;
+  /** Przychód podatkowy: brutto + wpłata pracodawcy do PPK. */
+  przychodPodatkowy: number;
   /** Przychód zwolniony z PIT (ulga dla młodych); zero, gdy ulga wyłączona. */
   przychodZwolniony: number;
-  /** Przychód podlegający opodatkowaniu: brutto − przychód zwolniony. */
+  /** Przychód podlegający opodatkowaniu: przychód podatkowy − przychód zwolniony. */
   przychodOpodatkowany: number;
   skladkiSpoleczne: number;
   skladkaZdrowotna: number;
   kup: number;
   podstawaOpodatkowania: number;
   podatek: number;
+  /** Wpłata pracownika do PPK — odjęta od netto. */
   ppk: number;
+  /** Wpłata pracodawcy do PPK — **nie** odjęta od netto; patrz `SkladnikiOsoby`. */
+  ppkPracodawcy: number;
   nettoRocznie: number;
   nettoMiesiecznie: number;
 }
@@ -230,6 +301,10 @@ export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): 
   const osoba = skladniki(bruttoMiesiecznie, opcje);
   const podatek = roundPln(podatekWgSkali(osoba.dochod, rok));
 
+  // Wpłata pracodawcy do PPK NIE jest tu odejmowana ani dodawana: nie jest
+  // wypłacana pracownikowi, więc nie powiększa netto, i nie jest z wypłaty
+  // potrącana, więc go nie obciąża. Jej jedyny ślad w netto to wyższy `podatek`
+  // (model.md B.2, uwaga przy kroku 10).
   const nettoRocznie = round2(
     osoba.bruttoRocznie - osoba.skladkiSpoleczne - osoba.skladkaZdrowotna - podatek - osoba.ppk,
   );
@@ -238,6 +313,7 @@ export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): 
     rok,
     bruttoMiesiecznie,
     bruttoRocznie: osoba.bruttoRocznie,
+    przychodPodatkowy: osoba.przychodPodatkowy,
     przychodZwolniony: osoba.przychodZwolniony,
     przychodOpodatkowany: osoba.przychodOpodatkowany,
     skladkiSpoleczne: osoba.skladkiSpoleczne,
@@ -246,6 +322,7 @@ export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): 
     podstawaOpodatkowania: osoba.dochod,
     podatek,
     ppk: osoba.ppk,
+    ppkPracodawcy: osoba.ppkPracodawcy,
     nettoRocznie,
     nettoMiesiecznie: round2(nettoRocznie / 12),
   };
@@ -347,7 +424,11 @@ export function obliczWspolnie(
 
   const skladkiSpoleczne = round2(suma((o) => o.skladkiSpoleczne));
   const skladkaZdrowotna = round2(suma((o) => o.skladkaZdrowotna));
+  // Wpłaty PPK są indywidualne — jak składki i jak limit PIT-0. Każdy małżonek
+  // ma własną podstawę i własną stawkę, więc liczą się osobno w `skladniki`,
+  // a tutaj tylko sumują do rozbicia gospodarstwa.
   const ppk = round2(suma((o) => o.ppk));
+  const ppkPracodawcy = round2(suma((o) => o.ppkPracodawcy));
   const bruttoRocznie = suma((o) => o.bruttoRocznie);
 
   const nettoRocznie = round2(
@@ -359,17 +440,19 @@ export function obliczWspolnie(
     osoby,
     bruttoMiesiecznie: bruttoMiesiecznie + bruttoMalzonka,
     bruttoRocznie,
+    przychodPodatkowy: round2(suma((o) => o.przychodPodatkowy)),
     // Limit PIT-0 przysługuje każdemu osobno (jak KUP i limit 30-krotności),
     // więc tu jest już tylko suma gospodarstwa; rozbicie na osoby siedzi
     // w `osoby`.
     przychodZwolniony: suma((o) => o.przychodZwolniony),
-    przychodOpodatkowany: suma((o) => o.przychodOpodatkowany),
+    przychodOpodatkowany: round2(suma((o) => o.przychodOpodatkowany)),
     skladkiSpoleczne,
     skladkaZdrowotna,
     kup: suma((o) => o.kup),
     podstawaOpodatkowania,
     podatek,
     ppk,
+    ppkPracodawcy,
     nettoRocznie,
     nettoMiesiecznie: round2(nettoRocznie / 12),
   };

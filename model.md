@@ -441,6 +441,29 @@ Traktowanie:
 
 Źródło: <https://serwiskadrowego.pl/2026/03/listy-plac-2026-rozliczenie-pracownika-uwzgledniajace-zasilek-ppk-pakiet-medyczny-i-mieszkanie/>
 
+### Odwzorowanie w modelu rocznym
+
+Obie wpłaty są w silniku osobnymi opcjami (`ppkPracownik`, `ppkPracodawca`), obie domyślnie
+**zerowe** — brak opcji znaczy brak PPK. Skutki są przeciwne i nie wolno ich mylić:
+
+| | podstawa ZUS | podstawa zdrowotnej | podstawa PIT | potrącane z netto |
+|---|---|---|---|---|
+| Wpłata pracownika | nie | nie | nie | **tak** |
+| Wpłata pracodawcy | **nie** | **nie** | **tak** | nie |
+
+Wpłata pracodawcy kosztuje pracownika **wyłącznie podatek od niej** — sama kwota trafia na jego
+rachunek PPK. Model wystawia ją osobno (`ppkPracodawcy`), żeby dało się to pokazać w rozbiciu jako
+przysporzenie, a nie jako stratę wynikającą z wyższego podatku.
+
+Dwa świadome uproszczenia:
+
+1. **Moment opodatkowania.** Wpłata pracodawcy jest przychodem w miesiącu *przekazania*, czyli
+   zwykle miesiąc później (krok 0 w B.2). W modelu **rocznym** przesunięcie znika — różnica
+   pojawiłaby się tylko na styku lat i przy zmianie wynagrodzenia w grudniu.
+2. **Podstawa wpłat.** Model liczy obie wpłaty od pełnego brutto, a nie od `min(brutto, 30-krotność)`:
+   wpłat PPK nie ogranicza limit 30-krotności, więc dla zarabiających powyżej niego brutto jest
+   właściwą podstawą, a nie `podstawa_er` z kroku 1.
+
 ## B.8. Danina solidarnościowa
 
 `[PEWNE dla 2026]` art. 30h ustawy o PIT.
@@ -502,6 +525,18 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
 
     return brutto_rok - s_spol - s_zdrow - podatek - ppk
 ```
+
+> Powyższy pseudokod pomija **wpłatę pracodawcy do PPK** — patrz B.7. Jeśli jest niezerowa,
+> wchodzi do przychodu podatkowego przed zwolnieniem PIT-0 i przed KUP, ale **nie** do podstawy
+> składek (te zostają liczone od `brutto_rok`) i **nie** do odejmowania w netto:
+>
+> ```python
+> ppk_firmy   = brutto_rok * opcje.ppk_pracodawca      # 0, jeśli brak PPK
+> przychod    = brutto_rok + ppk_firmy                 # tylko dla celów podatkowych
+> zwolniony   = min(przychod, 85_528) if opcje.ulga_pit0 else 0
+> podstawa    = round_pln(max(0, przychod - zwolniony - s_spol - kup))
+> # s_spol, s_zdrow i netto liczą się dalej od brutto_rok — bez ppk_firmy
+> ```
 
 > ⚠️ Model roczny ≠ suma 12 zaliczek miesięcznych, bo zaokrąglenia zachodzą co miesiąc.
 > Różnica to zwykle kilka–kilkanaście złotych rocznie, rozliczana w zeznaniu.
@@ -585,6 +620,19 @@ Art. 26 ust. 1 pkt 2 ustawy o PIT daje się jednak czytać jako zakaz odliczania
 przypadających na przychód zwolniony, co prowadziłoby do proporcji. Różnica dotyczy
 wyłącznie osób z ulgą zarabiających powyżej 85 528 zł rocznie i działa na korzyść
 podatnika. **Nierozstrzygnięte** — wymaga sprawdzenia w interpretacjach.
+
+**Czy wpłata pracodawcy do PPK jest objęta zwolnieniem PIT-0?**
+Rozstrzygnięte **w silniku na „tak"** — ale rozstrzygnięte, nie ustalone: część B.7 tego dokumentu
+nie mówi o tym ani słowa, a B.6 wymienia tylko źródła przychodu („stosunek pracy"), nie poszczególne
+składniki. Za „tak" przemawia to, że wpłata pracodawcy **jest** przychodem ze stosunku pracy — to
+jedyny powód, dla którego w ogóle podlega opodatkowaniu — więc zwolnienie obejmujące ten stosunek
+powinno obejmować i ją. Konsekwencja przyjętego rozwiązania: wpłata **zużywa wspólny limit
+85 528 zł** na równi z wynagrodzeniem, przez co osobie zarabiającej tuż poniżej limitu potrafi go
+przekroczyć (przy 7 100 zł/mies samo wynagrodzenie to 85 200 zł, a z wpłatą 1,5% już 86 478 zł).
+Gdyby prawidłowa była odpowiedź „nie", wpłata byłaby opodatkowana od pierwszej złotówki, a limit
+zostawałby dla wynagrodzenia — różnica **działa na niekorzyść podatnika**, odwrotnie niż przy
+pytaniu o składki wyżej. Dotyczy wyłącznie osób z ulgą PIT-0 mających PPK i tylko wokół limitu.
+**Nierozstrzygnięte** — wymaga sprawdzenia w interpretacjach.
 
 **Zbieg ulg PIT-0.** Limit 85 528 zł jest wspólny dla ulgi dla młodych, ulgi na powrót,
 ulgi dla rodzin 4+ i ulgi dla pracujących seniorów. Silnik przyjmuje, że limit jest

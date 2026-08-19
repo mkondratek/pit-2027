@@ -51,6 +51,21 @@ export const KAP_2021_STAWKA = 0.17;
 export const KAP_2021_ZMNIEJSZAJACA_MIES = 43.76;
 
 /**
+ * PPK — wpłaty podstawowe, ułamek podstawy (model.md B.7). [PEWNE]
+ *
+ * Do wpisania w interfejsie jako wartości domyślne po włączeniu PPK; **silnik
+ * ich sam nie zakłada** — brak opcji znaczy brak PPK, żeby włączenie programu
+ * było zawsze świadomym wyborem, a nie skutkiem ubocznym aktualizacji.
+ *
+ * Obie strony mogą wpłacać więcej (pracownik do 2% dodatkowo, pracodawca do
+ * 2,5%), a pracownik zarabiający poniżej 1,2 × płacy minimalnej może obniżyć
+ * swoją wpłatę do 0,5%. Dlatego opcje silnika są ułamkami, nie flagami —
+ * te stałe to tylko punkt wyjścia.
+ */
+export const PPK_PRACOWNIK_PODSTAWOWY = 0.02;
+export const PPK_PRACODAWCA_PODSTAWOWY = 0.015;
+
+/**
  * Płaca minimalna przy pełnym etacie. [PEWNE dla 2026]
  *
  * Nie wchodzi do wzoru — służy wyłącznie do ostrzeżenia w interfejsie. Nie jest

@@ -16,7 +16,13 @@ import {
   progiWspolne,
   roundPln,
 } from './engine';
-import { LIMIT_PIT_ZERO, PLACA_MINIMALNA, type Rok } from './constants';
+import {
+  LIMIT_PIT_ZERO,
+  PLACA_MINIMALNA,
+  PPK_PRACODAWCA_PODSTAWOWY,
+  PPK_PRACOWNIK_PODSTAWOWY,
+  type Rok,
+} from './constants';
 
 describe('roundPln — art. 63 §1 Ordynacji podatkowej', () => {
   it('pomija końcówki poniżej 50 gr', () => {
@@ -735,6 +741,283 @@ describe('ulga dla młodych (PIT-0)', () => {
         [30_000, 4_806],
       ]) {
         expect(obliczWspolnie(a, b, 2027, { ulgaDlaMlodych: false })).toEqual(
+          obliczWspolnie(a, b, 2027),
+        );
+      }
+    });
+  });
+});
+
+/**
+ * PPK — pracownicze plany kapitałowe (model.md B.7).
+ *
+ * Dwie wpłaty o **przeciwnym** działaniu i to jest cała trudność tej części:
+ *
+ * - wpłata **pracownika** (domyślnie 2%) idzie z netto, po podatku — obniża
+ *   wypłatę dokładnie o swoją wartość i nie dotyka niczego po drodze;
+ * - wpłata **pracodawcy** (domyślnie 1,5%) nie jest z wypłaty potrącana, ale
+ *   jest **przychodem podatkowym** pracownika — podnosi podstawę i podatek,
+ *   nie wchodząc przy tym do podstawy składek: ani społecznych, ani zdrowotnej.
+ *
+ * Pominięcie tej drugiej to najkosztowniejszy możliwy błąd w tę stronę:
+ * kalkulator pokazywałby podatek niższy niż rzeczywisty, czyli liczbę
+ * ładniejszą i nieprawdziwą. Stąd osobne testy na każde z trzech miejsc, gdzie
+ * ta wpłata pojawić się NIE może (składki, zdrowotna, potrącenie z netto),
+ * a nie tylko na to, że podatek urósł.
+ */
+describe('PPK (model.md B.7)', () => {
+  const lata: Rok[] = [2026, 2027];
+  const PRAC = { ppkPracownik: PPK_PRACOWNIK_PODSTAWOWY } as const;
+  const FIRMA = { ppkPracodawca: PPK_PRACODAWCA_PODSTAWOWY } as const;
+
+  // Wielokrotności 50 zł — wtedy brutto_rok × 1,5% jest pełnymi złotymi, więc
+  // wpływ na podstawę da się sprawdzić co do złotówki, bez tolerancji na
+  // zaokrągleniu do pełnych złotych.
+  const brutta = [5_000, 10_000, 13_000, 20_000, 30_000];
+
+  it('domyślne stawki to 2% pracownik i 1,5% pracodawca', () => {
+    expect(PPK_PRACOWNIK_PODSTAWOWY).toBe(0.02);
+    expect(PPK_PRACODAWCA_PODSTAWOWY).toBe(0.015);
+  });
+
+  /*
+   * Właściwość 0 — przy obu wpłatach wyłączonych nie zmienia się nic.
+   *
+   * Test na `toEqual` całego wyniku, nie na wybranych polach: gdyby wpłata
+   * pracodawcy przeciekła do wzoru z domyślną stawką zamiast zera, rozjechałaby
+   * podatek wszystkim, także tym bez PPK — czyli dokładnie tym liczbom,
+   * które w części D zgadzają się z wyliczeniami redakcji.
+   */
+  it('jest domyślnie wyłączone — bez niego wynik jest identyczny co do grosza', () => {
+    for (const rok of lata) {
+      for (const brutto of [0, 1_000, 4_806, 10_000, 12_345, 13_000, 30_000]) {
+        const wylaczone = { ppkPracownik: 0, ppkPracodawca: 0 };
+
+        expect(oblicz(brutto, rok, wylaczone)).toEqual(oblicz(brutto, rok));
+        expect(oblicz(brutto, rok, { ...wylaczone, ulgaDlaMlodych: true })).toEqual(
+          oblicz(brutto, rok, { ulgaDlaMlodych: true }),
+        );
+        expect(oblicz(brutto, rok, { ...wylaczone, kupPodwyzszone: true })).toEqual(
+          oblicz(brutto, rok, { kupPodwyzszone: true }),
+        );
+      }
+    }
+  });
+
+  it('brak PPK nie rusza wyniku także przy groszowym brutto', () => {
+    // Osobno, bo doliczenie wpłaty pracodawcy wprowadza do wzoru dodawanie na
+    // liczbach zmiennoprzecinkowych — przy zerowej stawce nie może zostać po nim
+    // nawet grosz różnicy.
+    for (const brutto of [4_806.33, 7_127.07, 9_999.99, 12_345.67]) {
+      expect(oblicz(brutto, 2027, { ppkPracodawca: 0 })).toEqual(oblicz(brutto, 2027));
+    }
+  });
+
+  describe('wpłata pracownika — z netto, po podatku', () => {
+    it('obniża netto dokładnie o swoją wartość', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const bez = oblicz(brutto, rok);
+          const z = oblicz(brutto, rok, PRAC);
+
+          expect(z.ppk).toBeCloseTo(brutto * 12 * 0.02, 2);
+          expect(bez.nettoRocznie - z.nettoRocznie).toBeCloseTo(z.ppk, 2);
+        }
+      }
+    });
+
+    it('nie rusza ani podatku, ani składek, ani podstawy', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const bez = oblicz(brutto, rok);
+          const z = oblicz(brutto, rok, PRAC);
+
+          expect(z.podstawaOpodatkowania).toBe(bez.podstawaOpodatkowania);
+          expect(z.podatek).toBe(bez.podatek);
+          expect(z.skladkiSpoleczne).toBe(bez.skladkiSpoleczne);
+          expect(z.skladkaZdrowotna).toBe(bez.skladkaZdrowotna);
+        }
+      }
+    });
+  });
+
+  describe('wpłata pracodawcy — przychód podatkowy, nieoskładkowany', () => {
+    it('jest wystawiona w wyniku i nie miesza się z wpłatą pracownika', () => {
+      const w = oblicz(10_000, 2026, { ...PRAC, ...FIRMA });
+
+      expect(w.ppkPracodawcy).toBe(120_000 * 0.015);
+      expect(w.ppk).toBe(120_000 * 0.02);
+    });
+
+    it('podnosi przychód podatkowy i podstawę dokładnie o swoją wartość', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const bez = oblicz(brutto, rok);
+          const z = oblicz(brutto, rok, FIRMA);
+
+          expect(z.przychodPodatkowy - z.bruttoRocznie).toBeCloseTo(z.ppkPracodawcy, 2);
+          expect(z.podstawaOpodatkowania - bez.podstawaOpodatkowania).toBe(z.ppkPracodawcy);
+        }
+      }
+    });
+
+    it('podnosi podatek — i to jest sedno: bez tego kalkulator by go zaniżał', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const bez = oblicz(brutto, rok);
+          const z = oblicz(brutto, rok, FIRMA);
+          const wzrost = z.podatek - bez.podatek;
+
+          // Dodatkowy podatek to stawka krańcowa od wpłaty — dodatni, ale nigdy
+          // większy niż najwyższa stawka skali. Górne ograniczenie łapie wpłatę
+          // policzoną dwa razy albo potraktowaną jak dochód bez KUP.
+          expect(wzrost).toBeGreaterThan(0);
+          expect(wzrost).toBeLessThanOrEqual(0.32 * z.ppkPracodawcy + 1);
+        }
+      }
+    });
+
+    it('NIE wchodzi do podstawy składek — ani społecznych, ani zdrowotnej', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const bez = oblicz(brutto, rok);
+          const z = oblicz(brutto, rok, FIRMA);
+
+          expect(z.skladkiSpoleczne).toBe(bez.skladkiSpoleczne);
+          expect(z.skladkaZdrowotna).toBe(bez.skladkaZdrowotna);
+        }
+      }
+    });
+
+    it('NIE jest potrącana z netto — netto spada wyłącznie o podatek od niej', () => {
+      for (const rok of lata) {
+        for (const brutto of brutta) {
+          const bez = oblicz(brutto, rok);
+          const z = oblicz(brutto, rok, FIRMA);
+
+          expect(bez.nettoRocznie - z.nettoRocznie).toBeCloseTo(z.podatek - bez.podatek, 2);
+          // Gdyby kwotę odjęto od wypłaty, różnica byłaby o rząd wielkości większa.
+          expect(bez.nettoRocznie - z.nettoRocznie).toBeLessThan(z.ppkPracodawcy);
+        }
+      }
+    });
+  });
+
+  it('obie wpłaty razem: netto spada o wpłatę pracownika plus podatek od wpłaty firmy', () => {
+    for (const rok of lata) {
+      for (const brutto of brutta) {
+        const bez = oblicz(brutto, rok);
+        const z = oblicz(brutto, rok, { ...PRAC, ...FIRMA });
+
+        expect(bez.nettoRocznie - z.nettoRocznie).toBeCloseTo(
+          z.ppk + (z.podatek - bez.podatek),
+          2,
+        );
+      }
+    }
+  });
+
+  it('rozbicie się spina: zwolniony + opodatkowany = brutto + wpłata pracodawcy', () => {
+    for (const opcje of [FIRMA, { ...FIRMA, ulgaDlaMlodych: true }]) {
+      for (const brutto of brutta) {
+        const w = oblicz(brutto, 2026, opcje);
+
+        expect(w.przychodZwolniony + w.przychodOpodatkowany).toBeCloseTo(w.przychodPodatkowy, 2);
+        expect(w.przychodPodatkowy).toBeCloseTo(w.bruttoRocznie + w.ppkPracodawcy, 2);
+      }
+    }
+  });
+
+  /*
+   * Styk z ulgą dla młodych.
+   *
+   * Wpłata pracodawcy jest przychodem ze stosunku pracy, a takie przychody
+   * obejmuje zwolnienie PIT-0 (model.md B.6) — więc silnik traktuje ją jako
+   * objętą ulgą i zużywającą wspólny limit 85 528 zł. Model.md nie przesądza
+   * tego wprost; rozstrzygnięcie jest odnotowane w części E. Praktyczny skutek
+   * jest wąski: dotyczy wyłącznie osób z ulgą i tylko wokół limitu.
+   */
+  describe('styk z ulgą dla młodych', () => {
+    const U = { ulgaDlaMlodych: true } as const;
+
+    it('poniżej limitu wpłata pracodawcy nie tworzy podatku — jest zwolniona jak reszta przychodu', () => {
+      for (const rok of lata) {
+        // 5 000 zł/mies + 1,5% = 60 900 zł, wciąż poniżej 85 528 zł.
+        const w = oblicz(5_000, rok, { ...U, ...FIRMA });
+
+        expect(w.przychodZwolniony).toBe(w.przychodPodatkowy);
+        expect(w.podatek).toBe(0);
+        expect(w.podstawaOpodatkowania).toBe(0);
+        // Kap z art. 83 nadal ściąga zdrowotną do zera.
+        expect(w.skladkaZdrowotna).toBe(0);
+      }
+    });
+
+    it('zużywa limit PIT-0 na równi z wynagrodzeniem', () => {
+      // Brutto samo w sobie poniżej limitu, ale razem z wpłatą pracodawcy powyżej:
+      // 7 000 × 12 = 84 000 zł, +1,5% = 85 260 zł — nadal poniżej.
+      expect(oblicz(7_000, 2026, { ...U, ...FIRMA }).przychodZwolniony).toBe(85_260);
+      // 7 100 × 12 = 85 200 zł, +1,5% = 86 478 zł — limit przekroczony przez
+      // samą wpłatę, choć wynagrodzenie jeszcze się w nim mieści.
+      const naKrawedzi = oblicz(7_100, 2026, { ...U, ...FIRMA });
+      expect(naKrawedzi.bruttoRocznie).toBeLessThan(LIMIT_PIT_ZERO);
+      expect(naKrawedzi.przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+      expect(naKrawedzi.przychodOpodatkowany).toBeCloseTo(86_478 - LIMIT_PIT_ZERO, 2);
+    });
+
+    it('powyżej limitu wpłata pracodawcy jest opodatkowana normalnie', () => {
+      const bez = oblicz(13_000, 2027, U);
+      const z = oblicz(13_000, 2027, { ...U, ...FIRMA });
+
+      expect(z.podstawaOpodatkowania - bez.podstawaOpodatkowania).toBe(z.ppkPracodawcy);
+      expect(z.podatek).toBeGreaterThan(bez.podatek);
+      expect(z.skladkiSpoleczne).toBe(bez.skladkiSpoleczne);
+    });
+  });
+
+  /*
+   * Wspólne rozliczenie: wpłaty PPK są indywidualne, tak jak składki.
+   * Sprawdzane od strony, z której widać pomyłkę — czy stawka jednego małżonka
+   * nie nalicza się od zarobków obojga.
+   */
+  describe('wspólne rozliczenie', () => {
+    it('liczy wpłaty każdemu od jego własnego wynagrodzenia', () => {
+      const w = obliczWspolnie(13_000, 5_000, 2027, { ...PRAC, ...FIRMA });
+
+      expect(w.osoby[0].ppkPracodawcy).toBe(13_000 * 12 * 0.015);
+      expect(w.osoby[1].ppkPracodawcy).toBe(5_000 * 12 * 0.015);
+      expect(w.ppkPracodawcy).toBe(w.osoby[0].ppkPracodawcy + w.osoby[1].ppkPracodawcy);
+      expect(w.ppk).toBe(18_000 * 12 * 0.02);
+    });
+
+    it('pozwala małżonkom na różne stawki', () => {
+      const w = obliczWspolnie(10_000, 10_000, 2027, {
+        ...FIRMA,
+        malzonek: { ppkPracodawca: 0 },
+      });
+
+      expect(w.osoby[0].ppkPracodawcy).toBe(120_000 * 0.015);
+      expect(w.osoby[1].ppkPracodawcy).toBe(0);
+    });
+
+    it('u pary o równych zarobkach kosztuje tyle, co dwa razy osobno (± 1 zł)', () => {
+      const opcje = { ...PRAC, ...FIRMA, malzonek: { ...PRAC, ...FIRMA } };
+
+      for (const brutto of [5_000, 10_000, 20_000]) {
+        const para = obliczWspolnie(brutto, brutto, 2027, opcje);
+        const sam = oblicz(brutto, 2027, { ...PRAC, ...FIRMA });
+
+        expect(Math.abs(para.nettoRocznie - 2 * sam.nettoRocznie)).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('wyłączone nie zmienia wyniku wspólnego rozliczenia', () => {
+      for (const [a, b] of [
+        [12_000, 0],
+        [13_000, 7_000],
+        [30_000, 4_806],
+      ]) {
+        expect(obliczWspolnie(a, b, 2027, { ppkPracownik: 0, ppkPracodawca: 0 })).toEqual(
           obliczWspolnie(a, b, 2027),
         );
       }
