@@ -9,6 +9,7 @@ import {
   BRUTTO_POCZATEK_KORZYSCI_ZLECENIE,
   MAKSYMALNA_KORZYSC_ROCZNA,
   MAKSYMALNA_KORZYSC_WSPOLNA,
+  daninaSolidarnosciowa,
   kapZdrowotnej,
   obliczWspolnie,
   oblicz,
@@ -21,6 +22,8 @@ import {
   roundPln,
 } from './engine';
 import {
+  DANINA_PROG,
+  DANINA_STAWKA,
   KUP_ZLECENIE_STAWKA,
   KWOTA_ZMNIEJSZAJACA_ROK,
   LIMIT_30X,
@@ -135,8 +138,17 @@ describe('progi korzyści', () => {
     }
   });
 
+  /*
+   * Górny kraniec listy to 80 000 zł, a nie — jak do wprowadzenia daniny
+   * solidarnościowej — 100 000 zł. Nie jest to ustępstwo wobec implementacji,
+   * tylko poprawka merytoryczna: przy 100 000 zł/mies dochód wynosi 1 135 779 zł,
+   * czyli jest **powyżej progu daniny**, a ta rośnie z 4% na 5%, więc zysk to
+   * tam 2 242 zł, nie 3 600 zł. Poprzednia wersja tego wiersza twierdziła coś,
+   * co przestało być prawdą — o czym niżej osobny opis („danina solidarnościowa").
+   * 80 000 zł leży bezpiecznie pod progiem (danina wchodzi od 88 402 zł/mies).
+   */
   it('powyżej progu pełnej korzyści zysk zatrzymuje się na 3 600 zł/rok', () => {
-    for (const brutto of [BRUTTO_PELNA_KORZYSC, 18_000, 30_000, 100_000]) {
+    for (const brutto of [BRUTTO_PELNA_KORZYSC, 18_000, 30_000, 80_000]) {
       expect(porownaj(brutto).zyskRocznie).toBe(MAKSYMALNA_KORZYSC_ROCZNA);
     }
   });
@@ -1913,6 +1925,403 @@ describe('umowa zlecenia (model.md część F)', () => {
           oblicz(brutto, 2026, Z),
         );
       }
+    });
+  });
+});
+
+/**
+ * Danina solidarnościowa — art. 30h ustawy o PIT (model.md B.8).
+ *
+ * Ten składnik jest w całym pakiecie wyjątkiem: **jako jedyny czyni rok 2027
+ * gorszym niż 2026** (stawka 4% → 5% przy niezmienionym progu 1 000 000 zł).
+ * Reszta modelu potrafi dać wyłącznie zysk albo zero, więc testy niżej pilnują
+ * m.in. tego, czego nigdzie indziej pilnować nie trzeba było: że zysk z reformy
+ * bywa **ujemny** i że nie jest to błąd rachunkowy.
+ *
+ * Opublikowanych wyliczeń dla tych kwot nie ma — nikt nie robi kalkulatorów
+ * płacowych dla miliona złotych dochodu — więc, jak przy wspólnym rozliczeniu
+ * i uldze dla młodych, testujemy **własności**. Każda odpowiada jednemu
+ * sposobowi, w jaki daninę robi się źle:
+ *
+ * 1. naliczenie jej od pierwszej złotówki po przekroczeniu progu zamiast od
+ *    samej nadwyżki (podatnik z dochodem 1 000 013 zł płaci złotówkę, nie
+ *    40 000 zł);
+ * 2. **zsumowanie dochodów małżonków** przy wspólnym rozliczeniu — para
+ *    2 × 550 tys. zł nie płaci nic, choć razem ma ponad milion;
+ * 3. **podzielenie łącznego dochodu na pół** jak przy podatku — samotny
+ *    milioner z niepracującym małżonkiem uciekłby wtedy od daniny w całości;
+ * 4. wciągnięcie do podstawy przychodu zwolnionego z PIT (ulga dla młodych);
+ * 5. potraktowanie jej jako opcji do włączenia — nie jest wyborem podatnika,
+ *    tylko konsekwencją wysokości dochodu.
+ *
+ * Punkty 2 i 3 to sedno: są wobec siebie przeciwstawne i **obie** wersje dają
+ * liczby nie do obrony. Rozstrzygnięcie (danina jest indywidualna; dochodów ani
+ * się nie sumuje, ani nie dzieli) pochodzi z objaśnień podatkowych MF
+ * z 28.08.2019 — patrz model.md B.8.
+ */
+describe('danina solidarnościowa (model.md B.8)', () => {
+  const lata: Rok[] = [2026, 2027];
+
+  /*
+   * Właściwość 1 — poniżej progu daniny nie ma, i to musi być prawdą dla
+   * całego zakresu, w którym kalkulator jest realnie używany. Gdyby danina
+   * przeciekała niżej, zepsułaby wynik wszystkim; jej wprowadzenie ma być
+   * dla 99,9% użytkowników niewidoczne.
+   */
+  describe('poniżej progu', () => {
+    it('jest zerowa w obu latach dla całego typowego zakresu', () => {
+      for (const rok of lata) {
+        for (let brutto = 0; brutto <= 88_000; brutto += 500) {
+          expect(oblicz(brutto, rok).danina).toBe(0);
+        }
+      }
+    });
+
+    it('nie rusza netto ani zysku z reformy', () => {
+      // Ta sama lista kwot, na której opierają się testy walidacyjne wyżej.
+      for (const brutto of [3_000, 6_000, 12_000, 13_000, 15_000, 20_000, 30_000]) {
+        const { przed, po, zyskRocznie } = porownaj(brutto);
+
+        expect(przed.danina).toBe(0);
+        expect(po.danina).toBe(0);
+        expect(zyskRocznie).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it('zeruje się też przy najwyższej kwocie, jaką pole przyjmuje, na zleceniu', () => {
+      // Koszty 20% zbijają dochód poniżej miliona nawet przy 100 000 zł/mies:
+      // 929 004 zł. Zleceniobiorca daniny przy tej kwocie brutto nie zapłaci,
+      // choć etatowiec z tą samą kwotą — tak. To nie przeoczenie, tylko skutek
+      // innej konstrukcji kosztów (art. 22 ust. 9 pkt 4).
+      const z = oblicz(100_000, 2026, { forma: 'zlecenie' });
+
+      expect(z.podstawaOpodatkowania).toBe(929_004);
+      expect(z.danina).toBe(0);
+    });
+  });
+
+  /*
+   * Właściwość 2 — próg jest punktem przełamania, nie bramką. To jest ten
+   * błąd, który w kalkulatorach internetowych widuje się najczęściej: skokowe
+   * naliczenie 40 000 zł od kwoty 1 000 001 zł.
+   */
+  describe('tuż powyżej progu opodatkowana jest wyłącznie nadwyżka', () => {
+    it('przy dochodzie 1 000 013 zł danina wynosi złotówkę, nie 40 000 zł', () => {
+      const w = oblicz(88_402, 2026);
+
+      expect(w.podstawaOpodatkowania).toBe(1_000_013);
+      expect(w.danina).toBe(1);
+    });
+
+    it('złotówkę niżej — przy dochodzie 1 000 001 zł — nie ma jeszcze nic', () => {
+      const w = oblicz(88_401, 2026);
+
+      expect(w.podstawaOpodatkowania).toBe(1_000_001);
+      // 4% z 1 zł to 4 grosze, czyli po zaokrągleniu do pełnych złotych zero.
+      expect(w.danina).toBe(0);
+    });
+
+    it('jest dokładnie stawką od nadwyżki ponad próg, w obu latach', () => {
+      for (const rok of lata) {
+        for (const brutto of [90_000, 95_000, 100_000, 150_000]) {
+          const w = oblicz(brutto, rok);
+
+          expect(w.danina).toBe(
+            roundPln((w.podstawaOpodatkowania - DANINA_PROG) * DANINA_STAWKA[rok]),
+          );
+        }
+      }
+    });
+
+    it('rośnie niemalejąco wraz z wynagrodzeniem', () => {
+      let poprzednia = -1;
+      for (let brutto = 80_000; brutto <= 200_000; brutto += 1_000) {
+        const danina = oblicz(brutto, 2027).danina;
+        expect(danina).toBeGreaterThanOrEqual(poprzednia);
+        poprzednia = danina;
+      }
+    });
+  });
+
+  /*
+   * Właściwość 3 — jedyny element pakietu, w którym 2027 jest GORSZY.
+   */
+  describe('2027 jest tu gorszy niż 2026', () => {
+    it('stawka rośnie z 4% na 5% przy niezmienionym progu', () => {
+      expect(DANINA_STAWKA[2026]).toBe(0.04);
+      expect(DANINA_STAWKA[2027]).toBe(0.05);
+      expect(DANINA_PROG).toBe(1_000_000);
+    });
+
+    it('danina 2027 nigdy nie jest niższa od daniny 2026', () => {
+      for (let brutto = 0; brutto <= 200_000; brutto += 2_500) {
+        expect(oblicz(brutto, 2027).danina).toBeGreaterThanOrEqual(
+          oblicz(brutto, 2026).danina,
+        );
+      }
+    });
+
+    it('przy 100 000 zł/mies zjada część zysku ze zmiany skali', () => {
+      const { przed, po, zyskRocznie } = porownaj(100_000);
+
+      expect(przed.podstawaOpodatkowania).toBe(1_135_779);
+      expect(przed.danina).toBe(5_431); // 4% z 135 779 zł
+      expect(po.danina).toBe(6_789); // 5% z 135 779 zł
+      // Sama zmiana skali daje pełne 3 600 zł; danina zabiera z tego 1 358 zł.
+      expect(zyskRocznie).toBe(MAKSYMALNA_KORZYSC_ROCZNA - (po.danina - przed.danina));
+      expect(zyskRocznie).toBe(2_242);
+    });
+
+    /*
+     * Punkt, w którym „reforma" przestaje być korzystna. Nie jest to ciekawostka
+     * na marginesie, tylko jedyna grupa, dla której zapowiedź oznacza podwyżkę —
+     * i strona, która pokazywałaby jej zysk, kłamałaby co do wymowy całej zmiany.
+     *
+     * 119 157 zł/mies leży POWYŻEJ kwoty, jaką przyjmuje pole w interfejsie
+     * (100 000 zł), więc przy obecnym ograniczeniu ujemnego zysku nikt na
+     * stronie nie zobaczy — zobaczy zysk stopniowo topniejący z 3 600 zł. Ta
+     * granica jest tu przypięta liczbowo właśnie po to, żeby podniesienie
+     * limitu pola nie przeszło niezauważone.
+     */
+    it('powyżej 119 157 zł/mies brutto zysk z reformy jest UJEMNY', () => {
+      expect(porownaj(119_156).zyskRocznie).toBe(0);
+      expect(porownaj(119_157).zyskRocznie).toBe(-1);
+      expect(porownaj(200_000).zyskRocznie).toBeLessThan(-9_000);
+    });
+
+    it('granica przesuwa się w górę tam, gdzie dochód rośnie wolniej od brutto', () => {
+      // Zlecenie (koszty 20%) i ulga dla młodych (85 528 zł poza podstawą)
+      // odsuwają moment przekroczenia miliona, więc i moment, w którym reforma
+      // przestaje się opłacać.
+      expect(porownaj(144_898, { forma: 'zlecenie' }).zyskRocznie).toBe(0);
+      expect(porownaj(144_899, { forma: 'zlecenie' }).zyskRocznie).toBe(-1);
+      expect(porownaj(126_464, { ulgaDlaMlodych: true }).zyskRocznie).toBe(0);
+      expect(porownaj(126_465, { ulgaDlaMlodych: true }).zyskRocznie).toBe(-1);
+    });
+  });
+
+  /*
+   * Właściwość 4 — wspólne rozliczenie. Najważniejsza część tego opisu.
+   *
+   * Objaśnienia podatkowe MF z 28.08.2019: „każdy z małżonków bierze pod uwagę
+   * wyłącznie swoje dochody, niezależnie od tego, czy rozliczają się wspólnie;
+   * dochodów małżonków się nie sumuje ani nie dzieli na pół".
+   */
+  describe('przy wspólnym rozliczeniu jest indywidualna', () => {
+    it('NIE sumuje dochodów — para tuż pod progiem nie płaci nic', () => {
+      // Łączna podstawa opodatkowania gospodarstwa to 1 100 958 zł, czyli ponad
+      // milion. Gdyby daninę liczyć od tej sumy, para zapłaciłaby 4 038 zł —
+      // mimo że żadne z nich progu nie dotknęło (po 550 479 zł na osobę).
+      const w = obliczWspolnie(50_000, 50_000, 2026);
+
+      expect(w.podstawaOpodatkowania).toBe(1_100_958);
+      expect(w.podstawaOpodatkowania).toBeGreaterThan(DANINA_PROG);
+      expect(w.osoby.map((o) => o.podstawaDaniny)).toEqual([550_479, 550_479]);
+      expect(w.danina).toBe(0);
+    });
+
+    it('NIE dzieli łącznego dochodu na pół — milioner nie chowa się za małżonkiem', () => {
+      // Połowa łącznej podstawy to 567 889,50 zł, czyli poniżej progu. Gdyby
+      // daninę liczyć tak jak podatek — od połowy sumy — wyszłoby zero i osoba
+      // z dochodem 1 135 779 zł nie zapłaciłaby daniny w ogóle, wystarczyłby
+      // ślub z osobą bez dochodu.
+      const w = obliczWspolnie(100_000, 0, 2026);
+
+      expect(w.podstawaOpodatkowania / 2).toBeLessThan(DANINA_PROG);
+      expect(w.danina).toBe(5_431);
+      // …czyli dokładnie tyle, ile ta sama osoba zapłaciłaby rozliczając się sama.
+      expect(w.danina).toBe(oblicz(100_000, 2026).danina);
+      expect(w.osoby.map((o) => o.danina)).toEqual([5_431, 0]);
+    });
+
+    it('jest sumą danin obu małżonków, każdej od własnej podstawy', () => {
+      for (const rok of lata) {
+        for (const [a, b] of [
+          [100_000, 100_000],
+          [100_000, 30_000],
+          [120_000, 95_000],
+        ]) {
+          const w = obliczWspolnie(a, b, rok);
+
+          expect(w.danina).toBe(w.osoby[0].danina + w.osoby[1].danina);
+          expect(w.danina).toBe(oblicz(a, rok).danina + oblicz(b, rok).danina);
+        }
+      }
+    });
+
+    it('nie daje się uniknąć ani wywołać kolejnością małżonków', () => {
+      for (const [a, b] of [
+        [100_000, 0],
+        [100_000, 50_000],
+        [150_000, 20_000],
+      ]) {
+        expect(obliczWspolnie(a, b, 2027).danina).toBe(obliczWspolnie(b, a, 2027).danina);
+        expect(obliczWspolnie(a, b, 2027).nettoRocznie).toBe(
+          obliczWspolnie(b, a, 2027).nettoRocznie,
+        );
+      }
+    });
+
+    it('podstawą daniny osoby nigdy nie jest łączna podstawa opodatkowania', () => {
+      const w = obliczWspolnie(100_000, 60_000, 2026);
+
+      for (const osoba of w.osoby) {
+        expect(osoba.podstawaDaniny).toBeLessThan(w.podstawaOpodatkowania);
+      }
+      expect(w.osoby[0].podstawaDaniny + w.osoby[1].podstawaDaniny).toBe(
+        w.podstawaOpodatkowania,
+      );
+    });
+  });
+
+  /*
+   * Właściwość 5 — styk z tym, co już w silniku było. Danina liczy się od
+   * dochodu, więc dziedziczy wszystko, co dochód kształtuje; te testy pilnują,
+   * żeby dziedziczyła to poprawnie.
+   */
+  describe('współgra z resztą modelu', () => {
+    it('przychód zwolniony z PIT nie wchodzi do podstawy (ulga dla młodych)', () => {
+      // Art. 30h ust. 2 mówi o dochodach „podlegających opodatkowaniu", a
+      // przychód zwolniony z art. 21 ust. 1 pkt 148 opodatkowaniu nie podlega.
+      // Podstawa spada dokładnie o wykorzystany limit PIT-0, ani o grosz więcej.
+      const bez = oblicz(100_000, 2026);
+      const z = oblicz(100_000, 2026, { ulgaDlaMlodych: true });
+
+      expect(bez.podstawaOpodatkowania - z.podstawaOpodatkowania).toBe(LIMIT_PIT_ZERO);
+      expect(z.podstawaOpodatkowania).toBe(1_050_251);
+      expect(z.danina).toBe(2_010); // 4% z 50 251 zł
+      expect(z.danina).toBeLessThan(bez.danina);
+    });
+
+    it('koszty 20% przy zleceniu obniżają podstawę daniny', () => {
+      expect(oblicz(150_000, 2026, { forma: 'zlecenie' }).podstawaOpodatkowania).toBeLessThan(
+        oblicz(150_000, 2026).podstawaOpodatkowania,
+      );
+    });
+
+    it('wpłata pracodawcy do PPK podnosi podstawę — jest przychodem podatkowym', () => {
+      const bez = oblicz(100_000, 2026);
+      const z = oblicz(100_000, 2026, { ppkPracodawca: 0.015 });
+
+      expect(z.podstawaOpodatkowania - bez.podstawaOpodatkowania).toBe(1_200_000 * 0.015);
+      expect(z.danina).toBeGreaterThan(bez.danina);
+    });
+
+    it('wpłata pracownika do PPK nie rusza podstawy — idzie z netto', () => {
+      const bez = oblicz(100_000, 2026);
+      const z = oblicz(100_000, 2026, { ppkPracownik: 0.02 });
+
+      expect(z.podstawaOpodatkowania).toBe(bez.podstawaOpodatkowania);
+      expect(z.danina).toBe(bez.danina);
+    });
+
+    it('składki społeczne są od podstawy odjęte — inaczej byłaby zawyżona', () => {
+      // Art. 30h ust. 2 pkt 1: podstawę pomniejsza się o składki z art. 26
+      // ust. 1 pkt 2 i 2a. Zdrowotna się NIE odlicza (nie ma jej w tym katalogu
+      // i od 2022 r. nie odlicza się jej nigdzie).
+      const w = oblicz(100_000, 2026);
+
+      expect(w.podstawaOpodatkowania).toBe(
+        roundPln(w.przychodOpodatkowany - w.skladkiSpoleczne - w.kup),
+      );
+      expect(w.podstawaOpodatkowania).toBeLessThan(
+        w.przychodOpodatkowany - w.skladkiSpoleczne,
+      );
+    });
+
+    /*
+      * Pomost między dwiema liczbami, które przy rozliczeniu indywidualnym są
+      * tożsame, a przy wspólnym już nie. `Wynik` celowo NIE wystawia
+      * `podstawaDaniny` — u pary musiałaby to być suma gospodarstwa, czyli
+      * dokładnie ta liczba, której pod próg 1 000 000 zł podstawiać nie wolno.
+      * Kto potrzebuje podstawy osoby, bierze ją z `osoby[i].podstawaDaniny`;
+      * u osoby samotnej wystarczy `podstawaOpodatkowania`, i to jest tu
+      * przypięte, żeby ta droga została udokumentowana, a nie odgadywana.
+      */
+    it('u osoby samotnej wyprowadza się wprost z podstawy opodatkowania', () => {
+      for (const rok of lata) {
+        for (const brutto of [50_000, 100_000, 150_000]) {
+          const w = oblicz(brutto, rok);
+          expect(w.danina).toBe(daninaSolidarnosciowa(w.podstawaOpodatkowania, rok));
+        }
+      }
+    });
+
+    it('u pary bierze się z rozbicia na osoby, nie z łącznej podstawy', () => {
+      const w = obliczWspolnie(100_000, 60_000, 2026);
+
+      expect(w.danina).toBe(
+        w.osoby.reduce((suma, o) => suma + daninaSolidarnosciowa(o.podstawaDaniny, 2026), 0),
+      );
+      // Gdyby ktoś podstawił łączną podstawę, wyszłoby grubo za dużo.
+      expect(daninaSolidarnosciowa(w.podstawaOpodatkowania, 2026)).toBeGreaterThan(w.danina);
+    });
+  });
+
+  /*
+   * Właściwość 6 — danina jest odjęta od netto i nie da się jej wyłączyć.
+   */
+  describe('obniża netto i nie jest opcją', () => {
+    it('netto spada dokładnie o kwotę daniny', () => {
+      for (const rok of lata) {
+        const w = oblicz(100_000, rok);
+
+        expect(w.nettoRocznie).toBe(
+          round2(
+            w.bruttoRocznie - w.skladkiSpoleczne - w.skladkaZdrowotna - w.podatek - w.danina - w.ppk,
+          ),
+        );
+      }
+    });
+
+    it('to samo przy wspólnym rozliczeniu', () => {
+      const w = obliczWspolnie(100_000, 80_000, 2027);
+
+      expect(w.nettoRocznie).toBe(
+        round2(
+          w.bruttoRocznie - w.skladkiSpoleczne - w.skladkaZdrowotna - w.podatek - w.danina - w.ppk,
+        ),
+      );
+      expect(w.danina).toBeGreaterThan(0);
+    });
+
+    it('nie ma opcji, która by ją wyłączyła — liczy się z samej wysokości dochodu', () => {
+      // Zestaw opcji dobrany tak, żeby każda z nich obniżała obciążenia; żadna
+      // ani ich kombinacja nie zdejmuje daniny, dopóki dochód jest ponad progiem.
+      const w = oblicz(150_000, 2027, {
+        kupPodwyzszone: true,
+        ulgaDlaMlodych: true,
+        ppkPracownik: 0.04,
+        chorobowaDobrowolna: false,
+      });
+
+      expect(w.podstawaOpodatkowania).toBeGreaterThan(DANINA_PROG);
+      expect(w.danina).toBeGreaterThan(0);
+    });
+  });
+
+  /*
+   * Właściwość 7 — funkcja `daninaSolidarnosciowa` sama w sobie.
+   */
+  describe('daninaSolidarnosciowa', () => {
+    it('jest zerowa dokładnie do progu włącznie', () => {
+      expect(daninaSolidarnosciowa(0, 2026)).toBe(0);
+      expect(daninaSolidarnosciowa(999_999, 2026)).toBe(0);
+      expect(daninaSolidarnosciowa(DANINA_PROG, 2026)).toBe(0);
+    });
+
+    it('liczy stawkę od nadwyżki i zaokrągla do pełnych złotych (art. 30i)', () => {
+      expect(daninaSolidarnosciowa(1_100_000, 2026)).toBe(4_000);
+      expect(daninaSolidarnosciowa(1_100_000, 2027)).toBe(5_000);
+      expect(daninaSolidarnosciowa(2_000_000, 2026)).toBe(40_000);
+      expect(daninaSolidarnosciowa(2_000_000, 2027)).toBe(50_000);
+      // 4% z 12 zł to 48 gr → 0 zł; 4% z 13 zł to 52 gr → 1 zł (HALF_UP).
+      expect(daninaSolidarnosciowa(1_000_012, 2026)).toBe(0);
+      expect(daninaSolidarnosciowa(1_000_013, 2026)).toBe(1);
+    });
+
+    it('nie schodzi poniżej zera przy podstawie ujemnej', () => {
+      expect(daninaSolidarnosciowa(-5_000, 2027)).toBe(0);
     });
   });
 });

@@ -9,6 +9,8 @@
  */
 
 import {
+  DANINA_PROG,
+  DANINA_STAWKA,
   KAP_2021_STAWKA,
   KAP_2021_ZMNIEJSZAJACA_MIES,
   KUP_PODSTAWOWE_MIES,
@@ -100,6 +102,26 @@ export function kapZdrowotnej(
   const zmniejszenie = zKwotaZmniejszajaca ? 12 * KAP_2021_ZMNIEJSZAJACA_MIES : 0;
 
   return round2(Math.max(0, podstawaBezZwolnienia * KAP_2021_STAWKA - zmniejszenie));
+}
+
+/**
+ * Danina solidarnościowa — art. 30h ustawy o PIT (model.md B.8).
+ *
+ * 4% (2026) albo 5% (2027, zapowiedź) od **nadwyżki** podstawy ponad
+ * 1 000 000 zł. Podatnik z podstawą 1 000 013 zł płaci **złotówkę**, a nie
+ * czterdzieści tysięcy — próg jest punktem przełamania jak w skali, nie
+ * bramką naliczającą daninę od całego dochodu po jego przekroczeniu.
+ *
+ * Zaokrąglenie do pełnych złotych: art. 30i odsyła do Ordynacji podatkowej,
+ * więc art. 63 §1 stosuje się tak samo jak do podatku.
+ *
+ * Danina jest **poza zaliczkami** — płaci się ją raz w roku deklaracją DSF-1
+ * do 30 kwietnia. Model jest roczny, więc mieści ją bez zastrzeżeń; lista płac
+ * by nie mieściła i dlatego test zgodności z dwunastoma zaliczkami operuje na
+ * kwotach daleko poniżej progu.
+ */
+export function daninaSolidarnosciowa(podstawaDaniny: number, rok: Rok): number {
+  return roundPln(Math.max(0, podstawaDaniny - DANINA_PROG) * DANINA_STAWKA[rok]);
 }
 
 export interface Opcje {
@@ -258,6 +280,34 @@ export interface SkladnikiOsoby {
    * pełnych złotych i obcięty na zerze.
    */
   dochod: number;
+  /**
+   * Podstawa obliczenia daniny solidarnościowej — art. 30h ust. 2 (model.md B.8).
+   *
+   * W tym modelu równa się co do złotówki `dochod`, i **nie jest to zbieg
+   * okoliczności**: przepis każe wziąć sumę dochodów opodatkowanych wg skali
+   * (oraz art. 30b, 30c, 30f — których kalkulator nie zna) pomniejszoną
+   * o składki społeczne, a to jest dokładnie ta sama droga od przychodu, którą
+   * przechodzi `dochod`. Pole istnieje mimo tej równości z dwóch powodów:
+   *
+   * 1. **przy wspólnym rozliczeniu te dwie liczby się rozjeżdżają.** Podatek
+   *    liczy się od połowy ŁĄCZNEGO dochodu, danina — od dochodu każdego
+   *    z osobna. `WynikWspolny.podstawaOpodatkowania` jest sumą gospodarstwa
+   *    i **nie wolno** jej podstawić pod próg 1 000 000 zł; właściwa liczba to
+   *    to pole, osobno dla każdej z `osoby`;
+   * 2. katalog dochodów wchodzących do podstawy daniny jest szerszy niż to, co
+   *    kalkulator liczy (patrz `danina`), więc rzeczywista podstawa bywa wyższa.
+   */
+  podstawaDaniny: number;
+  /**
+   * Danina solidarnościowa tej osoby w danym roku — zero poniżej progu.
+   *
+   * **Zaniża, nigdy nie zawyża.** Do podstawy wchodzą też dochody z kapitałów
+   * (art. 30b), z działalności na liniowym (art. 30c) i z zagranicznych
+   * jednostek kontrolowanych (art. 30f), a kalkulator zna wyłącznie skalę.
+   * Kto ma dochody z tamtych źródeł, zapłaci więcej, niż tu widać — i może
+   * przekroczyć próg, choć z samej wypłaty by go nie przekroczył.
+   */
+  danina: number;
   /** Wpłata pracownika do PPK — potrącana z netto. */
   ppk: number;
   /**
@@ -272,8 +322,16 @@ export interface SkladnikiOsoby {
   ppkPracodawcy: number;
 }
 
-/** Część wyliczenia, która przy wspólnym rozliczeniu zostaje przy jednej osobie. */
-function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby {
+/**
+ * Część wyliczenia, która przy wspólnym rozliczeniu zostaje przy jednej osobie.
+ *
+ * `rok` wchodzi tu wyłącznie przez daninę solidarnościową — reszta drogi od
+ * brutto do dochodu jest w obu latach identyczna (zmienia się dopiero skala,
+ * a ta jest stosowana wyżej). Danina jest jednak indywidualna nawet przy
+ * wspólnym rozliczeniu, więc musi się policzyć właśnie tutaj, a nie na
+ * poziomie gospodarstwa.
+ */
+function skladniki(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): SkladnikiOsoby {
   const bruttoRocznie = bruttoMiesiecznie * 12;
 
   const forma = opcje.forma ?? 'umowaOPrace';
@@ -409,6 +467,13 @@ function skladniki(bruttoMiesiecznie: number, opcje: Opcje = {}): SkladnikiOsoby
     skladkaZdrowotna,
     kup,
     dochod,
+    // Podstawą daniny jest dochód PO zwolnieniu PIT-0: art. 30h ust. 2 mówi
+    // o dochodach „podlegających opodatkowaniu", a przychód zwolniony z art. 21
+    // opodatkowaniu z definicji nie podlega. Wychodzi to tu samo z siebie, bo
+    // `dochod` jest już policzony od `przychodOpodatkowany` — i dobrze, bo to
+    // jedyna rzecz w tym rachunku, którą łatwo byłoby zrobić odwrotnie.
+    podstawaDaniny: dochod,
+    danina: daninaSolidarnosciowa(dochod, rok),
     ppk: bezZus ? 0 : round2(bruttoRocznie * (opcje.ppkPracownik ?? 0)),
     ppkPracodawcy,
   };
@@ -436,6 +501,19 @@ export interface Wynik {
   kup: number;
   podstawaOpodatkowania: number;
   podatek: number;
+  /**
+   * Danina solidarnościowa — odjęta od netto (art. 30h; model.md B.8).
+   *
+   * Zero dla zdecydowanej większości; dodatnia dopiero od ok. 88 400 zł/mies
+   * brutto na etacie. Wystawiona osobno, żeby dało się ją pokazać w rozbiciu:
+   * bez tego wyższe obciążenie w 2027 r. wyglądałoby jak błąd rachunkowy.
+   *
+   * Przy wspólnym rozliczeniu jest to **suma danin obu małżonków**, z których
+   * każda została policzona od jego własnej podstawy — patrz
+   * `SkladnikiOsoby.podstawaDaniny`. Podstawą daniny jednej osoby nigdy nie
+   * jest `podstawaOpodatkowania` tego wyniku, bo ta jest łączna.
+   */
+  danina: number;
   /** Wpłata pracownika do PPK — odjęta od netto. */
   ppk: number;
   /** Wpłata pracodawcy do PPK — **nie** odjęta od netto; patrz `SkladnikiOsoby`. */
@@ -446,15 +524,25 @@ export interface Wynik {
 
 /** Pełne wyliczenie dla jednego roku podatkowego. */
 export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): Wynik {
-  const osoba = skladniki(bruttoMiesiecznie, opcje);
+  const osoba = skladniki(bruttoMiesiecznie, rok, opcje);
   const podatek = roundPln(podatekWgSkali(osoba.dochod, rok));
 
   // Wpłata pracodawcy do PPK NIE jest tu odejmowana ani dodawana: nie jest
   // wypłacana pracownikowi, więc nie powiększa netto, i nie jest z wypłaty
   // potrącana, więc go nie obciąża. Jej jedyny ślad w netto to wyższy `podatek`
   // (model.md B.2, uwaga przy kroku 10).
+  //
+  // Danina solidarnościowa jest natomiast odejmowana wprost. Płaci się ją poza
+  // zaliczkami, dopiero do 30 kwietnia następnego roku, więc w miesięcznym
+  // pasku wypłaty jej nie widać — ale zapłacić trzeba, i „netto rocznie" bez
+  // niej byłoby liczbą, której nikt nie zobaczy na koncie.
   const nettoRocznie = round2(
-    osoba.bruttoRocznie - osoba.skladkiSpoleczne - osoba.skladkaZdrowotna - podatek - osoba.ppk,
+    osoba.bruttoRocznie -
+      osoba.skladkiSpoleczne -
+      osoba.skladkaZdrowotna -
+      podatek -
+      osoba.danina -
+      osoba.ppk,
   );
 
   return {
@@ -470,6 +558,7 @@ export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): 
     kup: osoba.kup,
     podstawaOpodatkowania: osoba.dochod,
     podatek,
+    danina: osoba.danina,
     ppk: osoba.ppk,
     ppkPracodawcy: osoba.ppkPracodawcy,
     nettoRocznie,
@@ -552,6 +641,11 @@ export interface WynikWspolny extends Wynik {
  *    na zerze siedzi w środku, przed podwojeniem, i to jest właściwa kolejność:
  *    para z jednym żywicielem i dochodem 50 000 zł płaci zero, bo połowa (25 000)
  *    mieści się w kwocie wolnej — a nie 12% od nadwyżki ponad jedną kwotę wolną.
+ * 4. **Danina solidarnościowa wspólnemu rozliczeniu nie podlega w ogóle.** Jest
+ *    indywidualna: każdy z małżonków liczy ją od swojego dochodu, a dochodów
+ *    ani się nie sumuje, ani nie dzieli na pół (objaśnienia MF z 28.08.2019).
+ *    To najbardziej kontrintuicyjny punkt tej funkcji, bo podatek — liczony
+ *    linijkę wyżej — robi dokładnie odwrotnie. Szczegóły przy `danina` niżej.
  *
  * Netto jest gospodarstwa, nie osoby: podatek jest wspólny i nie da się go
  * rozdzielić między małżonków inaczej niż arbitralnie.
@@ -564,10 +658,14 @@ export function obliczWspolnie(
 ): WynikWspolny {
   const { malzonek, ...moje } = opcje;
   const osoby: [SkladnikiOsoby, SkladnikiOsoby] = [
-    skladniki(bruttoMiesiecznie, moje),
+    skladniki(bruttoMiesiecznie, rok, moje),
     // Ulga dla młodych i zwolnienie studenckie nie dziedziczą się przez
     // `?? moje` — patrz `OpcjeWspolne`.
-    skladniki(bruttoMalzonka, malzonek ?? { ...moje, ulgaDlaMlodych: false, studentDo26: false }),
+    skladniki(
+      bruttoMalzonka,
+      rok,
+      malzonek ?? { ...moje, ulgaDlaMlodych: false, studentDo26: false },
+    ),
   ];
 
   const suma = (wybierz: (o: SkladnikiOsoby) => number) => wybierz(osoby[0]) + wybierz(osoby[1]);
@@ -577,6 +675,23 @@ export function obliczWspolnie(
   // całkowita. Połowa bywa przez to „i pół" — zaokrągla się dopiero podatek.
   const podstawaOpodatkowania = suma((o) => o.dochod);
   const podatek = roundPln(2 * podatekWgSkali(podstawaOpodatkowania / 2, rok));
+
+  // Danina solidarnościowa jest INDYWIDUALNA i wspólne rozliczenie jej nie
+  // dotyka — to jest w tym miejscu jedyna rzecz warta zapamiętania, i zarazem
+  // ta, którą najłatwiej zrobić źle na dwa przeciwne sposoby.
+  //
+  // Objaśnienia podatkowe MF z 28.08.2019: każdy z małżonków bierze pod uwagę
+  // wyłącznie swoje dochody, niezależnie od tego, czy rozliczają się wspólnie;
+  // dochodów małżonków ani się nie sumuje, ani nie dzieli na pół. Dlatego danina
+  // jest policzona w `skladniki`, osobno dla każdej osoby, a tutaj tylko się
+  // sumuje — dokładnie jak składki, KUP i limit PIT-0.
+  //
+  // Gdyby pójść na skróty i policzyć ją z `podstawaOpodatkowania` (sumy
+  // gospodarstwa), para 2 × 600 000 zł zapłaciłaby daninę od 200 000 zł
+  // nadwyżki, choć żadne z nich progu nie dotknęło. Gdyby z połowy sumy — jak
+  // podatek — samotny milioner z niepracującym małżonkiem uciekłby od daniny
+  // w całości. Obie wersje dają liczby nie do obrony; prawidłowa jest ta niżej.
+  const danina = suma((o) => o.danina);
 
   const skladkiSpoleczne = round2(suma((o) => o.skladkiSpoleczne));
   const skladkaZdrowotna = round2(suma((o) => o.skladkaZdrowotna));
@@ -588,7 +703,7 @@ export function obliczWspolnie(
   const bruttoRocznie = suma((o) => o.bruttoRocznie);
 
   const nettoRocznie = round2(
-    bruttoRocznie - skladkiSpoleczne - skladkaZdrowotna - podatek - ppk,
+    bruttoRocznie - skladkiSpoleczne - skladkaZdrowotna - podatek - danina - ppk,
   );
 
   return {
@@ -610,6 +725,7 @@ export function obliczWspolnie(
     kup: suma((o) => o.kup),
     podstawaOpodatkowania,
     podatek,
+    danina,
     ppk,
     ppkPracodawcy,
     nettoRocznie,
@@ -658,9 +774,15 @@ export function progiWspolne(
 ): { poczatek: number; pelna: number } {
   const zysk = (brutto: number) => porownajWspolnie(brutto, bruttoMalzonka, opcje).zyskRocznie;
 
+  // Szukamy wyłącznie poniżej daniny — patrz `ostatnieBruttoBezDaniny`. Liczy
+  // się tu danina osoby, której wynagrodzenie przemiatamy; danina małżonka jest
+  // przy stałych jego zarobkach stałym obciążeniem i monotoniczności nie psuje.
+  const { malzonek: _, ...moje } = opcje;
+  const gorna = ostatnieBruttoBezDaniny(moje);
+
   return {
-    poczatek: pierwszeBrutto((brutto) => zysk(brutto) > 0),
-    pelna: pierwszeBrutto((brutto) => zysk(brutto) >= MAKSYMALNA_KORZYSC_WSPOLNA),
+    poczatek: pierwszeBrutto((brutto) => zysk(brutto) > 0, gorna),
+    pelna: pierwszeBrutto((brutto) => zysk(brutto) >= MAKSYMALNA_KORZYSC_WSPOLNA, gorna),
   };
 }
 
@@ -675,21 +797,27 @@ export function progiWspolne(
  */
 export function progiIndywidualne(opcje: Opcje = {}): { poczatek: number; pelna: number } {
   const zysk = (brutto: number) => porownaj(brutto, opcje).zyskRocznie;
+  const gorna = ostatnieBruttoBezDaniny(opcje);
 
   return {
-    poczatek: pierwszeBrutto((brutto) => zysk(brutto) > 0),
-    pelna: pierwszeBrutto((brutto) => zysk(brutto) >= MAKSYMALNA_KORZYSC_ROCZNA),
+    poczatek: pierwszeBrutto((brutto) => zysk(brutto) > 0, gorna),
+    pelna: pierwszeBrutto((brutto) => zysk(brutto) >= MAKSYMALNA_KORZYSC_ROCZNA, gorna),
   };
 }
 
-/** Najmniejsze pełne złote brutto spełniające warunek niemalejący; GORNA, gdy żadne. */
-function pierwszeBrutto(warunek: (brutto: number) => boolean): number {
-  const GORNA = 200_000;
+/** Kres wyszukiwania progów — powyżej tej kwoty żaden z nich nie ma sensu. */
+const GORNA_SZUKANIA = 200_000;
+
+/** Najmniejsze pełne złote brutto spełniające warunek niemalejący; `gorna`, gdy żadne. */
+function pierwszeBrutto(
+  warunek: (brutto: number) => boolean,
+  gorna = GORNA_SZUKANIA,
+): number {
   if (warunek(0)) return 0;
-  if (!warunek(GORNA)) return GORNA;
+  if (!warunek(gorna)) return gorna;
 
   let nie = 0;
-  let tak = GORNA;
+  let tak = gorna;
   while (tak - nie > 1) {
     const srodek = Math.floor((nie + tak) / 2);
     if (warunek(srodek)) tak = srodek;
@@ -697,6 +825,28 @@ function pierwszeBrutto(warunek: (brutto: number) => boolean): number {
   }
 
   return tak;
+}
+
+/**
+ * Ostatnie pełne złote brutto, przy którym danina solidarnościowa jeszcze nie
+ * wchodzi — i tym samym kres obszaru, w którym zysk z reformy jest niemalejący.
+ *
+ * Bez tego ograniczenia wyszukiwanie progów przestaje działać, i to cicho.
+ * `pierwszeBrutto` opiera się na monotoniczności warunku, a danina ją łamie:
+ * zysk rośnie do 3 600 zł, trzyma się tej wartości, a od momentu przekroczenia
+ * miliona zaczyna spadać — o 1% każdej złotówki nadwyżki — aż zejdzie poniżej
+ * zera. Warunek „zysk ≥ 3 600" jest więc prawdziwy w **paśmie**, a nie od
+ * pewnego miejsca w górę; wyszukiwanie połówkowe pytające o samą górną granicę
+ * dostawało tam „nie" i zwracało tę granicę jako próg, czyli liczbę bez
+ * żadnego związku z rzeczywistością.
+ *
+ * Granica zależy od opcji (na etacie ok. 88 400 zł/mies, przy zleceniu wyraźnie
+ * wyżej, bo koszty 20% zbijają dochód, a z ulgą dla młodych jeszcze wyżej),
+ * więc jest wyszukiwana, a nie wpisana. Sama danina jest względem brutto
+ * niemalejąca, więc tu wyszukiwanie połówkowe jest uprawnione.
+ */
+function ostatnieBruttoBezDaniny(opcje: Opcje): number {
+  return pierwszeBrutto((brutto) => oblicz(brutto, 2027, opcje).danina > 0) - 1;
 }
 
 /**

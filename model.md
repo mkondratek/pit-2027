@@ -85,6 +85,9 @@ byłoby wewnętrznie spójne.
 
 `[NIEJASNE]` Nie podano, od dochodów którego roku (2027 czy rozliczenie za 2027 płacone w 2028).
 
+Konstrukcja samej daniny (podstawa, odliczenia, wspólne rozliczenie, zwolnienia PIT-0) jest
+zweryfikowana i opisana w **B.8** — zapowiedź zmienia w niej wyłącznie stawkę.
+
 Osobny, **wcześniejszy** wątek — projekt **UD116** (patrz A.7): rozszerzenie podstawy daniny
 o dochody z **IP Box** (art. 30ca). Wersja z marca 2026 to zawierała; wersja z lipca 2026 —
 według relacji — wycofała się z rozszerzenia. Stan niepewny.
@@ -222,6 +225,11 @@ PPK_PRACODAWCA_DODATK  = 0.00     # do 2,5%
 # ---- Płaca minimalna (kontekst, nie wchodzi wprost do wzoru) ----
 MIN_WYNAGRODZENIE_2026 = 4_806    # [PEWNE]
 MIN_WYNAGRODZENIE_2027 = 4_950    # [NIEJASNE — patrz Otwarte pytania]
+
+# ---- Danina solidarnościowa (art. 30h; szczegóły w B.8) ----
+DANINA_PROG          = 1_000_000  # [PEWNE] bez zmian w 2027
+DANINA_STAWKA_2026   = 0.04       # [PEWNE]
+DANINA_STAWKA_2027   = 0.05       # [ZAPOWIEDŹ] jedyny parametr, w którym 2027 jest GORSZY
 ```
 
 ### Źródła stałych
@@ -530,25 +538,137 @@ Dwa świadome uproszczenia:
 
 ## B.8. Danina solidarnościowa
 
-`[PEWNE dla 2026]` art. 30h ustawy o PIT.
+`[PEWNE dla 2026]` art. 30h ustawy o PIT. **Zweryfikowane w źródłach 2026-08-20** — wcześniejsza
+wersja tej sekcji była szkicem; poniżej jest stan po sprawdzeniu, z rozstrzygnięciem czterech
+pytań, które przy implementacji okazały się nieoczywiste.
 
 ```
-podstawa_daniny = (Σ dochodów: art. 27 (skala) + art. 30b (kapitały)
+podstawa_daniny = (Σ dochodów: art. 27 ust. 1, 9 i 9a (skala) + art. 30b (kapitały)
                    + art. 30c (liniowy) + art. 30f (CFC))
-                  − składki społeczne
-                  − inne odliczenia z art. 30h ust. 2
-danina = max(0, podstawa_daniny - 1_000_000) * STAWKA
+                  − składki społeczne (art. 26 ust. 1 pkt 2 i 2a, art. 30c ust. 2 pkt 2)
+                  − kwoty z art. 30f ust. 5 (dywidendy już opodatkowane w CFC)
+danina = max(0, podstawa_daniny − 1_000_000) × STAWKA
 ```
 
-- `STAWKA_2026 = 0.04` `[PEWNE]`
-- `STAWKA_2027 = 0.05` `[ZAPOWIEDŹ]`
+- `STAWKA_2026 = 0.04` `[PEWNE]` — art. 30h ust. 1
+- `STAWKA_2027 = 0.05` `[ZAPOWIEDŹ]` — konferencja prasowa 19.08.2026, brak projektu ustawy
 - Próg **1 000 000 zł** — bez zmian `[ZAPOWIEDŹ potwierdza brak zmiany]`
-- `[NIEJASNE]` czy podstawa obejmie dochody z **IP Box** (art. 30ca) — wersje UD116 się różnią.
 
 Termin: deklaracja **DSF-1** do 30 kwietnia roku następnego. Danina jest **poza** zaliczkami
-miesięcznymi — nie wchodzi do modelu listy płac.
+miesięcznymi — nie wchodzi do modelu listy płac, ale w modelu **rocznym** musi być, bo zapłacić
+trzeba. Zaokrąglenie do pełnych złotych: art. 30i odsyła do Ordynacji podatkowej, więc art. 63 §1
+stosuje się tak jak do podatku. `[PEWNE]`
 
----
+Źródła: <https://lexlege.pl/ustawa-o-podatku-dochodowym-od-osob-fizycznych/art-30h/>,
+<https://przepisy.gofin.pl/przepisy,3,13,13,700,460398,20250409,art-30h-30i-danina-solidarnosciowa.html>,
+<https://rachunkowosc.com.pl/ustalenie-podstawy-obliczenia-daniny-solidarnosciowej>
+
+### Próg jest punktem przełamania, nie bramką
+
+`[PEWNE]` Opodatkowana jest **nadwyżka** ponad 1 000 000 zł, a nie całość dochodu po jego
+przekroczeniu. Podatnik z podstawą 1 000 013 zł płaci **1 zł**, nie 40 000 zł. Konstrukcja jest
+ta sama co w skali podatkowej i tak samo łatwo ją pomylić — stąd osobny test na krawędzi.
+
+### Co wchodzi do podstawy — a czego kalkulator nie widzi
+
+`[PEWNE]` Katalog źródeł jest zamknięty i obejmuje dochody ze **skali** (art. 27), z **kapitałów
+pieniężnych** (art. 30b), z działalności na **liniowym** (art. 30c) i z **zagranicznych jednostek
+kontrolowanych** (art. 30f). **Nie** wchodzą: ryczałt ewidencjonowany, sprzedaż nieruchomości poza
+działalnością, odsetki i **dywidendy** (opodatkowane zryczałtowanym podatkiem z art. 30a).
+
+Konsekwencja dla kalkulatora: liczy on wyłącznie dochody ze skali, więc pokazywana danina
+**zaniża, nigdy nie zawyża**. Kto ma dochody z pozostałych trzech źródeł, zapłaci więcej — i może
+przekroczyć próg, choć z samej wypłaty by go nie przekroczył. Wystawione jest to w komentarzu przy
+polu `danina`; interfejs powinien to powiedzieć wprost przy kwotach zbliżonych do progu.
+
+### Odliczenia — katalog zamknięty, w praktyce same składki społeczne
+
+`[PEWNE]` Podstawę pomniejszają **wyłącznie** dwie pozycje z art. 30h ust. 2: składki społeczne
+(art. 26 ust. 1 pkt 2 i 2a oraz art. 30c ust. 2 pkt 2) i kwoty z art. 30f ust. 5. Nic poza tym.
+Zgodnie z interpretacjami KIS katalog jest zamknięty, więc podstawy **nie** pomniejszają:
+kwota wolna od PIT, ulgi (IP Box, B+R, na złe długi), IKZE, darowizny, ulga rehabilitacyjna ani
+ulga termomodernizacyjna. Składka **zdrowotna** też nie — nie ma jej w katalogu, a od 2022 r. nie
+odlicza się jej nigdzie.
+
+Straty z lat ubiegłych: `[NIEJASNE]` — organy podatkowe i sądy administracyjne mówią różnie.
+Bez znaczenia dla tego kalkulatora (model nie zna strat).
+
+W modelu wynagrodzenia oznacza to, że **podstawa daniny = podstawa opodatkowania**: droga od
+przychodu (minus KUP, minus składki społeczne) jest w obu rachunkach ta sama. Nie jest to jednak
+tożsamość, na której wolno się oprzeć bez zastanowienia — patrz punkt o małżonkach niżej.
+
+### ⚠️ Wspólne rozliczenie małżonków — danina jest INDYWIDUALNA
+
+`[PEWNE]` **To jest najważniejsze ustalenie tej sekcji.** Objaśnienia podatkowe MF z **28.08.2019**:
+każdy z małżonków bierze pod uwagę **wyłącznie swoje dochody**, niezależnie od tego, czy rozliczają
+się wspólnie. Dochodów małżonków **ani się nie sumuje, ani nie dzieli na pół**. Każdy z osobna musi
+przekroczyć 1 000 000 zł, żeby daninę zapłacić, i płaci ją tylko od swojej nadwyżki.
+
+Wspólne rozliczenie **nie jest więc żadną tarczą** przed daniną — i odwrotnie, nie wciąga do niej
+pary, które razem przekraczają milion.
+
+Dwa błędy, wobec siebie przeciwstawne, i oba dają liczby nie do obrony:
+
+| Błędne podejście | Skutek |
+|---|---|
+| podstawa = **suma** dochodów pary | para 2 × 550 479 zł płaci 4 038 zł, choć żadne progu nie dotknęło |
+| podstawa = **połowa** sumy (jak przy podatku) | osoba z dochodem 1 135 779 zł i niepracującym małżonkiem nie płaci nic |
+
+Prawidłowo: pierwsza para płaci **0 zł**, druga osoba **5 431 zł** — dokładnie tyle, ile
+zapłaciłaby rozliczając się samotnie.
+
+W silniku danina liczy się w `skladniki()`, osobno dla każdego małżonka — tak jak składki, koszty
+uzyskania przychodu, składka zdrowotna, wpłaty PPK i limit PIT-0 — a na poziomie gospodarstwa jest
+już tylko sumowana. `WynikWspolny.podstawaOpodatkowania` jest **łączna** i podstawiać jej pod próg
+1 000 000 zł nie wolno; właściwa liczba to `osoby[i].podstawaDaniny`. Dlatego `Wynik` celowo nie
+wystawia pola `podstawaDaniny`: u pary musiałoby ono nieść sumę gospodarstwa, czyli dokładnie tę
+liczbę, której użyć nie można.
+
+Źródła: <https://poradnikprzedsiebiorcy.pl/-danina-solidarnosciowa-przy-rozliczeniu-z-malzonkiem-a-zaplata-podatku>,
+<https://www.pit.pl/aktualnosci/danina-solidarnosciowa-w-pit-za-2022-rok-kto-musi-ja-zaplacic-do-kiedy-i-od-jakich-dochodow-1008103>
+
+### Zwolnienia PIT-0 (ulga dla młodych) nie wchodzą do podstawy
+
+`[PEWNE]` Art. 30h ust. 2 mówi o dochodach **„podlegających opodatkowaniu"**, a przychód zwolniony
+z art. 21 ust. 1 pkt 148 opodatkowaniu z definicji nie podlega — tak samo jak inne zwolnienia
+przedmiotowe, o których organy wypowiedziały się wprost (np. art. 21 ust. 1 pkt 63a i 63b, strefy
+ekonomiczne). Podstawa daniny spada więc o wykorzystany limit 85 528 zł, ani o grosz więcej.
+
+W silniku wychodzi to samo z siebie, bo `dochod` liczy się od `przychodOpodatkowany` — i dobrze,
+bo to jedyny element tego rachunku, który łatwo byłoby zrobić odwrotnie. Praktyczne znaczenie jest
+znikome (osoba poniżej 26. roku życia z dochodem ponad milion to rzadkość, a różnica sięga najwyżej
+85 528 × 5% ≈ 4 276 zł), ale kierunek musi być właściwy.
+
+Uwaga na mylące skróty w piśmiennictwie: bywa napisane, że „ulga dla młodych nie zwalnia z daniny".
+To prawda i nie przeczy powyższemu — zwolniony przychód **nie wchodzi do podstawy**, ale reszta
+dochodu owszem, i od niej danina się należy.
+
+### To jedyne miejsce, w którym 2027 jest gorszy niż 2026
+
+Cała reszta pakietu (nowa skala) daje wyłącznie zysk albo zero. Ten jeden składnik idzie w drugą
+stronę i przy dostatecznie wysokich zarobkach przeważa. Dla etatowca bez ulg (KUP podstawowe,
+chorobowa opłacana):
+
+| Brutto/mies | Podstawa daniny | Danina 2026 | Danina 2027 | Zysk z reformy |
+|---:|---:|---:|---:|---:|
+| 80 000 | 901 659 | 0 | 0 | **+3 600** |
+| 88 401 | 1 000 001 | 0 | 0 | **+3 600** |
+| 88 402 | 1 000 013 | 1 | 1 | **+3 600** |
+| 90 000 | 1 018 719 | 749 | 936 | **+3 413** |
+| 100 000 | 1 135 779 | 5 431 | 6 789 | **+2 242** |
+| 119 156 | 1 360 019 | 14 401 | 18 001 | **0** |
+| 119 157 | 1 360 031 | 14 401 | 18 002 | **−1** |
+| 200 000 | 2 306 379 | 52 255 | 65 319 | **−9 464** |
+
+Danina wchodzi od **88 402 zł/mies** brutto, a od **119 157 zł/mies** zapowiedź oznacza dla
+etatowca realną **podwyżkę**. Granice przesuwają się w górę tam, gdzie dochód rośnie wolniej od
+kwoty brutto: przy zleceniu (koszty 20%) zysk staje się ujemny dopiero od **144 899 zł/mies**,
+przy uldze dla młodych od **126 465 zł/mies**.
+
+Obecne pole kwoty przyjmuje najwyżej 100 000 zł/mies, więc **ujemnego zysku interfejs dziś nie
+pokaże** — pokaże zysk topniejący z 3 600 zł do 2 242 zł. Granica 119 157 zł jest przypięta
+liczbowo w testach właśnie po to, żeby ewentualne podniesienie limitu pola nie przeszło
+niezauważone.
 
 # CZĘŚĆ C — Pseudokod zbiorczy (roczny)
 
@@ -586,11 +706,23 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
     # --- podatek ---
     podatek = round_pln(podatek_roczny(podstawa, rok))   # patrz B.3
 
+    # --- danina solidarnościowa (B.8) ---
+    # Podstawą jest ta sama liczba co podstawa opodatkowania (dochód po składkach
+    # i po KUP), bo art. 30h ust. 2 pomniejsza sumę dochodów dokładnie o składki
+    # społeczne. Płatna poza zaliczkami, do 30 kwietnia — ale zapłacona, więc
+    # w modelu ROCZNYM od netto odchodzi.
+    STAWKA_DANINY = 0.04 if rok <= 2026 else 0.05     # [ZAPOWIEDŹ dla 2027]
+    danina = round_pln(max(0, podstawa - 1_000_000) * STAWKA_DANINY)
+
     # --- PPK ---
     ppk = brutto_rok * opcje.ppk_pracownik
 
-    return brutto_rok - s_spol - s_zdrow - podatek - ppk
+    return brutto_rok - s_spol - s_zdrow - podatek - danina - ppk
 ```
+
+> ⚠️ Przy **wspólnym rozliczeniu** daninę liczy się każdemu małżonkowi osobno, od jego własnej
+> podstawy — dochodów ani się nie sumuje, ani nie dzieli na pół (B.8). Wspólna jest tylko podstawa
+> **podatku**; podstawa daniny zostaje indywidualna, tak jak składki, KUP i limit PIT-0.
 
 > Powyższy pseudokod pomija **wpłatę pracodawcy do PPK** — patrz B.7. Jeśli jest niezerowa,
 > wchodzi do przychodu podatkowego przed zwolnieniem PIT-0 i przed KUP, ale **nie** do podstawy
@@ -661,8 +793,20 @@ Rzeczy, których **nie udało się ustalić** — nie zgadywać w kodzie, wystaw
 3. **Miesięczna kwota zmniejszająca 300 zł** — nigdzie nie potwierdzona wprost dla 2027, choć
    wynika logicznie z niezmienionej kwoty wolnej 30 000 zł i stawki 12%.
 4. **Od kiedy danina solidarnościowa 5%** — od dochodów 2027 (płatna 2028) czy od dochodów 2026?
-   Komunikaty nie precyzują.
-5. **Czy danina obejmie IP Box** — wersja marcowa UD116 tak, lipcowa podobno nie. Stan nierozstrzygnięty.
+   Komunikaty nie precyzują. Model przypisuje stawkę 5% **dochodom roku 2027**, bo cała reszta
+   porównania jest zbudowana wokół „ile dałaby nowa skala od dochodów 2027"; gdyby okazało się, że
+   stawka wchodzi rok wcześniej, porównanie 2026 vs 2027 stałoby się w tym jednym składniku puste
+   (obie strony po 5%), a nie błędne.
+5. **Czy danina obejmie IP Box** (art. 30ca) — wersja marcowa UD116 tak, lipcowa podobno nie, a
+   relacje z konferencji 19.08.2026 znów wspominają o rozszerzeniu. Stan nierozstrzygnięty.
+   Dla kalkulatora bez znaczenia: nie liczy dochodów z IP Box.
+5a. **Dochody spoza skali w podstawie daniny** — kalkulator zna wyłącznie dochody ze skali, a do
+   podstawy wchodzą także art. 30b, 30c i 30f (B.8). Nie jest to niewiadoma prawna, tylko **świadome
+   ograniczenie zakresu**: pokazywana danina zaniża i nigdy nie zawyża. Otwarte pozostaje, czy i jak
+   powiedzieć to w interfejsie osobom blisko progu — decyzja produktowa, nie modelowa.
+5b. **Straty z lat ubiegłych a podstawa daniny** — organy podatkowe i sądy administracyjne
+   wypowiadają się rozbieżnie. Poza zakresem modelu (nie zna strat), odnotowane, żeby nie zostało
+   przeoczone przy ewentualnym rozszerzeniu o działalność gospodarczą.
 6. **Czy zmieni się kwota graniczna dla wspólnego rozliczenia małżonków / rozliczenia z dzieckiem** —
    brak wzmianek, prawdopodobnie bez zmian (mechanizm jest niezależny od progów).
 7. **Ulgi PIT-0 (85 528 zł)** — brak jakiejkolwiek wzmianki o zmianie. Zakładam bez zmian.

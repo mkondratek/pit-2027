@@ -149,3 +149,29 @@ export interface Prog {
   do: number;
   stawka: number;
 }
+
+/* ————————————————— Danina solidarnościowa (art. 30h ustawy o PIT) ————————————————— */
+
+/**
+ * Próg, powyżej którego zaczyna się danina — 1 000 000 zł podstawy. [PEWNE]
+ *
+ * Zapowiedź z 19.08.2026 podnosi **stawkę**, a progu nie rusza, więc jedna
+ * liczba obsługuje oba lata (model.md B.8). Nie jest to kwota wolna od podatku
+ * ani nic z nią spokrewnionego: to własny, odrębny próg tej daniny, liczony od
+ * innej podstawy niż podatek.
+ */
+export const DANINA_PROG = 1_000_000;
+
+/**
+ * Stawka daniny od nadwyżki ponad próg.
+ *
+ * **Jedyne miejsce w całym pakiecie, w którym 2027 jest gorszy niż 2026.** Cała
+ * reszta modelu (nowa skala) daje wyłącznie zysk albo zero; ten jeden składnik
+ * idzie w drugą stronę i przy dostatecznie wysokich zarobkach przeważa, przez co
+ * pokazywany „zysk z reformy" schodzi poniżej zera. To nie jest błąd
+ * w kalkulatorze — to jest wynik.
+ */
+export const DANINA_STAWKA: Record<Rok, number> = {
+  2026: 0.04, // [PEWNE] art. 30h ust. 1
+  2027: 0.05, // [ZAPOWIEDŹ] konferencja prasowa 19.08.2026 — brak projektu ustawy
+};
