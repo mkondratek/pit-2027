@@ -146,10 +146,13 @@
 
   <footer>
     <p>
-      Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada złożony PIT-2;
-      ulgę dla młodych, PPK i podwyższone koszty uzyskania przychodu włącza się w wierszu założeń
-      pod kwotą, a bez nich liczy koszty podstawowe i brak PPK. Liczy w skali roku, więc może różnić
-      się o kilka złotych od sumy dwunastu zaliczek.
+      <!-- Wyliczanie, co się przełącza w wierszu założeń, stało tu kiedyś obok
+           listy parametrów w „Na czym to się opiera" — a przede wszystkim obok
+           samego wiersza założeń, który wypisuje bieżące ustawienia i ma przy
+           sobie „zmień". Zdanie tłumaczyło więc rzecz widoczną na ekranie.
+           Zostaje to, czego nie mówi nic innego: status porady i skala roku. -->
+      Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada złożony PIT-2
+      i liczy w skali roku, więc może różnić się o kilka złotych od sumy dwunastu zaliczek.
     </p>
     <p>
       Wszystko liczy się w Twojej przeglądarce — żadne dane nie są nigdzie wysyłane.
