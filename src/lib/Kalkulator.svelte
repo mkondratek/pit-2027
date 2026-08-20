@@ -35,6 +35,7 @@
   } from '../tax/engine';
   import WykresZysku from './WykresZysku.svelte';
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
+  import { DECYLE, ROZKLAD_MIESIAC, pozycjaWRozkladzie, zdaniePozycji } from './rozklad';
   import { kwotaZSuwaka, wZakresie } from './suwak';
   import {
     odczytajBezChorobowej,
@@ -356,6 +357,53 @@
 
   const doProgu = $derived(Math.max(0, progi.poczatek - brutto));
   const ponizejMinimalnej = $derived(brutto < PLACA_MINIMALNA);
+
+  /**
+   * Miejsce wpisanej kwoty w rozkładzie wynagrodzeń — patrz `rozklad.ts`.
+   *
+   * Liczone **wyłącznie z `brutto`**, czyli z pensji osoby czytającej, także
+   * przy wspólnym rozliczeniu. Percentyl jest cechą jednej pensji na tle innych
+   * pensji, więc suma dochodów pary nie ma tu czego szukać: w rozkładzie
+   * wynagrodzeń indywidualnych taka suma nie jest niczyim wynagrodzeniem.
+   * Połowa łącznego dochodu — liczba, która rządzi progiem przy wspólnym
+   * rozliczeniu (patrz `DECYZJE.md`) — też nie, i z tego samego powodu.
+   *
+   * Pensja małżonka swojego zdania nie dostaje, choć dałoby się je policzyć tak
+   * samo. Zdanie mówi „zarabiasz" i jest adresowane do czytelnika; drugie,
+   * bliźniacze, kosztowałoby wiersz wysokości nad suwakiem (patrz uwaga
+   * o wysokości przy `.przypis`) po to, żeby powiedzieć rzecz, po którą nikt na
+   * tę stronę nie przyszedł.
+   */
+  const pozycja = $derived(pozycjaWRozkladzie(brutto));
+
+  /**
+   * Najdłuższe możliwe brzmienie zdania o percentylu — duch trzymający jego
+   * wysokość (patrz `.stos`). Wariant środkowy jest zawsze dłuższy od obu
+   * ogonowych, a liczba w nim ma zawsze dwie cyfry (10–90), więc jedna stała
+   * wystarcza za wszystkie warianty.
+   */
+  const DUCH_POZYCJI = zdaniePozycji({ percentyl: 90, poza: null });
+
+  /**
+   * Percentyl progu reformy — liczony, nie wpisany w zdanie.
+   *
+   * Wyjaśnienie mówi, gdzie próg wypada w rozkładzie, i to zdanie musi zostać
+   * prawdziwe po najbliższym odczycie GUS-u. Wpisana z ręki „75." przeżyłaby
+   * podmianę decyli w `rozklad.ts` i zaczęłaby cicho kłamać — a to jest dokładnie
+   * ten rodzaj liczby, dla którego ta strona w ogóle powstała.
+   *
+   * Próg umowy o pracę, nie bieżącej formy: grupą odniesienia są zatrudnieni na
+   * etacie, więc zestawianie ich rozkładu z progiem zlecenia (14 487 zł)
+   * porównywałoby dwie różne rzeczy naraz.
+   */
+  const POZYCJA_PROGU = pozycjaWRozkladzie(BRUTTO_POCZATEK_KORZYSCI);
+
+  /**
+   * Wyjaśnienie percentyla. Osobny stan, nie `?otwarte=` w adresie: to jest
+   * przypis, a nie ustawienie wyliczenia, więc nie ma czego nieść w linku
+   * (patrz brama czystego adresu w `url.ts`).
+   */
+  let percentylOtwarty = $state(false);
 
   /**
    * Stawki PPK piszemy z tych samych stałych, na których liczy silnik — inaczej
@@ -715,6 +763,57 @@
     />
     <span class="jednostka">zł / mies.</span>
   </div>
+
+  <!-- Gdzie ta kwota stoi na tle innych. Miejsce nieprzypadkowe: to jest opis
+       tego, co wpisano, więc należy do pola, a nie do wyniku — pod wynikiem
+       czytałoby się jak kolejna rzecz, którą kalkulator wyliczył, a to nie jest
+       wyliczenie, tylko odczyt z cudzych danych.
+
+       Zwinięte wyjaśnienie zamiast dymka na `:hover`, bo dymek na telefonie nie
+       istnieje — nie ma czym najechać. `details` daje jedno zachowanie dla myszy,
+       palca i klawiatury (Enter/Spacja na `summary`), ogłasza swój stan czytnikowi
+       ekranu bez ani jednego `aria-*` i dostaje animację rozwijania z tej samej
+       reguły `::details-content`, co dwie pozostałe rozwijane sekcje strony.
+       Znak zapytania jest **oznaczeniem**, nie celem kliknięcia: celem jest cały
+       wiersz, tak samo jak w wierszu założeń niżej, bo 24 px kwadratu na dotyk
+       to za mało, a pełna szerokość wiersza to zawsze dość.
+
+       Wysokość: wiersz stoi nad suwakiem, więc gdyby zmieniał liczbę wierszy
+       przy przeciąganiu, suwak uciekałby spod palca — najgorszy możliwy skutek
+       na telefonie. Stąd `.stos` z duchem, ta sama sztuczka co w panelu wyniku
+       i w sekcji dochodu. Przeciągnięcie przez 4 806 zł i przez 17 111 zł zmienia
+       nie tylko liczbę, ale i całe brzmienie zdania, więc rezerwacja jest tu
+       konieczna, a nie ostrożnościowa. -->
+  <details class="przypis" bind:open={percentylOtwarty}>
+    <summary>
+      <span class="stos">
+        <span class="pozycja"
+          >{zdaniePozycji(pozycja)}<sup class="pytajnik" aria-hidden="true">?</sup></span
+        >
+        <span class="pozycja duch" aria-hidden="true"
+          >{DUCH_POZYCJI}<sup class="pytajnik">?</sup></span
+        >
+      </span>
+    </summary>
+
+    <div class="objasnienie">
+      <p>
+        Porównanie z decylami wynagrodzeń GUS za {ROZKLAD_MIESIAC} (dane z rejestrów ZUS). Grupa
+        odniesienia to osoby zatrudnione na umowę o pracę — etaty pełne i niepełne, ale bez
+        samodzielnych zleceń, umów o dzieło i działalności gospodarczej. Percentyl powstaje
+        z interpolacji między decylami i jest zaokrąglony do 5 punktów: to oszacowanie, nie odczyt.
+        Poniżej {kwota(DECYLE[0])} i powyżej {kwota(DECYLE[8])} dane nie dzielą już grupy dokładniej.
+      </p>
+      <p>
+        Próg reformy przy umowie o pracę, {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto, wypada koło
+        {POZYCJA_PROGU.percentyl}. percentyla — tyle albo więcej zarabia ok. {100 -
+          POZYCJA_PROGU.percentyl}% zatrudnionych. Nie przeczy to zapowiedzianemu „co dziesiątemu
+        podatnikowi”: tamta liczba obejmuje wszystkich rozliczających PIT, razem z emerytami
+        i osobami pracującymi część roku, i liczy się od rocznego dochodu, a nie od pensji
+        z jednego miesiąca.
+      </p>
+    </div>
+  </details>
 
   <!-- `value` jest przycięte do zakresu, `aria-valuetext` nie: uchwyt pokazuje
        krawędź, ale czytnik ekranu ma czytać kwotę, na której naprawdę liczymy.
@@ -1836,6 +1935,85 @@
     margin: 0.5rem 0 0;
     font-size: 0.8125rem;
     color: var(--tekst-cichy);
+  }
+
+  /* Wiersz z percentylem. Bliżej pola niż `.wskazowka` od czegokolwiek innego,
+     bo to podpis pod kwotą, a nie uwaga obok niej — 0,375rem trzyma go w tej
+     samej grupie wzrokowej co liczba nad nim, a jednocześnie nie skleja z nią
+     na tyle, żeby czytało się jak część pola. */
+  .przypis {
+    margin-top: 0.375rem;
+  }
+
+  /* `summary` na tej stronie znaczy dotąd „nagłówek sekcji, która się rozwija":
+     ramka, tło, waga 500. Tutaj to nieprawda — rozwija się przypis pod kwotą,
+     więc cała oprawa karty schodzi i zostaje wygląd `.wskazowka`. Zostaje za to
+     wszystko, co `summary` daje za darmo i czego ten wiersz naprawdę potrzebuje:
+     fokus, Enter/Spacja, stan ogłaszany czytnikowi ekranu. */
+  .przypis summary {
+    display: block;
+    /* Sam napis ma ~21 px, a WCAG 2.2 (2.5.8) chce 24 px celu — brakujące
+       dokłada padding, tak samo jak przy suwaku. Wiersz jest pełnej szerokości,
+       więc drugi wymiar celu nigdy nie jest problemem. */
+    padding: 0.125rem 0;
+    border: none;
+    border-radius: 0.25rem;
+    background: none;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    color: var(--tekst-cichy);
+    text-wrap: pretty;
+  }
+
+  .przypis summary:hover {
+    background: none;
+    color: var(--tekst);
+  }
+
+  /* Zwężona do treści, żeby obwódka fokusu obrysowała zdanie, a nie całą
+     szerokość kolumny — przy pełnej szerokości wyglądałaby jak zaznaczenie
+     sekcji, a nie jak wskazanie małego przypisu. */
+  .przypis summary:focus-visible {
+    outline: 2px solid var(--akcent);
+    outline-offset: 2px;
+    width: fit-content;
+  }
+
+  .pozycja {
+    /* Zdanie i znak zapytania mają zostać razem: znak sam na nowym wierszu
+       czytałby się jak literówka. */
+    text-wrap: pretty;
+  }
+
+  /* Znak zapytania w górnym indeksie — oznaczenie, że jest co rozwinąć.
+     `sup` sam z siebie podnosi i zmniejsza pismo; akcent i waga robią z niego
+     rzecz klikalną, a nie interpunkcję. Wygaszony razem z wierszem, rozjaśnia
+     się przy najechaniu i przy fokusie — dla myszy to wskazówka, dla dotyku
+     nieistotna, bo celem jest cały wiersz. */
+  .pytajnik {
+    margin-left: 0.0625rem;
+    font-weight: 700;
+    color: var(--akcent);
+  }
+
+  /* Treść przypisu wcięta pod kreską, tak jak `.uwaga` wyżej: sygnał, że to
+     dopowiedzenie do wiersza nad nią, a nie nowa sekcja strony. */
+  .objasnienie {
+    margin-top: 0.5rem;
+    padding-left: 0.875rem;
+    border-left: 2px solid var(--linia);
+  }
+
+  .objasnienie p {
+    margin: 0;
+    max-width: 35rem;
+    font-size: 0.8125rem;
+    color: var(--tekst-cichy);
+    text-wrap: pretty;
+  }
+
+  .objasnienie p + p {
+    margin-top: 0.5rem;
   }
 
   /* Wcięcie równe poziomemu paddingowi przełącznika — wyjaśnienie ustawia się

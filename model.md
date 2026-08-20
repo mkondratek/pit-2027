@@ -1249,3 +1249,164 @@ rocznie, bo skala jest ta sama.
 (Kolumna „student" zakłada zwolnienie ze składek **i** ulgę dla młodych — czyli typowy
 przypadek studenta poniżej 26. roku życia. Przy 13 000 zł/mies limit 85 528 zł już nie
 starcza na cały rok, więc podatek się pojawia.)
+
+---
+
+# CZĘŚĆ G — Rozkład wynagrodzeń (dane porównawcze)
+
+Ta część **nie należy do modelu podatkowego**. Opisuje dane, na których stoi jedno zdanie
+w interfejsie — to pod polem kwoty, mówiące „Zarabiasz więcej niż ok. 75% zatrudnionych".
+Implementacja: `src/lib/rozklad.ts` (osobno od `src/tax/`, bo zmiana skali tych liczb nie
+rusza, a nowy odczyt GUS-u rusza je bez żadnej zmiany w prawie).
+
+## G.1. Źródło
+
+`[PEWNE]` GUS, **„Rozkład wynagrodzeń w gospodarce narodowej w lutym 2026 r."**, informacja
+sygnalna opublikowana **5 sierpnia 2026 r.**
+
+- Strona publikacji:
+  <https://stat.gov.pl/obszary-tematyczne/rynek-pracy/pracujacy-zatrudnieni-wynagrodzenia-koszty-pracy/rozklad-wynagrodzen-w-gospodarce-narodowej-w-lutym-2026-r-,32,26.html>
+- Liczby wzięte z **tablicy 15** („Decyle wynagrodzeń miesięcznych brutto w gospodarce
+  narodowej według płci"), kolumna **Ogółem**, z pliku `..._tab.xlsx` — nie z prasy.
+
+Miesiąc odniesienia: **luty 2026**. To najnowszy dostępny odczyt; seria wychodzi miesięcznie
+z około półrocznym opóźnieniem.
+
+## G.2. Decyle — dane wejściowe
+
+| Decyl | Percentyl | Brutto/mies |
+|---|---|---|
+| 1 | 10 | 4 806,00 zł |
+| 2 | 20 | 5 278,84 zł |
+| 3 | 30 | 6 010,65 zł |
+| 4 | 40 | 6 802,04 zł |
+| **5 (mediana)** | **50** | **7 690,82 zł** |
+| 6 | 60 | 8 820,00 zł |
+| 7 | 70 | 10 257,14 zł |
+| 8 | 80 | 12 598,55 zł |
+| 9 | 90 | 17 111,00 zł |
+
+Przeciętne wynagrodzenie w tym samym miesiącu: 9 966,32 zł — o 22,8% wyżej od mediany.
+Rozkład jest silnie prawoskośny i to jest właśnie powód, dla którego samo „średnia krajowa"
+nikomu nie mówi, gdzie stoi.
+
+**Pierwszy decyl wypada dokładnie na płacy minimalnej 2026 (4 806 zł)** i nie jest to zbieg
+okoliczności: na tej jednej kwocie stoi tak duża grupa, że rozkład ma w tym miejscu pionową
+ścianę. Konsekwencja w G.4.
+
+## G.3. Populacja — z kim właściwie się porównujemy
+
+`[PEWNE]` Z objaśnień do tablic: źródłem są **systemy informacyjne ZUS**, a „wynagrodzenie"
+to wypłaty **z tytułu stosunku pracy lub stosunku służbowego**, uwzględniane w podstawie
+wymiaru składek, wypłacone **w danym miesiącu**.
+
+W praktyce grupa odniesienia to **osoby zatrudnione na umowę o pracę**, i to znaczy:
+
+- **są** w niej etaty pełne **i niepełne** (stąd pierwszy decyl na płacy minimalnej, a nie
+  poniżej) — to inna, szersza populacja niż w GUS-owskim *badaniu struktury wynagrodzeń*,
+  które obejmuje wyłącznie pełnozatrudnionych;
+- **nie ma** w niej samodzielnych umów zlecenia, umów o dzieło ani działalności
+  gospodarczej. Zlecenie wchodzi do rachunku **tylko** wtedy, gdy zawarto je z tym samym
+  pracodawcą, u którego dana osoba jest już zatrudniona na etacie;
+- **nie ma** emerytów, osób pracujących część roku ani nikogo, kto akurat w lutym 2026 r.
+  nie dostał wypłaty.
+
+Dlatego etykieta w interfejsie mówi **„zatrudnionych"**, a nie „Polaków", „pracujących" ani
+„podatników" — każde z tych trzech słów znaczyłoby coś innego i nieprawdę. Zastrzeżenie
+dotyczy też użytkownika kalkulatora będącego na zleceniu: porównanie nadal jest sensowne
+(„na tle etatowców"), ale on sam w tej populacji nie występuje, i wyjaśnienie pod znakiem
+zapytania to mówi.
+
+## G.4. Metoda i jej dokładność
+
+**Interpolacja liniowa między dwoma sąsiednimi decylami**, wynik zaokrąglony **do 5 punktów**.
+
+Wybór liniowej, nie log-liniowej: rozkład płac jest prawoskośny, więc log-liniowa jest
+teoretycznie właściwsza. Została policzona na wszystkich ośmiu przedziałach i różni się od
+liniowej **najwyżej o 0,38 punktu** (najgorzej przy 14 740 zł). To mniej niż ziarno, które
+i tak deklarujemy — ale różnica **nie znika bez śladu**: spośród 12 306 pełnych złotych
+z zakresu D1–D9 dla **482 kwot (3,9%)** obie metody wypadają po dwóch stronach granicy
+zaokrąglenia i pokazują wynik różniący się o jeden krok, czyli 5 punktów.
+
+Innymi słowy: obie metody mieszczą się we własnej niepewności i wybór między nimi jest
+wyborem, a nie rachunkiem. Pada na liniową, bo czytelnik sprawdzi ją w pamięci, mając przed
+sobą tablicę 15. Obie są dokładne w punktach źródłowych, więc żaden decyl na tym nie traci,
+a żadna z czterech kwot kontrolnych poniżej nie zależy od tego wyboru (dla 11 878 zł: 76,9
+liniowo wobec 77,1 log-liniowo — obie dają 75).
+
+Zaokrąglenie do 5 punktów jest **oświadczeniem o niepewności**, nie kosmetyką: między dwoma
+decylami nie wiemy o kształcie rozkładu nic poza tym, że rośnie. Jeden punkt po przecinku
+byłby dokładnością zmyśloną.
+
+**Poza siatką decyli nie zgadujemy.** Powyżej dziewiątego decyla rozkład ma długi, nieznany
+nam ogon — dociąganie go do 100. percentyla przy 100 000 zł byłoby czystą fikcją. Poniżej
+pierwszego tak samo, tylko krócej. W obu przypadkach zdanie **zmienia formę** na przedziałową
+(„Jesteś w 10% najlepiej zarabiających"), zamiast podawać oszacowanie punktowe, którego nie
+mamy. Kształt zdania niesie więc informację o tym, jak pewna jest liczba.
+
+**Na płacy minimalnej** (4 806 zł = pierwszy decyl) wychodzi równo 10% i należy to czytać jako
+**górną granicę**: skoro na tej jednej kwocie stoi kilkuprocentowa grupa, „więcej niż ok. 10%"
+jest najżyczliwszym prawdziwym zdaniem, jakie da się powiedzieć.
+
+**Luty jest miesiącem hojnym.** W tej serii luty wychodzi wyraźnie wyżej od stycznia
+(9 966 zł wobec 9 353 zł przeciętnego) — wchodzą w niego premie roczne. Percentyl policzony
+na lutowym rozkładzie jest więc dla użytkownika **odrobinę zaniżony** względem miesiąca
+typowego. Skala efektu nie została zmierzona; przy podmianie danych na inny miesiąc warto
+o tym pamiętać.
+
+### Wyliczone percentyle — punkty kontrolne
+
+| Brutto/mies | Percentyl | Skąd |
+|---|---|---|
+| 4 806 zł | **10** | punkt źródłowy (decyl 1) |
+| 7 691 zł | **50** | mediana zaokrąglona; dokładna to 7 690,82 zł = decyl 5 |
+| 11 878 zł | **75** | interpolacja D7→D8; dokładnie 76,9 |
+| 17 111 zł | **90** | punkt źródłowy (decyl 9) |
+
+## G.5. Próg reformy a „co dziesiąty podatnik"
+
+Próg korzyści przy umowie o pracę (11 878 zł brutto, patrz A.5 i część D) wypada koło
+**75. percentyla** tego rozkładu — tyle albo więcej zarabia **ok. 25% zatrudnionych**.
+
+To **nie przeczy** zapowiedzi MF, że reforma dotyczy „mniej więcej co dziesiątego podatnika"
+(~3,5 mln podatników, A.5). Obie liczby są prawdziwe, bo liczą co innego:
+
+| | percentyl z części G | „co dziesiąty podatnik" (MF) |
+|---|---|---|
+| Populacja | zatrudnieni na umowę o pracę | **wszyscy** rozliczający PIT — z emerytami, zleceniobiorcami, przedsiębiorcami, osobami pracującymi część roku |
+| Podstawa | wynagrodzenie z **jednego miesiąca** | **roczny dochód** |
+
+Populacja podatników jest znacznie liczniejsza i uboższa od populacji etatowców, więc ten sam
+próg wypada w niej dużo wyżej niż na 75. percentylu. Kierunek różnicy jest więc dokładnie
+taki, jakiego należy oczekiwać, a nie sprzeczny.
+
+`[NIEJASNE]` Nie udało się ustalić rozkładu **rocznego dochodu wszystkich podatników PIT**,
+który pozwoliłby podać percentyl progu w tej samej populacji, o której mówi MF. Dopóki go nie
+ma, strona nie twierdzi, że reforma dotyczy „co czwartego" — mówi tylko, ilu **zatrudnionych**
+tyle zarabia, i wprost zaznacza, że to inna grupa niż w zapowiedzi.
+
+## G.6. Czego z tych danych NIE wolno wyczytać
+
+- **Nie mówią, ilu ludzi skorzysta na reformie.** Próg dotyczy rocznego dochodu; ktoś, kto
+  w lutym zarobił 12 000 zł, ale przepracował pół roku, do progu nie dojdzie.
+- **Nie mówią nic o gospodarstwie domowym.** Percentyl liczymy wyłącznie z pensji osoby
+  czytającej, także przy wspólnym rozliczeniu — suma dochodów pary nie jest niczyim
+  wynagrodzeniem, więc w rozkładzie wynagrodzeń indywidualnych nie ma czego szukać. Połowa
+  łącznego dochodu (liczba rządząca progiem, patrz `DECYZJE.md`) tym bardziej nie.
+- **Nie są prognozą na 2027 r.** To pomiar z lutego 2026 r. Płace rosną; przy odczycie za
+  2027 r. ta sama kwota wypadnie niżej.
+- **Nie dzielą dokładniej ogonów.** Poniżej 4 806 zł i powyżej 17 111 zł mamy przedział, nie
+  punkt.
+
+## G.7. Kiedy to odświeżyć
+
+Seria wychodzi co miesiąc, z około półrocznym opóźnieniem. Podmiana danych to zmiana jednej
+tablicy `DECYLE` i stałej `ROZKLAD_MIESIAC` w `src/lib/rozklad.ts` — testy w
+`src/lib/rozklad.test.ts` pilnują, że decyle zostają rosnące i że każdy z nich nadal wypada
+równo na swoim percentylu. Trzy rzeczy warto przy tym sprawdzić:
+
+1. czy pierwszy decyl nadal równa się płacy minimalnej (jeśli nie, uwaga o „górnej granicy"
+   z G.4 przestaje obowiązywać i trzeba ją poprawić tu oraz w komentarzu w kodzie);
+2. czy próg 11 878 zł nadal wypada na 75. percentylu — zdanie w interfejsie liczy to samo
+   z `DECYLE`, więc poprawi się samo, ale tabela w G.4 i akapit G.5 już nie;
+3. czy miesiąc odniesienia nie jest premiowy (patrz uwaga o lutym w G.4).
