@@ -40,6 +40,10 @@ pewne (obowiązujące prawo), zapowiedziane (deklaracja bez tekstu przepisu) alb
 Jeśli chcesz sprawdzić, czy wyliczeniom można ufać, `model.md` jest właściwym miejscem —
 nie kod.
 
+Osobno, w [`DECYZJE.md`](DECYZJE.md), spisane są rozstrzygnięcia dotyczące samej strony:
+co świadomie odrzuciliśmy i dlaczego. Warto tam zajrzeć przed zaproponowaniem zmiany —
+część pomysłów została już zbudowana, obejrzana i odrzucona z konkretnych powodów.
+
 ## Walidacja silnika
 
 Silnik podatkowy jest zamknięty w [`src/tax/engine.ts`](src/tax/engine.ts) i pokryty testami
