@@ -484,14 +484,20 @@ function skladniki(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): Skla
     ? 0
     : Math.min(
         round2((bruttoRocznie - skladkiSpoleczne) * RATE_ZDROWOTNA),
-        // Bez ulgi kap wiązałby dopiero poniżej ~1 250 zł/mies brutto — patrz
-        // komentarz przy `kapZdrowotnej` w engine.test.ts. Nie stosujemy go tam,
-        // żeby włączenie ulgi było jedyną rzeczą zmieniającą dotychczasowe wyniki.
-        // Po poprawce z ust. 2a kap ma tu i tak tę samą wartość co bez ulgi,
-        // więc różnica między gałęziami została już tylko w tej ćwiartce płacy
-        // minimalnej — a przy zleceniu nie ma jej wcale, bo tam kap nie wiąże
-        // przy żadnej kwocie (17% × 80% = 13,6% > 9%).
-        przychodZwolniony > 0 ? kapZdrowotnej(podstawaBezZwolnienia, !zlecenie) : Infinity,
+        // Kap stosuje się ZAWSZE, także bez ulgi — art. 83 ust. 1 nie stawia
+        // żadnego warunku, a ust. 2a jedynie zmienia podstawę hipotetycznej
+        // zaliczki, gdy zwolnienie występuje. Do 2026-08-20 silnik wchodził tu
+        // tylko przy `przychodZwolniony > 0`, co bez ulgi ZAWYŻAŁO składkę
+        // poniżej ~1 250 zł/mies brutto (przy 1 000 zł/mies: 931,93 zł zamiast
+        // 725,23 zł rocznie). Uzasadniano to tym, że taka ćwiartka płacy
+        // minimalnej jest poza zakresem kalkulatora — ale nie jest: pole
+        // małżonka przy wspólnym rozliczeniu przyjmuje wszystko od zera
+        // (`MIN_POLE` pilnuje tylko pola głównego), a `oblicz` jest funkcją
+        // publiczną. Zawyżenie działało na niekorzyść podatnika, więc zniknęło.
+        //
+        // `podstawaBezZwolnienia` jest właściwym argumentem w obu przypadkach:
+        // bez ulgi równa się po prostu `dochod`.
+        kapZdrowotnej(podstawaBezZwolnienia, !zlecenie),
       );
 
   return {

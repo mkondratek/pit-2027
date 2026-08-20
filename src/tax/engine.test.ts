@@ -847,23 +847,34 @@ describe('ulga dla młodych (PIT-0)', () => {
     });
 
     /*
-     * Świadome ograniczenie: bez ulgi silnik kapu nie stosuje. W prawie
-     * obowiązuje zawsze, ale bez zwolnienia wiązałby dopiero poniżej ~1 250 zł
-     * miesięcznie brutto — czwarta część płacy minimalnej, więc poza zakresem
-     * pytania, na które ten kalkulator odpowiada. Zostawione tak, żeby włączenie
-     * ulgi było jedyną rzeczą zmieniającą dotychczasowe, zwalidowane wyniki.
-     * Ten test pilnuje granicy tego ograniczenia, żeby nie rozlało się wyżej.
+     * Kap obowiązuje ZAWSZE, także bez ulgi — art. 83 ust. 1 nie stawia
+     * warunku. Bez zwolnienia wiąże dopiero poniżej ~1 250 zł/mies brutto,
+     * czyli w ćwiartce płacy minimalnej, i do 2026-08-20 silnik go tam nie
+     * stosował: przy 1 000 zł/mies liczył 931,93 zł zamiast 725,23 zł rocznie.
+     * Uzasadnieniem było „poza zakresem kalkulatora", ale zakres tego nie
+     * potwierdza — pole małżonka przy wspólnym rozliczeniu przyjmuje kwoty od
+     * zera, a `oblicz` jest funkcją publiczną. Ten test pilnuje teraz, że kap
+     * jest stosowany dokładnie tam, gdzie wiąże, i nigdzie indziej.
      */
-    it('bez ulgi wiązałby dopiero poniżej ~1 250 zł/mies brutto (świadomie niestosowany)', () => {
-      const wiazalby = (brutto: number) => {
-        const w = oblicz(brutto, 2026);
-        return kapZdrowotnej(w.podstawaOpodatkowania) < w.skladkaZdrowotna;
-      };
+    it('wiąże poniżej ~1 250 zł/mies brutto i jest stosowany także bez ulgi', () => {
+      const wiazalby = (brutto: number) =>
+        kapZdrowotnej(oblicz(brutto, 2026).podstawaOpodatkowania) <
+        round2((brutto * 12 - oblicz(brutto, 2026).skladkiSpoleczne) * RATE_ZDROWOTNA);
 
       expect(wiazalby(1_200)).toBe(true);
       expect(wiazalby(1_300)).toBe(false);
       // …a przy płacy minimalnej i wyżej nie ma o czym mówić.
       expect(wiazalby(PLACA_MINIMALNA)).toBe(false);
+
+      // Tam, gdzie wiąże, składka JEST do niego zbita — a nie zostawiona na 9%.
+      const niska = oblicz(1_000, 2026);
+      expect(niska.skladkaZdrowotna).toBe(kapZdrowotnej(niska.podstawaOpodatkowania));
+      expect(niska.skladkaZdrowotna).toBe(725.23);
+      // Powyżej progu składka to nadal pełne 9% od podstawy.
+      const wyzsza = oblicz(1_300, 2026);
+      expect(wyzsza.skladkaZdrowotna).toBe(
+        round2((1_300 * 12 - wyzsza.skladkiSpoleczne) * RATE_ZDROWOTNA),
+      );
     });
   });
 
@@ -1814,20 +1825,30 @@ describe('umowa zlecenia (model.md część F)', () => {
 
     it('kap przy zleceniu nie wiąże przy żadnej kwocie brutto', () => {
       // 17% od 80% podstawy to 13,6% — zawsze więcej niż 9% składki. Dlatego
-      // pominięcie kapu poza ulgą (świadome uproszczenie odziedziczone po
-      // etacie) przy zleceniu nic nie kosztuje, a z ulgą kap i tak przepuszcza
-      // pełną składkę. Sprawdzane od dołu skali, gdzie na etacie kap wiąże.
+      // zleceniobiorca płaci pełne 9% na całej skali, choć kap jest stosowany
+      // (od 2026-08-20) także bez ulgi. Sprawdzane od dołu skali, gdzie na
+      // etacie kap wiąże.
       for (const brutto of [500, 1_000, 1_200, 3_000, PLACA_MINIMALNA, 20_000]) {
         const w = oblicz(brutto, 2026, Z);
 
         expect(kapZdrowotnej(w.podstawaOpodatkowania, false)).toBeGreaterThanOrEqual(
           w.skladkaZdrowotna,
         );
+        // …czyli składka to nadal pełne 9%, niezbite kapem.
+        expect(w.skladkaZdrowotna).toBe(
+          round2((brutto * 12 - w.skladkiSpoleczne) * RATE_ZDROWOTNA),
+        );
       }
-      // …a na etacie przy 1 200 zł/mies wiąże — czyli to nie jest własność
-      // samego kapu, tylko kosztów 20%.
+      // …a na etacie przy 1 200 zł/mies kap wiąże i składkę realnie obniża —
+      // czyli to nie jest własność samego kapu, tylko kosztów 20%. (Do
+      // 2026-08-20 stało tu porównanie z `etat.skladkaZdrowotna`, które
+      // działało tylko dlatego, że silnik kapu bez ulgi nie stosował; teraz
+      // składka jest już kapowi równa, więc porównujemy z pełnymi 9%.)
       const etat = oblicz(1_200, 2026);
-      expect(kapZdrowotnej(etat.podstawaOpodatkowania)).toBeLessThan(etat.skladkaZdrowotna);
+      expect(kapZdrowotnej(etat.podstawaOpodatkowania)).toBeLessThan(
+        round2((1_200 * 12 - etat.skladkiSpoleczne) * RATE_ZDROWOTNA),
+      );
+      expect(etat.skladkaZdrowotna).toBe(kapZdrowotnej(etat.podstawaOpodatkowania));
     });
   });
 
