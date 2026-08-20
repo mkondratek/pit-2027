@@ -9,6 +9,7 @@
     porownajWspolnie,
   } from '../tax/engine';
   import { kwota } from './format';
+  import { rzedyPodpisow, WYSOKOSC_WIERSZA } from './osWykresu';
 
   let {
     brutto,
@@ -77,11 +78,14 @@
   // Układ w jednostkach viewBox. SVG skaluje się z szerokością rodzica, więc to
   // proporcje, nie piksele; rozmiary tekstu ustawia CSS (patrz niżej).
   const W = 400;
-  const H = 170;
+  /** Wysokość przy podpisach osi w jednym wierszu; drugi ją podnosi (patrz `H`). */
+  const H_JEDEN_WIERSZ = 170;
   const L = 26;
   const R = 394;
   const T = 26;
   const B = 132;
+  /** Linia bazowa pierwszego wiersza podpisów pod osią. */
+  const Y_PODPISU = B + 16;
 
   const skalaX = (b: number) => L + ((b - MIN_X) / (maxX - MIN_X)) * (R - L);
   const skalaY = (z: number) => B - (Math.min(z, ZYSK_MAX) / ZYSK_MAX) * (B - T);
@@ -140,6 +144,51 @@
     maximumFractionDigits: 0,
     useGrouping: 'always',
   });
+
+  /**
+   * Podpisy pod osią, z gotowym miejscem dla każdego.
+   *
+   * Progi bywają pięciocyfrowe i leżą blisko siebie — przy wspólnym rozliczeniu
+   * z ulgą dzieli je mniej, niż mierzą same podpisy — więc o tym, czy stają
+   * obok siebie, czy jeden schodzi wiersz niżej, decyduje `rzedyPodpisow`
+   * (tam też uzasadnienie, dlaczego drugi wiersz, a nie mniejsze pismo czy
+   * skrót). Tu zostaje samo rysowanie.
+   *
+   * Podpis progu, którego linii nie ma, nie powstaje w ogóle: `widoczny`
+   * odpowiada za jedno i drugie, więc nie da się zostać z podpisem bez linii.
+   */
+  const podpisyOsi = $derived.by(() => {
+    const lewy = `${liczba.format(MIN_X)} i mniej`;
+    const prawy = `${liczba.format(maxX)} i więcej`;
+    const podpisProgu = (b: number) =>
+      widoczny(b) ? { tekst: liczba.format(b), x: skalaX(b) } : null;
+
+    const poczatek = podpisProgu(progi.poczatek);
+    const pelna = podpisProgu(progi.pelna);
+    const rzedy = rzedyPodpisow({ lewy, prawy, poczatek, pelna, L, R });
+
+    const progow = ([
+      [poczatek, rzedy.poczatek],
+      [pelna, rzedy.pelna],
+    ] as const).flatMap(([podpis, rzad]) =>
+      podpis === null || rzad === null
+        ? []
+        : [{ ...podpis, y: Y_PODPISU + rzad * WYSOKOSC_WIERSZA }],
+    );
+
+    return { lewy, prawy, progow, drugiWiersz: rzedy.poczatek === 1 || rzedy.pelna === 1 };
+  });
+
+  /**
+   * Drugi wiersz podpisów dokłada wykresowi swoją wysokość, zamiast być na
+   * niego zarezerwowany na stałe. Wysokość zmienia się wtedy razem z progami,
+   * czyli po przełączeniu opcji — kliknięciem, nie w trakcie przeciągania
+   * suwaka ani wykresu (`progi` i `maxX` nie zależą od kwoty). Stały pusty pas
+   * pod osią widziałby natomiast każdy, także trzy czwarte układów, które
+   * drugiego wiersza nie potrzebują — tak samo rozstrzygnięte jak przy nocie
+   * „poza osią" niżej.
+   */
+  const H = $derived(H_JEDEN_WIERSZ + (podpisyOsi.drugiWiersz ? WYSOKOSC_WIERSZA : 0));
 
   const opis = $derived(
     `Wykres ${wspolne ? 'łącznego zysku miesięcznego pary' : 'zysku miesięcznego'} ` +
@@ -303,22 +352,16 @@
          płaska — podpis mówi to wprost, zamiast rysować symbol przerwania osi.
          Oba są dosunięte do końców osi (start / end), a nie wyśrodkowane na
          nich: dłuższy tekst inaczej wychodziłby poza SVG na wąskim ekranie. -->
-    <text class="skala kraniec" x={L} y={B + 16} text-anchor="start">
-      {liczba.format(MIN_X)} i mniej
-    </text>
-    {#if widoczny(progi.poczatek)}
-      <text class="prog" x={skalaX(progi.poczatek)} y={B + 16} text-anchor="middle">
-        {liczba.format(progi.poczatek)}
-      </text>
-    {/if}
-    {#if widoczny(progi.pelna)}
-      <text class="prog" x={skalaX(progi.pelna)} y={B + 16} text-anchor="middle">
-        {liczba.format(progi.pelna)}
-      </text>
-    {/if}
-    <text class="skala kraniec" x={R} y={B + 16} text-anchor="end">
-      {liczba.format(maxX)} i więcej
-    </text>
+    <text class="skala kraniec" x={L} y={Y_PODPISU} text-anchor="start">{podpisyOsi.lewy}</text>
+    <!-- Podpisy progów mają już policzone `y`: przy ciasnocie jeden z nich stoi
+         wiersz niżej, wciąż wyśrodkowany dokładnie pod swoją linią. -->
+    <!-- Bez klucza świadomie: oba progi bywają tą samą liczbą (przy zarobkach
+         małżonka, przy których zysk pary od razu jest pełny), a to zduplikowany
+         klucz i błąd w czasie działania. -->
+    {#each podpisyOsi.progow as podpis}
+      <text class="prog" x={podpis.x} y={podpis.y} text-anchor="middle">{podpis.tekst}</text>
+    {/each}
+    <text class="skala kraniec" x={R} y={Y_PODPISU} text-anchor="end">{podpisyOsi.prawy}</text>
 
     <text class="podpis-osi" x={(L + R) / 2} y={H - 5} text-anchor="middle">
       wynagrodzenie brutto (zł / mies.)
