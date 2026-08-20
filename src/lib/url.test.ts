@@ -282,3 +282,124 @@ describe('PPK i podwyższone koszty w adresie', () => {
     expect(stan.href).toBe('https://pit.example/?brutto=15000');
   });
 });
+
+describe('forma zatrudnienia w adresie', () => {
+  it('czyta zlecenie z linku', async () => {
+    ustawWindow('https://pit.example/?brutto=15000&forma=zlecenie');
+    const { odczytajForme } = await zaladujModul();
+
+    expect(odczytajForme()).toBe('zlecenie');
+  });
+
+  it('czyta etat, gdy parametru nie ma albo niesie coś nieznanego', async () => {
+    ustawWindow('https://pit.example/?brutto=15000&forma=dzielo');
+    const { odczytajForme } = await zaladujModul();
+
+    expect(odczytajForme()).toBe('umowaOPrace');
+  });
+
+  it('traktuje link z samą formą jak udostępniony, a nie jak czyste wejście', async () => {
+    const stan = ustawWindow('https://pit.example/?forma=zlecenie');
+    const { odczytajBrutto, odczytajForme, odczytajMalzonka, zapiszStan } = await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), { forma: odczytajForme() });
+
+    expect(stan.href).toBe('https://pit.example/?forma=zlecenie&brutto=12000');
+  });
+
+  it('nie brudzi czystego adresu formą domyślną', async () => {
+    const stan = ustawWindow('https://pit.example/');
+    const { odczytajBrutto, odczytajForme, odczytajMalzonka, zapiszStan } = await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), { forma: odczytajForme() });
+
+    expect(stan.href).toBe('https://pit.example/');
+  });
+
+  it('przełączenie na zlecenie przy domyślnej kwocie jest interakcją', async () => {
+    const stan = ustawWindow('https://pit.example/');
+    const { odczytajBrutto, odczytajMalzonka, zapiszStan } = await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), { forma: 'umowaOPrace' });
+    zapiszStan(12_000, null, { forma: 'zlecenie' });
+
+    expect(stan.href).toBe('https://pit.example/?brutto=12000&forma=zlecenie');
+  });
+
+  it('powrót na etat usuwa formę z adresu', async () => {
+    const stan = ustawWindow('https://pit.example/?brutto=15000&forma=zlecenie');
+    const { zapiszStan } = await zaladujModul();
+
+    zapiszStan(15_000, null, { forma: 'umowaOPrace' });
+
+    expect(stan.href).toBe('https://pit.example/?brutto=15000');
+  });
+});
+
+describe('opcje zależne od formy w adresie', () => {
+  it('czyta chorobową i status studenta razem ze zleceniem', async () => {
+    ustawWindow('https://pit.example/?brutto=8000&forma=zlecenie&bez-chorobowej=1&student=1');
+    const { odczytajBezChorobowej, odczytajStudenta } = await zaladujModul();
+
+    expect(odczytajBezChorobowej()).toBe(true);
+    expect(odczytajStudenta()).toBe(true);
+  });
+
+  it('nie czyta ich bez zlecenia w adresie', async () => {
+    ustawWindow('https://pit.example/?brutto=8000&bez-chorobowej=1&student=1');
+    const { odczytajBezChorobowej, odczytajStudenta } = await zaladujModul();
+
+    expect(odczytajBezChorobowej()).toBe(false);
+    expect(odczytajStudenta()).toBe(false);
+  });
+
+  it('nie czyta podwyższonych kosztów przy zleceniu', async () => {
+    ustawWindow('https://pit.example/?brutto=8000&forma=zlecenie&koszty=1');
+    const { odczytajPodwyzszoneKoszty } = await zaladujModul();
+
+    expect(odczytajPodwyzszoneKoszty()).toBe(false);
+  });
+
+  it('traktuje link z samym studentem jak udostępniony', async () => {
+    const stan = ustawWindow('https://pit.example/?forma=zlecenie&student=1');
+    const { odczytajBrutto, odczytajForme, odczytajMalzonka, odczytajStudenta, zapiszStan } =
+      await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), {
+      forma: odczytajForme(),
+      student: odczytajStudenta(),
+    });
+
+    expect(stan.href).toBe('https://pit.example/?forma=zlecenie&student=1&brutto=12000');
+  });
+
+  it('opcje zleceniowe nie zostają w adresie po powrocie na etat', async () => {
+    const stan = ustawWindow(
+      'https://pit.example/?brutto=8000&forma=zlecenie&bez-chorobowej=1&student=1',
+    );
+    const { zapiszStan } = await zaladujModul();
+
+    // Tak wywołuje to aplikacja: zmiana formy gasi opcje, których w niej nie ma.
+    zapiszStan(8_000, null, { forma: 'umowaOPrace', bezChorobowej: false, student: false });
+
+    expect(stan.href).toBe('https://pit.example/?brutto=8000');
+  });
+
+  it('nie zapisuje opcji zleceniowych przy umowie o pracę, nawet gdy je podano', async () => {
+    const stan = ustawWindow('https://pit.example/?brutto=8000');
+    const { zapiszStan } = await zaladujModul();
+
+    zapiszStan(8_000, null, { forma: 'umowaOPrace', bezChorobowej: true, student: true });
+
+    expect(stan.href).toBe('https://pit.example/?brutto=8000');
+  });
+
+  it('nie zapisuje podwyższonych kosztów przy zleceniu', async () => {
+    const stan = ustawWindow('https://pit.example/?brutto=8000');
+    const { zapiszStan } = await zaladujModul();
+
+    zapiszStan(8_000, null, { forma: 'zlecenie', podwyzszoneKoszty: true });
+
+    expect(stan.href).toBe('https://pit.example/?brutto=8000&forma=zlecenie');
+  });
+});

@@ -1,34 +1,45 @@
 <script lang="ts">
   import {
+    type FormaZatrudnienia,
     KUP_PODSTAWOWE_MIES,
     KUP_PODWYZSZONE_MIES,
+    KUP_ZLECENIE_STAWKA,
     LIMIT_PIT_ZERO,
     PLACA_MINIMALNA,
     PPK_PRACODAWCA_PODSTAWOWY,
     PPK_PRACOWNIK_PODSTAWOWY,
+    RATE_CHOROBOWA,
+    RATE_EMERYTALNA,
+    RATE_RENTOWA,
     SKALA,
   } from '../tax/constants';
   import {
     BRUTTO_PELNA_KORZYSC,
     BRUTTO_PELNA_KORZYSC_ULGA,
+    BRUTTO_PELNA_KORZYSC_ZLECENIE,
     BRUTTO_POCZATEK_KORZYSCI,
     BRUTTO_POCZATEK_KORZYSCI_ULGA,
+    BRUTTO_POCZATEK_KORZYSCI_ZLECENIE,
     MAKSYMALNA_KORZYSC_ROCZNA,
     MAKSYMALNA_KORZYSC_WSPOLNA,
     type Opcje,
     type OpcjeWspolne,
     porownaj,
     porownajWspolnie,
+    progiIndywidualne,
     progiWspolne,
   } from '../tax/engine';
   import WykresZysku from './WykresZysku.svelte';
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
   import { kwotaZSuwaka, wZakresie } from './suwak';
   import {
+    odczytajBezChorobowej,
     odczytajBrutto,
+    odczytajForme,
     odczytajMalzonka,
     odczytajPodwyzszoneKoszty,
     odczytajPpk,
+    odczytajStudenta,
     odczytajUlge,
     odczytajUlgeMalzonka,
     zapiszStan,
@@ -48,6 +59,9 @@
   const startowaUlgaMalzonka = odczytajUlgeMalzonka();
   const startowePpk = odczytajPpk();
   const startoweKoszty = odczytajPodwyzszoneKoszty();
+  const startowaForma = odczytajForme();
+  const startowaBezChorobowej = odczytajBezChorobowej();
+  const startowyStudent = odczytajStudenta();
 
   /** Kwota, na której liczy silnik — zawsze skończona liczba, nigdy pusta. */
   let brutto = $state(startowe);
@@ -96,6 +110,27 @@
   /** Zamieszkanie poza miejscowością zakładu pracy — KUP 300 zł zamiast 250 zł. */
   let podwyzszoneKoszty = $state(startoweKoszty);
 
+  /**
+   * Forma zatrudnienia. Nie jest to kolejna opcja obok PPK czy kosztów: zmienia
+   * drogę od brutto do dochodu (koszty 20% zamiast 250 zł/mies, chorobowa
+   * dobrowolna, zwolnienie studenckie), a razem z nią progi korzyści, oś
+   * wykresu i połowa objaśnień na stronie. Dlatego stoi nad kwotą, jako pytanie
+   * ramujące wszystko poniżej, a nie wśród przełączników pod suwakiem.
+   */
+  let forma = $state<FormaZatrudnienia>(startowaForma);
+  const zlecenie = $derived(forma === 'zlecenie');
+
+  /**
+   * Rezygnacja z dobrowolnej chorobowej — trzymana „od tyłu" (domyślnie
+   * `false` = składka opłacana), bo tak brzmi etykieta i tak samo działa
+   * adres: parametr pojawia się wyłącznie przy odstępstwie od stanu
+   * domyślnego, którym jest chorobowa opłacana (patrz `Opcje` w silniku).
+   */
+  let bezChorobowej = $state(startowaBezChorobowej);
+
+  /** Uczeń lub student do 26 lat na zleceniu — zero składek ZUS i zdrowotnej. */
+  let student = $state(startowyStudent);
+
   let rozwiniete = $state(false);
 
   /**
@@ -103,19 +138,25 @@
    * z nich — schowane ustawienie, które jednak działa, byłoby gorsze niż brak
    * rozwijaka.
    */
-  let wiecejOpcji = $state(startoweKoszty);
+  let wiecejOpcji = $state(startoweKoszty || startowaBezChorobowej);
 
   /** Czy w bieżącym scenariuszu ktokolwiek korzysta ze zwolnienia. */
   const jakasUlga = $derived(ulga || (wspolne && ulgaMalzonka));
 
   /**
-   * Ustawienia, które w silniku dziedziczą się na małżonka — PPK i koszty
-   * uzyskania przychodu. Wyłączone znaczy dokładnie tyle co ich brak
-   * (`ppkPracownik: 0` = domyślne zero, `kupPodwyzszone: false` = koszty
-   * podstawowe), więc przy obu przełącznikach wyłączonych wynik jest co do
-   * grosza taki jak przed ich dodaniem.
+   * Ustawienia, które w silniku dziedziczą się na małżonka — forma
+   * zatrudnienia, chorobowa, PPK i koszty uzyskania przychodu. Wyłączone znaczy
+   * dokładnie tyle co ich brak (`ppkPracownik: 0` = domyślne zero,
+   * `kupPodwyzszone: false` = koszty podstawowe), więc przy wszystkich
+   * przełącznikach wyłączonych wynik jest co do grosza taki jak przed ich
+   * dodaniem.
+   *
+   * Status studenta tu **nie** wchodzi — to cecha konkretnej osoby, jak wiek,
+   * i silnik jej nie dziedziczy. Stoi więc obok `ulgaDlaMlodych` w `opcje`.
    */
   const opcjeOsoby: Opcje = $derived({
+    forma,
+    chorobowaDobrowolna: !bezChorobowej,
     kupPodwyzszone: podwyzszoneKoszty,
     ppkPracownik: ppk ? PPK_PRACOWNIK_PODSTAWOWY : 0,
     ppkPracodawca: ppk ? PPK_PRACODAWCA_PODSTAWOWY : 0,
@@ -138,6 +179,7 @@
   const opcje: OpcjeWspolne = $derived({
     ...opcjeOsoby,
     ulgaDlaMlodych: ulga,
+    studentDo26: student,
     malzonek: { ...opcjeOsoby, ulgaDlaMlodych: ulgaMalzonka },
   });
 
@@ -151,36 +193,55 @@
   );
 
   /**
-   * Czy bieżące ustawienia są tymi, dla których wyprowadzone są stałe progi.
-   * PPK i podwyższone koszty zmieniają podstawę opodatkowania, więc przesuwają
-   * też moment, w którym nowa skala zaczyna cokolwiek dawać.
+   * Progi korzyści na ustawieniach, dla których model ma wyprowadzoną parę
+   * stałych — albo `null`, gdy trzeba ich poszukać.
+   *
+   * Stałe pokrywają trzy najczęstsze scenariusze: etat, etat z ulgą dla młodych
+   * (pierwsze 85 528 zł przychodu jest wolne od podatku, więc nowa skala rusza
+   * dopiero od 20 139 zł brutto) i zlecenie z opłacaną chorobową (koszty 20%
+   * zjadają jedną piątą przychodu, więc próg idzie w górę do 14 487 zł).
+   * Wszystko poza nimi — PPK, podwyższone koszty, brak chorobowej, status
+   * studenta i ich kombinacje — stałych nie ma i mieć nie powinno: to byłyby
+   * dziesiątki par zamiast trzech.
+   *
+   * Dlaczego w ogóle stałe, skoro `progiIndywidualne` policzy każdy przypadek:
+   * bo wyszukiwanie daje 11 879 zł tam, gdzie cała strona (nagłówek, FAQ,
+   * model.md) mówi 11 878 zł. Różnica bierze się z tego, że stała jest ostatnim
+   * brutto **przed** progiem, a wyszukiwanie pierwszym **po** nim; obie liczby
+   * są poprawne, ale w interfejsie ma stać ta, którą reszta strony tłumaczy.
    */
-  const stalymiProgami = $derived(!ppk && !podwyzszoneKoszty);
+  const progiStale = $derived.by(() => {
+    if (ppk || podwyzszoneKoszty) return null;
+    if (zlecenie) {
+      if (ulga || student || bezChorobowej) return null;
+
+      return {
+        poczatek: BRUTTO_POCZATEK_KORZYSCI_ZLECENIE,
+        pelna: BRUTTO_PELNA_KORZYSC_ZLECENIE,
+      };
+    }
+
+    return ulga
+      ? { poczatek: BRUTTO_POCZATEK_KORZYSCI_ULGA, pelna: BRUTTO_PELNA_KORZYSC_ULGA }
+      : { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC };
+  });
 
   /**
-   * Progi korzyści. Przy rozliczeniu indywidualnym na ustawieniach domyślnych to
-   * dwie stałe — osobna para dla osoby z ulgą, bo pierwsze 85 528 zł przychodu
-   * jest u niej wolne od podatku i nowa skala rusza dopiero od 20 139 zł brutto
-   * zamiast 11 878 zł. Przy wspólnym rozliczeniu przesuwają się wraz
-   * z zarobkami małżonka, bo liczy się połowa łącznego dochodu — przy małżonku
-   * bez dochodu obie granice skali działają podwójnie i próg wypada mniej więcej
-   * dwa razy wyżej; `progiWspolne` dostaje te same opcje co reszta wyliczenia,
-   * więc ulga jest w nich uwzględniona.
+   * Progi korzyści. Przy wspólnym rozliczeniu przesuwają się wraz z zarobkami
+   * małżonka, bo liczy się połowa łącznego dochodu — przy małżonku bez dochodu
+   * obie granice skali działają podwójnie i próg wypada mniej więcej dwa razy
+   * wyżej; `progiWspolne` dostaje te same opcje co reszta wyliczenia, więc ulgi
+   * i forma zatrudnienia są w nich uwzględnione.
    *
-   * PPK i podwyższone koszty stałych nie mają i mieć nie powinny: to byłoby
-   * osiem par zamiast dwóch. Zamiast tego szukamy progu tak samo, jak robi to
-   * `progiWspolne` — zysk jest niemalejący względem wynagrodzenia, więc
-   * kilkanaście wywołań silnika wystarcza. Przeliczenie zachodzi po zmianie
-   * opcji, a nie przy ruchu suwaka: `brutto` w tym wyrażeniu nie występuje.
+   * Poza stałymi próg wyszukuje silnik (`progiIndywidualne`) — zysk jest
+   * niemalejący względem wynagrodzenia aż do daniny solidarnościowej, więc
+   * kilkanaście wywołań wystarcza. Przeliczenie zachodzi po zmianie opcji,
+   * a nie przy ruchu suwaka: `brutto` w tym wyrażeniu nie występuje.
    */
   const progi = $derived(
     wspolne
       ? progiWspolne(bruttoMalzonka, opcje)
-      : stalymiProgami
-        ? ulga
-          ? { poczatek: BRUTTO_POCZATEK_KORZYSCI_ULGA, pelna: BRUTTO_PELNA_KORZYSC_ULGA }
-          : { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC }
-        : progiIndywidualne(opcje),
+      : (progiStale ?? progiIndywidualne(opcje)),
   );
 
   /**
@@ -194,9 +255,13 @@
    * przy małżonku bez dochodu), więc sufit 40 000 zł ścinałby wtedy podpis progu
    * przy krawędzi. Podnosimy go tylko w scenariuszach z ulgą — bez niej oś
    * zostaje co do złotówki taka jak dotąd.
+   *
+   * Zlecenie przesuwa je podobnie, choć słabiej (18 108 zł zamiast 14 776 zł):
+   * na osi do 20 000 zł podpis pełnej korzyści wypadałby tuż przy prawym
+   * krańcu, więc i tu oś dobieramy do progów zamiast zostawiać stałą.
    */
   const gornaOsi = $derived(
-    wspolne || jakasUlga
+    wspolne || jakasUlga || zlecenie
       ? Math.min(
           jakasUlga ? 55_000 : 40_000,
           Math.max(12_000, Math.ceil((MIN_SUWAK + (progi.pelna - MIN_SUWAK) / 0.69) / 1_000) * 1_000),
@@ -227,8 +292,18 @@
    * zmiana wpłaty podstawowej rozjechałaby tekst z wynikiem. `pl-PL` daje „2%"
    * i „1,5%", czyli dokładnie tak, jak się to czyta po polsku.
    */
-  const procent = (ulamek: number) =>
-    ulamek.toLocaleString('pl-PL', { style: 'percent', maximumFractionDigits: 1 });
+  const procent = (ulamek: number, cyfry = 1) =>
+    ulamek.toLocaleString('pl-PL', { style: 'percent', maximumFractionDigits: cyfry });
+
+  /**
+   * Łączna stawka składek społecznych w bieżącym scenariuszu — do zdania
+   * o dochodzie. Liczona ze stałych, na których liczy silnik, bo inaczej
+   * rezygnacja z chorobowej zostawiłaby w tekście 13,71% obok liczby
+   * policzonej z 11,26%.
+   */
+  const stawkaSkladek = $derived(
+    RATE_EMERYTALNA + RATE_RENTOWA + (zlecenie && bezChorobowej ? 0 : RATE_CHOROBOWA),
+  );
 
   /** Miesięczne wpłaty PPK — obie strony osobno, bo o tym właśnie jest nota. */
   const wplatyPpk = $derived({
@@ -236,6 +311,23 @@
     pracodawca: wynik.po.ppkPracodawcy / 12,
     razem: (wynik.po.ppk + wynik.po.ppkPracodawcy) / 12,
   });
+
+  /**
+   * Czy PPK faktycznie się nalicza — a nie tylko „czy przełącznik jest
+   * zaznaczony". Student na zleceniu nie jest „osobą zatrudnioną" w rozumieniu
+   * ustawy o PPK, więc silnik zeruje mu wpłaty mimo podanych stawek; bez tego
+   * rozróżnienia strona obiecywałaby „0 zł miesięcznie na rachunek PPK".
+   * Przy wspólnym rozliczeniu wystarczy jedna osoba ze składkami, bo kwoty
+   * w rozbiciu są sumą obojga.
+   */
+  const ppkDziala = $derived(wynik.po.ppk > 0 || wynik.po.ppkPracodawcy > 0);
+
+  /**
+   * Kwota odejmowana w rozbiciu. Zero pisze się bez znaku, bo „−0,00 zł"
+   * wygląda na usterkę — a u studenta na zleceniu zerowe są naraz obie składki
+   * i podatek, czyli trzy wiersze z rzędu.
+   */
+  const odjac = (x: number) => (x > 0 ? `−${kwotaDokladna(x)}` : kwotaDokladna(x));
 
   /**
    * Najdłuższe możliwe brzmienie noty o PPK — duch trzymający jej wysokość,
@@ -288,10 +380,13 @@
   // zapis na każdym znaku wpisywał do adresu wartości pośrednie.
   $effect(() => {
     zapiszStan(startowe, startowyMalzonek, {
+      forma: startowaForma,
       ulga: startowaUlga,
       ulgaMalzonka: startowaUlgaMalzonka,
       ppk: startowePpk,
       podwyzszoneKoszty: startoweKoszty,
+      bezChorobowej: startowaBezChorobowej,
+      student: startowyStudent,
     });
   });
 
@@ -302,43 +397,14 @@
    */
   function zapisz() {
     zapiszStan(brutto, wspolne ? bruttoMalzonka : null, {
+      forma,
       ulga,
       ulgaMalzonka: wspolne && ulgaMalzonka,
       ppk,
       podwyzszoneKoszty,
+      bezChorobowej,
+      student,
     });
-  }
-
-  /**
-   * Progi korzyści przy rozliczeniu indywidualnym na ustawieniach, dla których
-   * nie ma wyprowadzonej stałej — odpowiednik `progiWspolne` z silnika, tyle że
-   * dla jednej osoby. Wyszukiwanie połówkowe, bo zysk jest niemalejący względem
-   * wynagrodzenia: kilkanaście wywołań silnika zamiast przemiatania zakresu.
-   */
-  function progiIndywidualne(o: Opcje): { poczatek: number; pelna: number } {
-    const zysk = (b: number) => porownaj(b, o).zyskRocznie;
-
-    return {
-      poczatek: pierwszeBrutto((b) => zysk(b) > 0),
-      pelna: pierwszeBrutto((b) => zysk(b) >= MAKSYMALNA_KORZYSC_ROCZNA),
-    };
-  }
-
-  /** Najmniejsze pełne złote brutto spełniające warunek niemalejący; GORNA, gdy żadne. */
-  function pierwszeBrutto(warunek: (brutto: number) => boolean): number {
-    const GORNA = 200_000;
-    if (warunek(0)) return 0;
-    if (!warunek(GORNA)) return GORNA;
-
-    let nie = 0;
-    let tak = GORNA;
-    while (tak - nie > 1) {
-      const srodek = Math.floor((nie + tak) / 2);
-      if (warunek(srodek)) tak = srodek;
-      else nie = srodek;
-    }
-
-    return tak;
   }
 
   function wZakresiePola(wartosc: number): number {
@@ -408,6 +474,41 @@
     zapisz();
   }
 
+  function przelaczChorobowa(wlaczone: boolean) {
+    bezChorobowej = wlaczone;
+    zapisz();
+  }
+
+  function przelaczStudenta(wlaczone: boolean) {
+    student = wlaczone;
+    zapisz();
+  }
+
+  /**
+   * Zmiana formy zatrudnienia gasi ustawienia, których w nowej formie nie ma.
+   *
+   * Silnik i tak je ignoruje (`kupPodwyzszone` przy zleceniu,
+   * `chorobowaDobrowolna` i `studentDo26` przy etacie), więc na wynik to nie
+   * wpływa — ale opcja, która zniknęła z ekranu i wciąż siedzi w stanie, wraca
+   * po przełączeniu formy z powrotem i zmienia wynik bez ani jednego
+   * kliknięcia. Gaszenie zamyka też drogę do adresu opisującego scenariusz,
+   * którego interfejs nie umie pokazać.
+   *
+   * Kwoty nie dotykamy: forma zmienia progi, więc i zakres suwaka, ale wpisana
+   * kwota jest daną użytkownika (patrz `suwak.ts`).
+   */
+  function ustawForme(nowa: FormaZatrudnienia) {
+    forma = nowa;
+
+    if (nowa === 'zlecenie') podwyzszoneKoszty = false;
+    else {
+      bezChorobowej = false;
+      student = false;
+    }
+
+    zapisz();
+  }
+
   /**
    * Suwak nie ma stanów pośrednich, więc klamruje od razu — a `null` znaczy
    * „to nie był gest, tylko domknięcie uchwytu po zmianie zakresu" i wtedy nie
@@ -428,6 +529,60 @@
 </script>
 
 <section class="wejscie">
+  <!-- Forma zatrudnienia stoi nad kwotą, bo nie jest opcją do kwoty, tylko
+       ramą dla wszystkiego pod nią: zmienia koszty uzyskania przychodu z 250 zł
+       miesięcznie na 20% przychodu, czyni chorobową dobrowolną i przesuwa próg
+       korzyści o ponad 2 500 zł. Czyta się więc jak pytanie pierwsze — „na
+       czym pracujesz", potem „za ile" — a nie jak dopowiedzenie pod suwakiem,
+       gdzie siedzą przełączniki modyfikujące gotowe już wyliczenie.
+
+       Dwie równorzędne możliwości, więc grupa dwóch pól radio, a nie
+       przełącznik włącz/wyłącz: przełącznik ma stan domyślny i odstępstwo,
+       a tu nie ma czego „włączyć" — zlecenie nie jest etatem z dodatkiem.
+       Etykieta „Pracuję na zleceniu" przy suwaczku sugerowałaby dokładnie to,
+       a przy okazji zostawiała pytanie, co znaczy pozycja wyłączona: brak
+       zlecenia czy etat.
+
+       Pola radio są prawdziwe, tylko niewidoczne (patrz `.segment input`
+       w stylach) — strzałki, Home/End, ogłaszanie „1 z 2" i grupowanie po
+       `name` dostajemy od przeglądarki. Segment kliknięty w dowolnym miejscu
+       trafia w input, bo etykieta go otacza. -->
+  <fieldset class="forma">
+    <legend>Forma zatrudnienia</legend>
+
+    <div class="segmenty">
+      <label class="segment">
+        <input
+          type="radio"
+          name="forma"
+          value="umowaOPrace"
+          checked={!zlecenie}
+          onchange={() => ustawForme('umowaOPrace')}
+        />
+        <span>Umowa o pracę</span>
+      </label>
+      <label class="segment">
+        <input
+          type="radio"
+          name="forma"
+          value="zlecenie"
+          checked={zlecenie}
+          onchange={() => ustawForme('zlecenie')}
+        />
+        <span>Umowa zlecenia</span>
+      </label>
+    </div>
+  </fieldset>
+
+  <!-- Forma dziedziczy się w silniku na małżonka (inaczej niż wiek i status
+       studenta), więc przy wspólnym rozliczeniu trzeba to powiedzieć wprost —
+       tak samo jak przy PPK. -->
+  {#if wspolne}
+    <p class="wskazowka forma-nota">
+      Przy wspólnym rozliczeniu liczymy tę samą formę obojgu małżonkom.
+    </p>
+  {/if}
+
   <label for="brutto">Twoje wynagrodzenie brutto</label>
 
   <div class="pole">
@@ -506,6 +661,52 @@
     </div>
   </div>
 
+  <!-- Status studenta zostaje widoczny, a nie ląduje w „Więcej opcji" razem
+       z chorobową — z dokładnie tego powodu, dla którego widoczne jest PPK:
+       o miejscu decyduje waga opcji, nie to, jak wielu ludzi jej użyje. Ta jest
+       najcięższa w całym kalkulatorze — zdejmuje z brutto ~22% — więc schowana
+       zostawiałaby każdemu studentowi liczbę wyraźnie za niską. Chorobowa
+       (2,45%) jest w rozwijaku, bo waży tyle co podwyższone koszty.
+
+       Miejsce zaraz pod ulgą dla młodych jest celowe: obie opcje mówią o wieku
+       do 26 lat i łatwo je pomylić, więc mają stać obok siebie, gdzie różnicę
+       widać (jedna zdejmuje podatek, druga składki), a nie na dwóch końcach
+       formularza. Znika razem ze zleceniem — przy etacie status studenta nie
+       zmienia niczego.
+
+       Blok jest zwykłym `{#if}`, nie animowanym `.rozwijane`: to nie treść
+       rozwijana przełącznikiem obok, tylko zmiana zestawu pytań po zmianie
+       formy — a wewnątrz siedzi już jedno rozwinięcie, które trzeba móc
+       animować osobno. -->
+  {#if zlecenie}
+    <label class="przelacznik">
+      <input
+        type="checkbox"
+        checked={student}
+        aria-expanded={student}
+        aria-controls="student-wyjasnienie"
+        onchange={(e) => przelaczStudenta(e.currentTarget.checked)}
+      />
+      Jestem studentem do 26 lat
+    </label>
+
+    <div class="rozwijane" class:otwarte={student} id="student-wyjasnienie">
+      <div class="klip" inert={!student}>
+        <!-- Bez tego zdania wynik wygląda na zepsuty kalkulator: przy 8 000 zł
+             brutto z zaznaczoną obok ulgą dla młodych netto wychodzi równe
+             8 000 zł, co czyta się jak brak wyliczenia, a nie jak wynik. -->
+        <p class="wskazowka wyjasnienie">
+          Uczeń i student do 26 lat nie płaci od zlecenia żadnych składek — ani społecznych, ani
+          zdrowotnej — a z ulgą dla młodych powyżej znika też podatek, więc netto potrafi się
+          wtedy równać brutto co do grosza.
+          {#if wspolne}
+            Liczymy to tylko Tobie: małżonek płaci składki jak zwykle.
+          {/if}
+        </p>
+      </div>
+    </div>
+  {/if}
+
   <!-- PPK stoi tutaj, wśród widocznych przełączników, a nie w „Więcej opcji":
        do programu wciąga automatyczny zapis, więc siedzi w nim spora część
        pracowników — część nawet o tym nie pamiętając — a przy 13 000 zł brutto
@@ -538,6 +739,14 @@
         i o podatek od dopłaty pracodawcy — ale obie kwoty zostają Twoje.
         {#if wspolne}
           Przy wspólnym rozliczeniu liczymy PPK obojgu małżonkom.
+        {/if}
+        <!-- Bez obowiązkowych składek emerytalno-rentowych zleceniobiorca nie
+             jest „osobą zatrudnioną" w rozumieniu ustawy o PPK, więc silnik
+             zeruje wpłaty. Gdyby to zdanie nie padło, przełącznik zostałby
+             zaznaczony, a w rozbiciu nie byłoby po nim śladu. -->
+        {#if student}
+          Studenta na zleceniu PPK jednak nie obejmuje — nie ma obowiązkowych składek
+          emerytalno-rentowych, więc {wspolne ? 'Twoich wpłat' : 'wpłat'} nie liczymy.
         {/if}
       </p>
     </div>
@@ -626,23 +835,51 @@
       <span class="podpowiedz" aria-hidden="true">{wiecejOpcji ? 'ukryj' : 'pokaż'}</span>
     </summary>
 
-    <!-- Etykieta o zamieszkaniu, nie o „podwyższonych KUP": warunek z ustawy
-         brzmi „zamieszkanie poza miejscowością zakładu pracy", a nazwa kosztów
-         nic nikomu nie mówi. Nazwa pada w zdaniu pod spodem i w rozbiciu. -->
-    <label class="przelacznik">
-      <input
-        type="checkbox"
-        checked={podwyzszoneKoszty}
-        onchange={(e) => przelaczKoszty(e.currentTarget.checked)}
-      />
-      Mieszkam poza miejscowością, w której pracuję
-    </label>
+    <!-- Zawartość rozwijaka zależy od formy, bo obie opcje, które w nim
+         siedzą, istnieją tylko po jednej stronie: podwyższone koszty są
+         pracownicze (przy zleceniu koszty są procentowe i wariantu „poza
+         miejscowością" nie mają), a dobrowolność chorobowej to cecha zlecenia.
+         Opcja z drugiej formy nie zostaje wyszarzona ani schowana ze stanem —
+         `ustawForme` gasi jej wartość, żeby nie wracała przy przełączeniu
+         formy tam i z powrotem. -->
+    {#if zlecenie}
+      <!-- Etykieta przeczy domyślnemu ustawieniu („nie płacę"), bo model
+           zakłada chorobową opłacaną — a zaznacza się to, co jest odstępstwem.
+           Odwrotna etykieta („Płacę dobrowolną chorobową") kazałaby odznaczyć
+           coś, czego się nigdy nie zaznaczyło. -->
+      <label class="przelacznik">
+        <input
+          type="checkbox"
+          checked={bezChorobowej}
+          onchange={(e) => przelaczChorobowa(e.currentTarget.checked)}
+        />
+        Nie płacę dobrowolnej składki chorobowej
+      </label>
 
-    <p class="wskazowka wyjasnienie">
-      Koszty uzyskania przychodu są wtedy podwyższone do {kwota(KUP_PODWYZSZONE_MIES)} miesięcznie
-      zamiast {kwota(KUP_PODSTAWOWE_MIES)} — w wypłacie to kilka złotych. Nie przysługują, jeśli
-      pracodawca zwraca Ci koszty dojazdu, a zwrot jest wolny od podatku.
-    </p>
+      <p class="wskazowka wyjasnienie">
+        Przy zleceniu chorobowa ({procent(RATE_CHOROBOWA, 2)} brutto) jest dobrowolna. Bez niej
+        wypłata jest o tyle wyższa, ale nie przysługuje zasiłek chorobowy ani macierzyński.
+        Domyślnie liczymy ją opłacaną.
+      </p>
+    {:else}
+      <!-- Etykieta o zamieszkaniu, nie o „podwyższonych KUP": warunek z ustawy
+           brzmi „zamieszkanie poza miejscowością zakładu pracy", a nazwa kosztów
+           nic nikomu nie mówi. Nazwa pada w zdaniu pod spodem i w rozbiciu. -->
+      <label class="przelacznik">
+        <input
+          type="checkbox"
+          checked={podwyzszoneKoszty}
+          onchange={(e) => przelaczKoszty(e.currentTarget.checked)}
+        />
+        Mieszkam poza miejscowością, w której pracuję
+      </label>
+
+      <p class="wskazowka wyjasnienie">
+        Koszty uzyskania przychodu są wtedy podwyższone do {kwota(KUP_PODWYZSZONE_MIES)}
+        miesięcznie zamiast {kwota(KUP_PODSTAWOWE_MIES)} — w wypłacie to kilka złotych. Nie
+        przysługują, jeśli pracodawca zwraca Ci koszty dojazdu, a zwrot jest wolny od podatku.
+      </p>
+    {/if}
   </details>
 </section>
 
@@ -756,7 +993,7 @@
   — {kwota(pracownik)} z pensji i {kwota(pracodawca)} od pracodawcy.
 {/snippet}
 
-{#if ppk}
+{#if ppkDziala}
   <div class="stos ppk-obok">
     <p class="ppk-nota">
       {@render notaPpk(wplatyPpk.razem, wplatyPpk.pracownik, wplatyPpk.pracodawca)}
@@ -850,9 +1087,28 @@
        trybu, a tryb zmienia się kliknięciem, nie przeciąganiem, więc wolno im
        zmienić wysokość. -->
   <p class="dochod-wyjasnienie">
-    Dochód to brutto pomniejszone o składki społeczne (13,71%) i koszty uzyskania przychodu —
-    składka zdrowotna go nie pomniejsza. Progi z zapowiedzi są progami dochodu, nie
-    wynagrodzenia; w rozbiciu niżej ta sama liczba to „podstawa opodatkowania".
+    <!-- Stawka składek jest liczona ze stałych silnika, a nie wpisana: przy
+         rezygnacji z dobrowolnej chorobowej to 11,26%, nie 13,71%, i zdanie ma
+         się zgadzać z liczbą nad sobą także wtedy. -->
+    {#if zlecenie && student && !wspolne}
+      Dochód to brutto pomniejszone o same koszty uzyskania przychodu — przy
+      zleceniu {procent(KUP_ZLECENIE_STAWKA)} przychodu. Składek nie ma: student do 26 lat nie
+      płaci od zlecenia żadnych.
+    {:else if zlecenie}
+      Dochód to brutto pomniejszone o składki społeczne ({procent(stawkaSkladek, 2)}) i koszty
+      uzyskania przychodu — przy zleceniu to {procent(KUP_ZLECENIE_STAWKA)} przychodu po
+      składkach, a nie {kwota(KUP_PODSTAWOWE_MIES)} miesięcznie jak na etacie. Składka zdrowotna
+      dochodu nie pomniejsza.
+      {#if student}
+        Twoich składek w tej sumie nie ma — student do 26 lat nie płaci od zlecenia żadnych — ale
+        małżonek płaci je normalnie.
+      {/if}
+    {:else}
+      Dochód to brutto pomniejszone o składki społeczne ({procent(stawkaSkladek, 2)}) i koszty
+      uzyskania przychodu — składka zdrowotna go nie pomniejsza.
+    {/if}
+    Progi z zapowiedzi są progami dochodu, nie wynagrodzenia; w rozbiciu niżej ta sama liczba to
+    „podstawa opodatkowania".
     {#if wspolne}
       Skalę stosuje się przy tym do połowy łącznego dochodu (art. 6 ust. 2 ustawy o PIT), więc to
       ona, a nie suma, stoi obok progów.
@@ -861,7 +1117,7 @@
       Ulga dla młodych zwalnia z podatku przychód do {kwota(LIMIT_PIT_ZERO)} rocznie, więc dochód
       jest o tyle niższy.
     {/if}
-    {#if ppk}
+    {#if ppkDziala}
       Wpłata pracodawcy do PPK jest przychodem pracownika, więc dochód jest o nią wyższy, choć
       w wypłacie jej nie widać. Twoja własna wpłata dochodu nie zmienia — potrąca się ją dopiero
       z netto.
@@ -942,19 +1198,19 @@
       {#if wynik.przed.przychodZwolniony > 0 || wynik.po.przychodZwolniony > 0}
         <tr>
           <th scope="row">Przychód zwolniony z PIT</th>
-          <td>−{kwotaDokladna(wynik.przed.przychodZwolniony)}</td>
-          <td>−{kwotaDokladna(wynik.po.przychodZwolniony)}</td>
+          <td>{odjac(wynik.przed.przychodZwolniony)}</td>
+          <td>{odjac(wynik.po.przychodZwolniony)}</td>
         </tr>
       {/if}
       <tr>
         <th scope="row">Składki społeczne</th>
-        <td>−{kwotaDokladna(wynik.przed.skladkiSpoleczne)}</td>
-        <td>−{kwotaDokladna(wynik.po.skladkiSpoleczne)}</td>
+        <td>{odjac(wynik.przed.skladkiSpoleczne)}</td>
+        <td>{odjac(wynik.po.skladkiSpoleczne)}</td>
       </tr>
       <tr>
         <th scope="row">Składka zdrowotna</th>
-        <td>−{kwotaDokladna(wynik.przed.skladkaZdrowotna)}</td>
-        <td>−{kwotaDokladna(wynik.po.skladkaZdrowotna)}</td>
+        <td>{odjac(wynik.przed.skladkaZdrowotna)}</td>
+        <td>{odjac(wynik.po.skladkaZdrowotna)}</td>
       </tr>
       <tr>
         <th scope="row">Koszty uzyskania przychodu</th>
@@ -968,16 +1224,16 @@
       </tr>
       <tr>
         <th scope="row">Podatek</th>
-        <td>−{kwotaDokladna(wynik.przed.podatek)}</td>
-        <td>−{kwotaDokladna(wynik.po.podatek)}</td>
+        <td>{odjac(wynik.przed.podatek)}</td>
+        <td>{odjac(wynik.po.podatek)}</td>
       </tr>
       <!-- Wpłata pracownika idzie na sam dół odejmowania, bo tam ją potrąca
            lista płac: po podatku i po składkach, z gotowej już wypłaty. -->
       {#if wynik.po.ppk > 0}
         <tr>
           <th scope="row">Wpłata pracownika do PPK</th>
-          <td>−{kwotaDokladna(wynik.przed.ppk)}</td>
-          <td>−{kwotaDokladna(wynik.po.ppk)}</td>
+          <td>{odjac(wynik.przed.ppk)}</td>
+          <td>{odjac(wynik.po.ppk)}</td>
         </tr>
       {/if}
       <tr class="suma">
@@ -1009,6 +1265,21 @@
       Składki liczy każdy od swojego wynagrodzenia, z własnym limitem 30-krotności, a składka
       zdrowotna pozostaje indywidualna — wspólnemu rozliczeniu podlega sam podatek.
     {/if}
+    {#if zlecenie}
+      Przy zleceniu koszty uzyskania przychodu to {procent(KUP_ZLECENIE_STAWKA)} przychodu
+      pomniejszonego o potrącone składki społeczne (art. 22 ust. 9 pkt 4 ustawy o PIT) i nie mają
+      rocznego limitu — stąd w wierszu kosztów inna kwota niż pracownicze
+      {kwota(KUP_PODSTAWOWE_MIES * 12)}. Składka chorobowa jest dobrowolna;
+      {bezChorobowej
+        ? `w tym wyliczeniu jej nie ma, więc składki społeczne są o ${procent(RATE_CHOROBOWA, 2)} brutto niższe`
+        : 'liczymy ją opłacaną'}.
+      {#if student}
+        Uczeń i student do ukończenia 26 lat nie podlega z tytułu zlecenia ubezpieczeniom
+        społecznym ani zdrowotnemu (art. 6 ust. 4 ustawy o systemie ubezpieczeń społecznych) —
+        do zdrowotnego zgłasza go rodzic albo uczelnia. To zwolnienie jest składkowe, nie
+        podatkowe: podatek znika osobno, ulgą dla młodych, i tylko do jej limitu.
+      {/if}
+    {/if}
     {#if wynik.przed.przychodZwolniony > 0}
       Ulga dla młodych (PIT-0, art. 21 ust. 1 pkt 148 ustawy o PIT) zwalnia z podatku przychód
       do {kwota(LIMIT_PIT_ZERO)} rocznie — limit przysługuje każdemu osobno i jest wspólny dla
@@ -1018,7 +1289,7 @@
       stanu na 31.12.2021 tak, jakby zwolnienie nie przysługiwało — więc wbrew częstej opinii
       nie spada przy uldze do zera.
     {/if}
-    {#if ppk}
+    {#if ppkDziala}
       PPK: Twoja wpłata ({procent(PPK_PRACOWNIK_PODSTAWOWY)} wynagrodzenia) potrącana jest
       z gotowej wypłaty i podatku nie zmienia. Wpłata pracodawcy
       ({procent(PPK_PRACODAWCA_PODSTAWOWY)}) nie jest z wypłaty potrącana ani nie wchodzi do
@@ -1061,6 +1332,105 @@
     display: flex;
     align-items: baseline;
     gap: 0.5rem;
+  }
+
+  /* `fieldset` bierzemy dla `legend` — to jedyny sposób podpisania grupy pól
+     radio, który czytnik ekranu ogłasza przy każdym z nich. Cały wygląd
+     domyślny (ramka, wcięcia, marginesy) idzie do zera; ramkę ma dopiero tor
+     segmentów w środku. */
+  .forma {
+    margin: 0 0 1.25rem;
+    padding: 0;
+    border: 0;
+  }
+
+  /* Wygląd i odstęp jak u `label` nad polem kwoty — to ten sam gatunek napisu:
+     podpis kontrolki stojącej pod nim. `float` z wyzerowaniem jest starą
+     sztuczką na `legend`, ale tu nie trzeba jej używać, bo `display: block`
+     wystarcza wszystkim przeglądarkom, które obsługują `:has()` niżej. */
+  .forma legend {
+    display: block;
+    padding: 0;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--tekst-cichy);
+  }
+
+  /* Wspólny tor z dwiema komórkami po połowie, żeby przełączenie nie zmieniało
+     szerokości segmentów — inaczej dłuższa etykieta („Umowa o pracę") ciągnęłaby
+     ramkę i sąsiad skakałby przy każdym kliknięciu. */
+  .segmenty {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--linia);
+    border-radius: 0.5rem;
+    background: var(--tlo-karta);
+  }
+
+  /* Etykieta jest całym celem kliknięcia, więc nie `display: block` jak
+     pozostałe etykiety w tym komponencie. Wysokość (~40 px + padding toru)
+     daje wygodny cel dotykowy, tak jak przy `.przelacznik`. */
+  .segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    /* Wielokrotne przełączanie nie ma zaznaczać napisu. */
+    user-select: none;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--tekst-cichy);
+    text-align: center;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  /* Pole radio zostaje prawdziwe i klikalne — znika wyłącznie z obrazu.
+     Rozciągnięte na cały segment zamiast `appearance: none`, bo tak samo
+     zachowuje się kursor i cel dotykowy, a nie trzeba niczego dorysowywać:
+     stan niesie tło segmentu. `opacity: 0` (nie `display: none`) zostawia je
+     w kolejności fokusu i w drzewie dostępności. */
+  .segment input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .segment:hover {
+    color: var(--tekst);
+  }
+
+  .segment:has(input:checked) {
+    background: var(--akcent-tlo);
+    border-color: color-mix(in srgb, var(--akcent) 40%, var(--linia));
+    color: var(--akcent);
+    font-weight: 600;
+  }
+
+  /* Obwódka na segmencie, nie na niewidocznym polu — inaczej fokus z klawiatury
+     nie byłby widoczny w żadnym z motywów. */
+  .segment:has(input:focus-visible) {
+    outline: 2px solid var(--akcent);
+    outline-offset: 2px;
+  }
+
+  /* Nota o dziedziczeniu formy należy do kontrolki nad sobą, a nie do pola
+     kwoty pod spodem, więc podchodzi bliżej niej. */
+  .forma-nota {
+    margin: -0.75rem 0 1.25rem;
   }
 
   /* Szerokość liczona z najdłuższej dopuszczalnej wartości, nie zgadywana:
@@ -1565,6 +1935,7 @@
     .przelacznik,
     .przelacznik input,
     .przelacznik input::before,
+    .segment,
     .rozwijane,
     .klip {
       transition: none;

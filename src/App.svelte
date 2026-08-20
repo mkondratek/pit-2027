@@ -21,7 +21,8 @@
     </p>
     <p class="zakres">
       Zmiana obejmuje wyłącznie skalę podatkową — umowę o pracę, zlecenie, emeryturę. Kalkulator
-      liczy umowę o pracę; podatku liniowego 19% ani ryczałtu zapowiedź nie zmienia.
+      liczy umowę o pracę i umowę zlecenia; podatku liniowego 19% ani ryczałtu zapowiedź nie
+      zmienia.
     </p>
   </header>
 
@@ -105,8 +106,8 @@
     <h3>A co z B2B, podatkiem liniowym i ryczałtem?</h3>
     <p>
       Zapowiedź dotyczy wyłącznie skali podatkowej, więc na liniowym 19% i na ryczałcie nie
-      zmienia nic — i tych form ta strona nie liczy. Do liczenia podatków na B2B i umowie o pracę
-      w ogóle, łącznie z porównaniem form opodatkowania, dobrym narzędziem jest
+      zmienia nic — i tych form ta strona nie liczy. Do liczenia podatków na B2B, umowie o pracę
+      i zleceniu w ogóle, łącznie z porównaniem form opodatkowania, dobrym narzędziem jest
       <a href="https://ladnepodatki.pl">ladnepodatki.pl</a>.
     </p>
 
