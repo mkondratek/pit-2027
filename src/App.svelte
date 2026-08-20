@@ -1,5 +1,6 @@
 <script lang="ts">
   import Kalkulator from './lib/Kalkulator.svelte';
+  import Udostepnij from './lib/Udostepnij.svelte';
   import { kwota } from './lib/format';
   import { SKALA } from './tax/constants';
   import { BRUTTO_POCZATEK_KORZYSCI } from './tax/engine';
@@ -161,6 +162,8 @@
       <a href="https://github.com/mkondratek/pit-2027/issues/new">Zgłoś błąd</a> — przepisy wokół tej
       zmiany dopiero powstają, więc poprawki są mile widziane.
     </p>
+    <Udostepnij />
+
     <p class="podpis">
       Autorem strony jest Mikołaj Kondratek — programista, nie doradca podatkowy ·
       <a href="https://www.linkedin.com/in/mkondratek/">LinkedIn</a> ·
