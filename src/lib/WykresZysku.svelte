@@ -13,8 +13,7 @@
   let {
     brutto,
     bruttoMalzonka = null,
-    ulga = false,
-    ulgaMalzonka = false,
+    opcje = {},
     progi = { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC },
     maxX = 20_000,
     onZmiana,
@@ -27,12 +26,16 @@
      */
     bruttoMalzonka?: number | null;
     /**
-     * Ulga dla młodych — osobno Twoja i małżonka, bo silnik jej nie dziedziczy.
-     * Krzywa musi je znać, nie tylko progi: bez nich rysowałaby zysk kogoś
-     * innego niż ten, którego dotyczą podpisane załamania.
+     * Ustawienia obliczenia (ulgi, PPK, koszty uzyskania przychodu) — gotowe,
+     * takie same, jakimi rodzic policzył liczbę nad wykresem. Krzywa musi je
+     * znać, nie tylko progi: bez nich rysowałaby zysk kogoś innego niż ten,
+     * którego dotyczą podpisane załamania i znacznik „tu jesteś".
+     *
+     * Obiekt zawiera też `malzonek`, bo ulga dla młodych nie dziedziczy się
+     * przez `?? moje` (patrz `OpcjeWspolne` w silniku) — składa go rodzic,
+     * w jednym miejscu na całą stronę.
      */
-    ulga?: boolean;
-    ulgaMalzonka?: boolean;
+    opcje?: OpcjeWspolne;
     /**
      * Załamania krzywej — gdzie zysk rusza z zera i gdzie dochodzi do pułapu.
      * Przy wspólnym rozliczeniu nie są stałymi: przesuwają się wraz z zarobkami
@@ -83,15 +86,10 @@
   const skalaX = (b: number) => L + ((b - MIN_X) / (maxX - MIN_X)) * (R - L);
   const skalaY = (z: number) => B - (Math.min(z, ZYSK_MAX) / ZYSK_MAX) * (B - T);
 
-  /**
-   * `malzonek` podajemy zawsze wprost — patrz `OpcjeWspolne` w silniku: bez tego
-   * ulga nie przeszłaby na małżonka, a przy dziedziczeniu przeszłaby po cichu na
-   * oboje. Przy rozliczeniu indywidualnym pole jest ignorowane.
-   */
-  const opcje: OpcjeWspolne = $derived({
-    ulgaDlaMlodych: ulga,
-    malzonek: { ulgaDlaMlodych: ulgaMalzonka },
-  });
+  /** Czy w bieżącym scenariuszu ktokolwiek korzysta ze zwolnienia. */
+  const jakasUlga = $derived(
+    Boolean(opcje.ulgaDlaMlodych || (wspolne && opcje.malzonek?.ulgaDlaMlodych)),
+  );
 
   /** Zysk miesięczny — jednej osoby albo całej pary, zależnie od trybu. */
   const zyskDla = (b: number) =>
@@ -153,7 +151,7 @@
       `i wyżej już nie rośnie. Dla ${kwota(brutto)} brutto zysk wynosi ${kwota(zysk)} miesięcznie.` +
       // Progi z ulgą wypadają wyraźnie wyżej od tych z nagłówka strony, więc bez
       // tej wzmianki opis czytany bez ekranu wyglądałby na sprzeczny.
-      `${ulga || ulgaMalzonka ? ' Wyliczenie uwzględnia ulgę dla młodych, dlatego zysk pojawia się dopiero przy wyższych zarobkach.' : ''}`,
+      `${jakasUlga ? ' Wyliczenie uwzględnia ulgę dla młodych, dlatego zysk pojawia się dopiero przy wyższych zarobkach.' : ''}`,
   );
 
   // ——— Sterowanie wskaźnikiem (mysz, palec, rysik — jedną ścieżką) ———

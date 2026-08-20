@@ -198,7 +198,7 @@ describe('ulga dla młodych w adresie', () => {
     const stan = ustawWindow('https://pit.example/?ulga=1');
     const { odczytajBrutto, odczytajMalzonka, odczytajUlge, zapiszStan } = await zaladujModul();
 
-    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), odczytajUlge());
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), { ulga: odczytajUlge() });
 
     expect(stan.href).toBe('https://pit.example/?ulga=1&brutto=12000');
   });
@@ -207,8 +207,8 @@ describe('ulga dla młodych w adresie', () => {
     const stan = ustawWindow('https://pit.example/');
     const { odczytajBrutto, odczytajMalzonka, odczytajUlge, zapiszStan } = await zaladujModul();
 
-    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), odczytajUlge());
-    zapiszStan(12_000, null, true);
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), { ulga: odczytajUlge() });
+    zapiszStan(12_000, null, { ulga: true });
 
     expect(stan.href).toBe('https://pit.example/?brutto=12000&ulga=1');
   });
@@ -217,7 +217,7 @@ describe('ulga dla młodych w adresie', () => {
     const stan = ustawWindow('https://pit.example/?brutto=15000&ulga=1');
     const { zapiszStan } = await zaladujModul();
 
-    zapiszStan(15_000, null, false);
+    zapiszStan(15_000, null);
 
     expect(stan.href).toBe('https://pit.example/?brutto=15000');
   });
@@ -227,7 +227,57 @@ describe('ulga dla młodych w adresie', () => {
     const { zapiszStan } = await zaladujModul();
 
     // Tak wywołuje to aplikacja: wyłączone wspólne rozliczenie zeruje oba pola naraz.
-    zapiszStan(15_000, null, false, false);
+    zapiszStan(15_000, null);
+
+    expect(stan.href).toBe('https://pit.example/?brutto=15000');
+  });
+});
+
+describe('PPK i podwyższone koszty w adresie', () => {
+  it('czyta obie flagi z linku', async () => {
+    ustawWindow('https://pit.example/?brutto=13000&ppk=1&koszty=1');
+    const { odczytajPpk, odczytajPodwyzszoneKoszty } = await zaladujModul();
+
+    expect(odczytajPpk()).toBe(true);
+    expect(odczytajPodwyzszoneKoszty()).toBe(true);
+  });
+
+  it('traktuje link z samym PPK jak udostępniony, a nie jak czyste wejście', async () => {
+    const stan = ustawWindow('https://pit.example/?ppk=1');
+    const { odczytajBrutto, odczytajMalzonka, odczytajPpk, zapiszStan } = await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), { ppk: odczytajPpk() });
+
+    expect(stan.href).toBe('https://pit.example/?ppk=1&brutto=12000');
+  });
+
+  it('traktuje link z samymi kosztami jak udostępniony', async () => {
+    const stan = ustawWindow('https://pit.example/?koszty=1');
+    const { odczytajBrutto, odczytajMalzonka, odczytajPodwyzszoneKoszty, zapiszStan } =
+      await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka(), {
+      podwyzszoneKoszty: odczytajPodwyzszoneKoszty(),
+    });
+
+    expect(stan.href).toBe('https://pit.example/?koszty=1&brutto=12000');
+  });
+
+  it('włączenie PPK przy domyślnej kwocie jest interakcją', async () => {
+    const stan = ustawWindow('https://pit.example/');
+    const { odczytajBrutto, odczytajMalzonka, zapiszStan } = await zaladujModul();
+
+    zapiszStan(odczytajBrutto(12_000), odczytajMalzonka());
+    zapiszStan(12_000, null, { ppk: true });
+
+    expect(stan.href).toBe('https://pit.example/?brutto=12000&ppk=1');
+  });
+
+  it('wyłączone opcje znikają z adresu zamiast zapisywać się jako zero', async () => {
+    const stan = ustawWindow('https://pit.example/?brutto=15000&ppk=1&koszty=1');
+    const { zapiszStan } = await zaladujModul();
+
+    zapiszStan(15_000, null, { ppk: false, podwyzszoneKoszty: false });
 
     expect(stan.href).toBe('https://pit.example/?brutto=15000');
   });

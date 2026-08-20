@@ -7,14 +7,22 @@ const PARAM = 'brutto';
 const PARAM_MALZONEK = 'malzonek';
 const PARAM_ULGA = 'ulga';
 const PARAM_ULGA_MALZONKA = 'ulga-malzonka';
+const PARAM_PPK = 'ppk';
+const PARAM_KOSZTY = 'koszty';
 
 /**
  * Wszystko poza samą kwotą. Jedna lista, bo „czy adres jest czysty" to pytanie
  * o dowolny nasz parametr, a nie o `malzonek` z osobna — inaczej link niosący
  * wyłącznie ulgę wyglądałby na wejście prosto ze strony głównej i pierwszy zapis
- * by go wyczyścił.
+ * by go wyczyścił. Każdy nowy parametr dopisuje się tu razem ze swoją stałą.
  */
-const PARAMETRY_STANU = [PARAM_MALZONEK, PARAM_ULGA, PARAM_ULGA_MALZONKA];
+const PARAMETRY_STANU = [
+  PARAM_MALZONEK,
+  PARAM_ULGA,
+  PARAM_ULGA_MALZONKA,
+  PARAM_PPK,
+  PARAM_KOSZTY,
+];
 
 /**
  * Kwota, którą `odczytajBrutto` oddało jako domyślną, bo wejście było na czysty
@@ -87,6 +95,24 @@ export function odczytajUlgeMalzonka(): boolean {
 }
 
 /**
+ * PPK i podwyższone koszty uzyskania przychodu — po jednej fladze, bo interfejs
+ * oferuje same wpłaty podstawowe (2% + 1,5%), a nie dowolne stawki. Gdyby
+ * kiedyś dochodziły stawki niestandardowe, parametr zamieniłby się w liczbę
+ * dokładnie tak, jak `malzonek` jest liczbą, a nie flagą „mam małżonka".
+ *
+ * Osobnych parametrów dla małżonka nie ma świadomie: obie opcje dziedziczą się
+ * na niego z Twoich ustawień (patrz `OpcjeWspolne` w silniku), więc nie ma
+ * drugiego stanu, który dałoby się zapisać.
+ */
+export function odczytajPpk(): boolean {
+  return flaga(PARAM_PPK);
+}
+
+export function odczytajPodwyzszoneKoszty(): boolean {
+  return flaga(PARAM_KOSZTY);
+}
+
+/**
  * Czy to jeszcze zapis inicjalizujący, czyli taki, po którym w adresie nie ma
  * się nic pojawić.
  *
@@ -100,11 +126,14 @@ export function odczytajUlgeMalzonka(): boolean {
 function zapisInicjalizujacy(
   brutto: number,
   bruttoMalzonka: number | null,
-  ulga: boolean,
-  ulgaMalzonka: boolean,
+  flagi: Flagi,
 ): boolean {
   if (domyslnaNaCzystymAdresie === null) return false;
-  if (brutto === domyslnaNaCzystymAdresie && bruttoMalzonka === null && !ulga && !ulgaMalzonka) {
+  if (
+    brutto === domyslnaNaCzystymAdresie &&
+    bruttoMalzonka === null &&
+    !Object.values(flagi).some(Boolean)
+  ) {
     return true;
   }
 
@@ -113,20 +142,36 @@ function zapisInicjalizujacy(
 }
 
 /**
- * Zapisuje cały stan naraz — przy rozliczeniu indywidualnym bez ulgi adres
- * zostaje tak krótki jak dotąd.
+ * Wszystko, co w adresie jest zwykłym „włączone / wyłączone".
  *
- * Flagi są domyślnie wyłączone, więc dotychczasowe wywołania dwuargumentowe
- * znaczą dokładnie to co wcześniej.
+ * Obiekt, a nie kolejne argumenty pozycyjne: przy czterech flagach z rzędu
+ * `zapiszStan(15_000, null, false, false, true)` nie mówi już, co się właśnie
+ * włączyło, a dołożenie piątej opcji znaczyłoby przeglądanie wszystkich
+ * wywołań. Pola są opcjonalne, więc wyłączonej flagi nie trzeba podawać —
+ * i tak zapisujemy wyłącznie włączone.
+ */
+export interface Flagi {
+  ulga?: boolean;
+  ulgaMalzonka?: boolean;
+  ppk?: boolean;
+  podwyzszoneKoszty?: boolean;
+}
+
+/**
+ * Zapisuje cały stan naraz — przy rozliczeniu indywidualnym bez żadnej opcji
+ * adres zostaje tak krótki jak dotąd.
+ *
+ * Flagi są domyślnie wyłączone, więc wywołanie dwuargumentowe znaczy „sama
+ * kwota", a `=0` w adresie nie pojawia się nigdy: parametr albo niesie
+ * odstępstwo od stanu domyślnego, albo znika.
  */
 export function zapiszStan(
   brutto: number,
   bruttoMalzonka: number | null,
-  ulga = false,
-  ulgaMalzonka = false,
+  flagi: Flagi = {},
 ): void {
   if (typeof window === 'undefined') return;
-  if (zapisInicjalizujacy(brutto, bruttoMalzonka, ulga, ulgaMalzonka)) return;
+  if (zapisInicjalizujacy(brutto, bruttoMalzonka, flagi)) return;
 
   const url = new URL(window.location.href);
   url.searchParams.set(PARAM, String(brutto));
@@ -134,13 +179,17 @@ export function zapiszStan(
   if (bruttoMalzonka === null) url.searchParams.delete(PARAM_MALZONEK);
   else url.searchParams.set(PARAM_MALZONEK, String(bruttoMalzonka));
 
-  if (ulga) url.searchParams.set(PARAM_ULGA, '1');
-  else url.searchParams.delete(PARAM_ULGA);
+  const ustaw = (nazwa: string, wlaczone: boolean | undefined) => {
+    if (wlaczone) url.searchParams.set(nazwa, '1');
+    else url.searchParams.delete(nazwa);
+  };
 
+  ustaw(PARAM_ULGA, flagi.ulga);
   // Bez małżonka nie ma czyjej ulgi zapisywać — parametr znikłby i tak przy
   // odczycie, a w adresie wyglądałby na stan, którego interfejs nie pokazuje.
-  if (ulgaMalzonka && bruttoMalzonka !== null) url.searchParams.set(PARAM_ULGA_MALZONKA, '1');
-  else url.searchParams.delete(PARAM_ULGA_MALZONKA);
+  ustaw(PARAM_ULGA_MALZONKA, flagi.ulgaMalzonka && bruttoMalzonka !== null);
+  ustaw(PARAM_PPK, flagi.ppk);
+  ustaw(PARAM_KOSZTY, flagi.podwyzszoneKoszty);
 
   window.history.replaceState(null, '', url);
 }

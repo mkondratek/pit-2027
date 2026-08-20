@@ -63,7 +63,8 @@
 
     <p>
       Sam sposób liczenia wynagrodzenia jest zwykłą listą płac: składki 13,71%, zdrowotna 9%,
-      koszty uzyskania przychodu 250 zł, kwota zmniejszająca 300 zł miesięcznie, zaokrąglenia
+      koszty uzyskania przychodu 250 zł (albo 300 zł poza miejscowością zakładu pracy), wpłaty PPK
+      2% pracownika i 1,5% pracodawcy, kwota zmniejszająca 300 zł miesięcznie, zaokrąglenia
       wg art. 63 §1 Ordynacji podatkowej. Model odtwarza kwoty, które przy tej zapowiedzi
       opublikowały Bankier i money.pl — jeśli któraś się nie zgadza, to mój błąd i chętnie go
       poprawię.
@@ -127,9 +128,10 @@
 
   <footer>
     <p>
-      Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada
-      podstawowe koszty uzyskania przychodu, złożony PIT-2, brak ulg i brak PPK. Liczy w skali roku,
-      więc może różnić się o kilka złotych od sumy dwunastu zaliczek.
+      Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada złożony PIT-2;
+      ulgę dla młodych, PPK i podwyższone koszty uzyskania przychodu włącza się przełącznikami nad
+      kwotą, a bez nich liczy koszty podstawowe i brak PPK. Liczy w skali roku, więc może różnić się
+      o kilka złotych od sumy dwunastu zaliczek.
     </p>
     <p>
       Wszystko liczy się w Twojej przeglądarce — żadne dane nie są nigdzie wysyłane.

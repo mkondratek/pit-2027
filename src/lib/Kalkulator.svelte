@@ -1,5 +1,13 @@
 <script lang="ts">
-  import { LIMIT_PIT_ZERO, PLACA_MINIMALNA, SKALA } from '../tax/constants';
+  import {
+    KUP_PODSTAWOWE_MIES,
+    KUP_PODWYZSZONE_MIES,
+    LIMIT_PIT_ZERO,
+    PLACA_MINIMALNA,
+    PPK_PRACODAWCA_PODSTAWOWY,
+    PPK_PRACOWNIK_PODSTAWOWY,
+    SKALA,
+  } from '../tax/constants';
   import {
     BRUTTO_PELNA_KORZYSC,
     BRUTTO_PELNA_KORZYSC_ULGA,
@@ -7,6 +15,7 @@
     BRUTTO_POCZATEK_KORZYSCI_ULGA,
     MAKSYMALNA_KORZYSC_ROCZNA,
     MAKSYMALNA_KORZYSC_WSPOLNA,
+    type Opcje,
     type OpcjeWspolne,
     porownaj,
     porownajWspolnie,
@@ -14,9 +23,12 @@
   } from '../tax/engine';
   import WykresZysku from './WykresZysku.svelte';
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
+  import { kwotaZSuwaka, wZakresie } from './suwak';
   import {
     odczytajBrutto,
     odczytajMalzonka,
+    odczytajPodwyzszoneKoszty,
+    odczytajPpk,
     odczytajUlge,
     odczytajUlgeMalzonka,
     zapiszStan,
@@ -34,6 +46,8 @@
   const startowyMalzonek = odczytajMalzonka();
   const startowaUlga = odczytajUlge();
   const startowaUlgaMalzonka = odczytajUlgeMalzonka();
+  const startowePpk = odczytajPpk();
+  const startoweKoszty = odczytajPodwyzszoneKoszty();
 
   /** Kwota, na której liczy silnik — zawsze skończona liczba, nigdy pusta. */
   let brutto = $state(startowe);
@@ -70,20 +84,61 @@
   let ulga = $state(startowaUlga);
   let ulgaMalzonka = $state(startowaUlgaMalzonka);
 
+  /**
+   * PPK — jedna flaga, nie dwie stawki: interfejs oferuje wpłaty **podstawowe**
+   * (2% pracownika i 1,5% pracodawcy), bo tyle płaci każdy, kogo automatyczny
+   * zapis wciągnął do programu i kto nic z tym dalej nie robił. Silnik bierze
+   * ułamki, więc gdyby kiedyś doszły wpłaty dodatkowe, zmieni się tu tylko typ
+   * stanu, a nie sposób podawania opcji.
+   */
+  let ppk = $state(startowePpk);
+
+  /** Zamieszkanie poza miejscowością zakładu pracy — KUP 300 zł zamiast 250 zł. */
+  let podwyzszoneKoszty = $state(startoweKoszty);
+
   let rozwiniete = $state(false);
+
+  /**
+   * Rozwijak z rzadszymi opcjami. Otwarty od razu, gdy link niesie którąś
+   * z nich — schowane ustawienie, które jednak działa, byłoby gorsze niż brak
+   * rozwijaka.
+   */
+  let wiecejOpcji = $state(startoweKoszty);
 
   /** Czy w bieżącym scenariuszu ktokolwiek korzysta ze zwolnienia. */
   const jakasUlga = $derived(ulga || (wspolne && ulgaMalzonka));
+
+  /**
+   * Ustawienia, które w silniku dziedziczą się na małżonka — PPK i koszty
+   * uzyskania przychodu. Wyłączone znaczy dokładnie tyle co ich brak
+   * (`ppkPracownik: 0` = domyślne zero, `kupPodwyzszone: false` = koszty
+   * podstawowe), więc przy obu przełącznikach wyłączonych wynik jest co do
+   * grosza taki jak przed ich dodaniem.
+   */
+  const opcjeOsoby: Opcje = $derived({
+    kupPodwyzszone: podwyzszoneKoszty,
+    ppkPracownik: ppk ? PPK_PRACOWNIK_PODSTAWOWY : 0,
+    ppkPracodawca: ppk ? PPK_PRACODAWCA_PODSTAWOWY : 0,
+  });
 
   /**
    * Opcje dla silnika. `malzonek` podajemy zawsze wprost, bo bez tego
    * `porownajWspolnie` zeruje małżonkowi ulgę — dokładnie po to, żeby nie
    * zwolnić po cichu obojga (patrz `OpcjeWspolne`). Przy rozliczeniu
    * indywidualnym pole jest po prostu ignorowane.
+   *
+   * Skoro jednak podajemy je wprost, trzeba w nim powtórzyć całą resztę:
+   * `malzonek` zastępuje dziedziczenie, więc bez `...opcjeOsoby` małżonek
+   * dostałby koszty podstawowe i zero PPK niezależnie od przełączników.
+   * Kierunek jest tu odwrotny niż przy uldze i celowo: wiek jest cechą osoby,
+   * a PPK i dojazdy przyjmujemy za ustawienie gospodarstwa — jeden przełącznik
+   * zamiast dwóch, kosztem pary, w której tylko jedno jest w PPK. Interfejs
+   * mówi o tym wprost przy włączonym wspólnym rozliczeniu.
    */
   const opcje: OpcjeWspolne = $derived({
+    ...opcjeOsoby,
     ulgaDlaMlodych: ulga,
-    malzonek: { ulgaDlaMlodych: ulgaMalzonka },
+    malzonek: { ...opcjeOsoby, ulgaDlaMlodych: ulgaMalzonka },
   });
 
   const wynik = $derived(
@@ -96,21 +151,36 @@
   );
 
   /**
-   * Progi korzyści. Przy rozliczeniu indywidualnym to dwie stałe — osobna para
-   * dla osoby z ulgą, bo pierwsze 85 528 zł przychodu jest u niej wolne od
-   * podatku i nowa skala rusza dopiero od 20 139 zł brutto zamiast 11 878 zł.
-   * Przy wspólnym rozliczeniu przesuwają się wraz z zarobkami małżonka, bo
-   * liczy się połowa łącznego dochodu — przy małżonku bez dochodu obie granice
-   * skali działają podwójnie i próg wypada mniej więcej dwa razy wyżej;
-   * `progiWspolne` dostaje te same opcje co reszta wyliczenia, więc ulga jest
-   * w nich uwzględniona.
+   * Czy bieżące ustawienia są tymi, dla których wyprowadzone są stałe progi.
+   * PPK i podwyższone koszty zmieniają podstawę opodatkowania, więc przesuwają
+   * też moment, w którym nowa skala zaczyna cokolwiek dawać.
+   */
+  const stalymiProgami = $derived(!ppk && !podwyzszoneKoszty);
+
+  /**
+   * Progi korzyści. Przy rozliczeniu indywidualnym na ustawieniach domyślnych to
+   * dwie stałe — osobna para dla osoby z ulgą, bo pierwsze 85 528 zł przychodu
+   * jest u niej wolne od podatku i nowa skala rusza dopiero od 20 139 zł brutto
+   * zamiast 11 878 zł. Przy wspólnym rozliczeniu przesuwają się wraz
+   * z zarobkami małżonka, bo liczy się połowa łącznego dochodu — przy małżonku
+   * bez dochodu obie granice skali działają podwójnie i próg wypada mniej więcej
+   * dwa razy wyżej; `progiWspolne` dostaje te same opcje co reszta wyliczenia,
+   * więc ulga jest w nich uwzględniona.
+   *
+   * PPK i podwyższone koszty stałych nie mają i mieć nie powinny: to byłoby
+   * osiem par zamiast dwóch. Zamiast tego szukamy progu tak samo, jak robi to
+   * `progiWspolne` — zysk jest niemalejący względem wynagrodzenia, więc
+   * kilkanaście wywołań silnika wystarcza. Przeliczenie zachodzi po zmianie
+   * opcji, a nie przy ruchu suwaka: `brutto` w tym wyrażeniu nie występuje.
    */
   const progi = $derived(
     wspolne
       ? progiWspolne(bruttoMalzonka, opcje)
-      : ulga
-        ? { poczatek: BRUTTO_POCZATEK_KORZYSCI_ULGA, pelna: BRUTTO_PELNA_KORZYSC_ULGA }
-        : { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC },
+      : stalymiProgami
+        ? ulga
+          ? { poczatek: BRUTTO_POCZATEK_KORZYSCI_ULGA, pelna: BRUTTO_PELNA_KORZYSC_ULGA }
+          : { poczatek: BRUTTO_POCZATEK_KORZYSCI, pelna: BRUTTO_PELNA_KORZYSC }
+        : progiIndywidualne(opcje),
   );
 
   /**
@@ -138,11 +208,48 @@
    * Suwak sięga co najmniej tam, gdzie oś wykresu, bo wykres jest jego drugim
    * sterownikiem — inaczej przeciągnięcie w prawy koniec zatrzymywałoby znacznik
    * w połowie gestu.
+   *
+   * Sufit **nie** idzie za wpisaną kwotą i to jest świadomy wybór. Suwak, który
+   * kończy się dokładnie na bieżącej wartości, przy przeciąganiu w lewo od razu
+   * obniżyłby własny sufit i uciekł spod palca — sprzężenie zwrotne zamiast
+   * sterowania. Kwoty spoza zakresu obsługujemy więc tak, jak dzieje się to od
+   * początku przy 100 000 zł: uchwyt stoi przypięty do krawędzi (`value` niżej),
+   * a wynik i tak liczy się z pełnej kwoty. Ceną jest to, że przeciąganie zaczyna
+   * się wtedy od krawędzi, a nie od miejsca, którego na tej osi nie ma.
    */
   const maxSuwak = $derived(Math.max(MAX_SUWAK, gornaOsi));
 
   const doProgu = $derived(Math.max(0, progi.poczatek - brutto));
   const ponizejMinimalnej = $derived(brutto < PLACA_MINIMALNA);
+
+  /**
+   * Stawki PPK piszemy z tych samych stałych, na których liczy silnik — inaczej
+   * zmiana wpłaty podstawowej rozjechałaby tekst z wynikiem. `pl-PL` daje „2%"
+   * i „1,5%", czyli dokładnie tak, jak się to czyta po polsku.
+   */
+  const procent = (ulamek: number) =>
+    ulamek.toLocaleString('pl-PL', { style: 'percent', maximumFractionDigits: 1 });
+
+  /** Miesięczne wpłaty PPK — obie strony osobno, bo o tym właśnie jest nota. */
+  const wplatyPpk = $derived({
+    pracownik: wynik.po.ppk / 12,
+    pracodawca: wynik.po.ppkPracodawcy / 12,
+    razem: (wynik.po.ppk + wynik.po.ppkPracodawcy) / 12,
+  });
+
+  /**
+   * Najdłuższe możliwe brzmienie noty o PPK — duch trzymający jej wysokość,
+   * jak w panelu wyniku. Wpłaty rosną z wynagrodzeniem, a te zmieniają się przy
+   * przeciąganiu suwaka, więc bez rezerwacji nota potrafiłaby na wąskim ekranie
+   * dołożyć sobie wiersz w środku gestu i podskoczyłaby reszta strony.
+   */
+  const maksymalnePpk = $derived.by(() => {
+    const podstawa = MAX_POLE * (wspolne ? 2 : 1);
+    const pracownik = podstawa * PPK_PRACOWNIK_PODSTAWOWY;
+    const pracodawca = podstawa * PPK_PRACODAWCA_PODSTAWOWY;
+
+    return { pracownik, pracodawca, razem: pracownik + pracodawca };
+  });
 
   /**
    * Progi z zapowiedzi w jednostce, w której są napisane: **roczny dochód**.
@@ -180,7 +287,12 @@
   // pola. Później zapisują już tylko zakończona edycja i puszczony suwak —
   // zapis na każdym znaku wpisywał do adresu wartości pośrednie.
   $effect(() => {
-    zapiszStan(startowe, startowyMalzonek, startowaUlga, startowaUlgaMalzonka);
+    zapiszStan(startowe, startowyMalzonek, {
+      ulga: startowaUlga,
+      ulgaMalzonka: startowaUlgaMalzonka,
+      ppk: startowePpk,
+      podwyzszoneKoszty: startoweKoszty,
+    });
   });
 
   /**
@@ -189,7 +301,44 @@
    * małżonka, więc nie ma też jego ulgi.
    */
   function zapisz() {
-    zapiszStan(brutto, wspolne ? bruttoMalzonka : null, ulga, wspolne && ulgaMalzonka);
+    zapiszStan(brutto, wspolne ? bruttoMalzonka : null, {
+      ulga,
+      ulgaMalzonka: wspolne && ulgaMalzonka,
+      ppk,
+      podwyzszoneKoszty,
+    });
+  }
+
+  /**
+   * Progi korzyści przy rozliczeniu indywidualnym na ustawieniach, dla których
+   * nie ma wyprowadzonej stałej — odpowiednik `progiWspolne` z silnika, tyle że
+   * dla jednej osoby. Wyszukiwanie połówkowe, bo zysk jest niemalejący względem
+   * wynagrodzenia: kilkanaście wywołań silnika zamiast przemiatania zakresu.
+   */
+  function progiIndywidualne(o: Opcje): { poczatek: number; pelna: number } {
+    const zysk = (b: number) => porownaj(b, o).zyskRocznie;
+
+    return {
+      poczatek: pierwszeBrutto((b) => zysk(b) > 0),
+      pelna: pierwszeBrutto((b) => zysk(b) >= MAKSYMALNA_KORZYSC_ROCZNA),
+    };
+  }
+
+  /** Najmniejsze pełne złote brutto spełniające warunek niemalejący; GORNA, gdy żadne. */
+  function pierwszeBrutto(warunek: (brutto: number) => boolean): number {
+    const GORNA = 200_000;
+    if (warunek(0)) return 0;
+    if (!warunek(GORNA)) return GORNA;
+
+    let nie = 0;
+    let tak = GORNA;
+    while (tak - nie > 1) {
+      const srodek = Math.floor((nie + tak) / 2);
+      if (warunek(srodek)) tak = srodek;
+      else nie = srodek;
+    }
+
+    return tak;
   }
 
   function wZakresiePola(wartosc: number): number {
@@ -197,7 +346,7 @@
   }
 
   function wZakresieSuwaka(wartosc: number): number {
-    return Math.min(maxSuwak, Math.max(MIN_SUWAK, Math.round(wartosc)));
+    return wZakresie(wartosc, MIN_SUWAK, maxSuwak);
   }
 
   /** Pisanie w polu: wynik idzie za tym, co widać, ale bez domykania do zakresu. */
@@ -249,9 +398,31 @@
     zapisz();
   }
 
-  /** Suwak nie ma stanów pośrednich, więc klamruje od razu. */
+  function przelaczPpk(wlaczone: boolean) {
+    ppk = wlaczone;
+    zapisz();
+  }
+
+  function przelaczKoszty(wlaczone: boolean) {
+    podwyzszoneKoszty = wlaczone;
+    zapisz();
+  }
+
+  /**
+   * Suwak nie ma stanów pośrednich, więc klamruje od razu — a `null` znaczy
+   * „to nie był gest, tylko domknięcie uchwytu po zmianie zakresu" i wtedy nie
+   * rusza się nic. Cała reguła razem z uzasadnieniem siedzi w `suwak.ts`, bo
+   * tylko tam da się ją przetestować bez przeglądarki.
+   *
+   * Cena jest jedna i mała: pierwsze zdarzenie gestu zaczętego dokładnie na
+   * przypiętej krawędzi przepada. Każdy następny ruch wychodzi poza nią, więc
+   * po drgnieniu myszy wszystko działa jak dotąd.
+   */
   function przesun(wartosc: number) {
-    brutto = wZakresieSuwaka(wartosc);
+    const nowa = kwotaZSuwaka(wartosc, brutto, MIN_SUWAK, maxSuwak);
+    if (nowa === null) return;
+
+    brutto = nowa;
     pole = String(brutto);
   }
 </script>
@@ -277,6 +448,11 @@
     <span class="jednostka">zł / mies.</span>
   </div>
 
+  <!-- `value` jest przycięte do zakresu, `aria-valuetext` nie: uchwyt pokazuje
+       krawędź, ale czytnik ekranu ma czytać kwotę, na której naprawdę liczymy.
+       Poza zakresem obie liczby się rozjeżdżają i tak ma być — patrz `maxSuwak`
+       oraz wyjątek w `przesun`, który pilnuje, żeby domknięcie uchwytu nie
+       podmieniło wpisanej kwoty. -->
   <input
     class="suwak"
     type="range"
@@ -285,7 +461,7 @@
     step="100"
     aria-label="Wynagrodzenie brutto miesięcznie"
     aria-valuetext="{kwota(brutto)} miesięcznie"
-    value={Math.min(brutto, maxSuwak)}
+    value={wZakresieSuwaka(brutto)}
     oninput={(e) => przesun(e.currentTarget.valueAsNumber)}
     onchange={zapisz}
   />
@@ -326,6 +502,43 @@
         Zarobki do {kwota(LIMIT_PIT_ZERO)} rocznie są wtedy wolne od PIT. Ta ulga obowiązuje już
         dziś i zapowiedź jej nie zmienia — widać ją więc w netto po obu stronach, ale nie w zysku
         z reformy.
+      </p>
+    </div>
+  </div>
+
+  <!-- PPK stoi tutaj, wśród widocznych przełączników, a nie w „Więcej opcji":
+       do programu wciąga automatyczny zapis, więc siedzi w nim spora część
+       pracowników — część nawet o tym nie pamiętając — a przy 13 000 zł brutto
+       chodzi o ponad 300 zł miesięcznie różnicy w wypłacie. Schowana opcja
+       o takiej wadze zostawiałaby większości z nich liczbę wyraźnie za dobrą.
+
+       Etykieta mówi, co się dzieje („odkładam"), a nie tylko jak się to nazywa:
+       skrót zna każdy, kto widział go na pasku wypłaty, ale nie każdy skojarzy
+       go z odkładaniem. Czym to jest, tłumaczy zdanie pod spodem. -->
+  <label class="przelacznik">
+    <input
+      type="checkbox"
+      checked={ppk}
+      aria-expanded={ppk}
+      aria-controls="ppk-wyjasnienie"
+      onchange={(e) => przelaczPpk(e.currentTarget.checked)}
+    />
+    Odkładam w PPK
+  </label>
+
+  <div class="rozwijane" class:otwarte={ppk} id="ppk-wyjasnienie">
+    <div class="klip" inert={!ppk}>
+      <!-- Najważniejsze zdanie dla kogoś w PPK: niższe netto to nie strata.
+           Własna wpłata i dopłata pracodawcy trafiają na jego rachunek —
+           realnym kosztem jest sam podatek od dopłaty. Pełne rozbicie siedzi
+           w „Skąd ta liczba?", tu ma wystarczyć jedno zdanie. -->
+      <p class="wskazowka wyjasnienie">
+        Z wypłaty odchodzi wtedy {procent(PPK_PRACOWNIK_PODSTAWOWY)} na Twój rachunek PPK,
+        a pracodawca dokłada {procent(PPK_PRACODAWCA_PODSTAWOWY)}. Netto spada o Twoją wpłatę
+        i o podatek od dopłaty pracodawcy — ale obie kwoty zostają Twoje.
+        {#if wspolne}
+          Przy wspólnym rozliczeniu liczymy PPK obojgu małżonkom.
+        {/if}
       </p>
     </div>
   </div>
@@ -392,6 +605,45 @@
       </div>
     </div>
   </div>
+
+  <!-- Podwyższone koszty zmieniają wypłatę o kilka złotych miesięcznie, więc
+       czwarty przełącznik w rzędzie kosztowałby więcej uwagi, niż daje odpowiedź
+       — a to uwaga potrzebna wyżej, na kwocie i na PPK. Rozwijak zajmuje
+       dokładnie tyle samo miejsca co przełącznik, którego chowa, i nie o miejsce
+       tu chodzi, tylko o jedno pytanie mniej do rozstrzygnięcia przed
+       zobaczeniem wyniku: „więcej opcji" wolno minąć, przełącznika trzeba
+       świadomie nie zaznaczyć.
+
+       Wzór jest ten sam co przy „Skąd ta liczba?" i przy FAQ — `details` ze
+       znacznikiem i podpowiedzią, wyglądem rodzeństwo przełączników nad nim.
+       Trzeciego sposobu rozwijania strona nie potrzebuje. -->
+  <details class="opcje" bind:open={wiecejOpcji}>
+    <summary>
+      <span class="znacznik" aria-hidden="true"></span>
+      Więcej opcji
+      <!-- Stan i tak ogłasza czytnik ekranu przez samo details — to wyłącznie
+           wizualna zachęta do kliknięcia, jak przy „Skąd ta liczba?". -->
+      <span class="podpowiedz" aria-hidden="true">{wiecejOpcji ? 'ukryj' : 'pokaż'}</span>
+    </summary>
+
+    <!-- Etykieta o zamieszkaniu, nie o „podwyższonych KUP": warunek z ustawy
+         brzmi „zamieszkanie poza miejscowością zakładu pracy", a nazwa kosztów
+         nic nikomu nie mówi. Nazwa pada w zdaniu pod spodem i w rozbiciu. -->
+    <label class="przelacznik">
+      <input
+        type="checkbox"
+        checked={podwyzszoneKoszty}
+        onchange={(e) => przelaczKoszty(e.currentTarget.checked)}
+      />
+      Mieszkam poza miejscowością, w której pracuję
+    </label>
+
+    <p class="wskazowka wyjasnienie">
+      Koszty uzyskania przychodu są wtedy podwyższone do {kwota(KUP_PODWYZSZONE_MIES)} miesięcznie
+      zamiast {kwota(KUP_PODSTAWOWE_MIES)} — w wypłacie to kilka złotych. Nie przysługują, jeśli
+      pracodawca zwraca Ci koszty dojazdu, a zwrot jest wolny od podatku.
+    </p>
+  </details>
 </section>
 
 <!-- Treść akapitu w jednym miejscu, bo obok wersji widocznej renderujemy jeszcze
@@ -493,6 +745,30 @@
   </div>
 </section>
 
+<!-- Kwoty netto wyżej są o PPK niższe i tyle byłoby widać bez tego zdania —
+     czyli kłamstwo w drugą stronę: że pieniądze przepadają. Nie przepadają,
+     leżą na rachunku PPK, a pracodawca dokłada do nich swoje. Dlatego nota stoi
+     tuż przy netto, a nie dopiero w rozbiciu, którego większość nie otworzy.
+     Kosztu — podatku od dopłaty pracodawcy — tu nie rozbijamy: on już siedzi
+     w pokazanym netto, a to jest miejsce na jedno zdanie, nie na wykład. -->
+{#snippet notaPpk(razem: number, pracownik: number, pracodawca: number)}
+  Do tego {kwota(razem)} miesięcznie trafia na {wspolne ? 'Wasze rachunki' : 'Twój rachunek'} PPK
+  — {kwota(pracownik)} z pensji i {kwota(pracodawca)} od pracodawcy.
+{/snippet}
+
+{#if ppk}
+  <div class="stos ppk-obok">
+    <p class="ppk-nota">
+      {@render notaPpk(wplatyPpk.razem, wplatyPpk.pracownik, wplatyPpk.pracodawca)}
+    </p>
+    <!-- Duch z maksymalnymi wpłatami, jak w panelu wyniku: wysokość rezerwuje
+         najdłuższe brzmienie, a nie bieżące. -->
+    <p class="ppk-nota duch" aria-hidden="true">
+      {@render notaPpk(maksymalnePpk.razem, maksymalnePpk.pracownik, maksymalnePpk.pracodawca)}
+    </p>
+  </div>
+{/if}
+
 <!-- Zapowiedź mówi wyłącznie o progach 120 000, 130 000 i 150 000 zł — a to są
      progi DOCHODU, podczas gdy strona pyta o brutto. Różnica jest ogromna i
      w jedną stronę: przy 11 878 zł brutto roczne wynagrodzenie to 142 536 zł,
@@ -585,6 +861,16 @@
       Ulga dla młodych zwalnia z podatku przychód do {kwota(LIMIT_PIT_ZERO)} rocznie, więc dochód
       jest o tyle niższy.
     {/if}
+    {#if ppk}
+      Wpłata pracodawcy do PPK jest przychodem pracownika, więc dochód jest o nią wyższy, choć
+      w wypłacie jej nie widać. Twoja własna wpłata dochodu nie zmienia — potrąca się ją dopiero
+      z netto.
+    {/if}
+    {#if podwyzszoneKoszty}
+      Koszty uzyskania przychodu są tu podwyższone do {kwota(KUP_PODWYZSZONE_MIES)} miesięcznie
+      zamiast {kwota(KUP_PODSTAWOWE_MIES)}, co obniża dochód każdej pracującej osoby
+      o {kwota((KUP_PODWYZSZONE_MIES - KUP_PODSTAWOWE_MIES) * 12)} rocznie.
+    {/if}
   </p>
 </section>
 
@@ -598,11 +884,15 @@
      przyjętych za stałe, z dwukrotnie wyższym pułapem i przesuniętymi
      załamaniami. Osi „łączne zarobki obojga" celowo nie robimy: nie dałoby się
      jej przeciągać, bo z jednej sumy nie wynika, ile zarabia które z was. -->
+<!-- Wykres dostaje gotowe `opcje`, a nie osobne flagi: krzywa ma być tą samą
+     funkcją, którą policzono liczbę nad nią, więc obie strony muszą czytać
+     ustawienia dokładnie tak samo. Przy dwóch flagach było to jeszcze do
+     powtórzenia, przy pięciu byłoby to drugie miejsce, w którym trzeba pamiętać
+     o dziedziczeniu na małżonka. -->
 <WykresZysku
   {brutto}
   bruttoMalzonka={wspolne ? bruttoMalzonka : null}
-  {ulga}
-  ulgaMalzonka={wspolne && ulgaMalzonka}
+  {opcje}
   {progi}
   maxX={gornaOsi}
   onZmiana={(wartosc, zakonczone) => {
@@ -611,7 +901,7 @@
   }}
 />
 
-<details bind:open={rozwiniete}>
+<details class="rozbicie" bind:open={rozwiniete}>
   <summary>
     <span class="znacznik" aria-hidden="true"></span>
     Skąd ta liczba?
@@ -634,6 +924,17 @@
         <td>{kwotaDokladna(wynik.przed.bruttoRocznie)}</td>
         <td>{kwotaDokladna(wynik.po.bruttoRocznie)}</td>
       </tr>
+      <!-- Wpłata pracodawcy wchodzi do tabeli na plus i od razu za brutto, bo
+           tak działa: nie jest wypłacana, ale jest przychodem, więc podstawa
+           opodatkowania niżej jest o nią wyższa. Bez tego wiersza podatek przy
+           PPK wyglądałby na policzony z niczego. -->
+      {#if wynik.po.ppkPracodawcy > 0}
+        <tr>
+          <th scope="row">Wpłata pracodawcy do PPK</th>
+          <td>+{kwotaDokladna(wynik.przed.ppkPracodawcy)}</td>
+          <td>+{kwotaDokladna(wynik.po.ppkPracodawcy)}</td>
+        </tr>
+      {/if}
       <!-- Sedno ulgi dla młodych: bez tego wiersza z tabeli widać tylko, że
            podatek jest niższy, a nie dlaczego. Pokazujemy go wyłącznie, gdy
            coś rzeczywiście jest zwolnione — przy wyłączonej uldze tabela
@@ -670,11 +971,31 @@
         <td>−{kwotaDokladna(wynik.przed.podatek)}</td>
         <td>−{kwotaDokladna(wynik.po.podatek)}</td>
       </tr>
+      <!-- Wpłata pracownika idzie na sam dół odejmowania, bo tam ją potrąca
+           lista płac: po podatku i po składkach, z gotowej już wypłaty. -->
+      {#if wynik.po.ppk > 0}
+        <tr>
+          <th scope="row">Wpłata pracownika do PPK</th>
+          <td>−{kwotaDokladna(wynik.przed.ppk)}</td>
+          <td>−{kwotaDokladna(wynik.po.ppk)}</td>
+        </tr>
+      {/if}
       <tr class="suma">
         <th scope="row">Netto</th>
         <td>{kwotaDokladna(wynik.przed.nettoRocznie)}</td>
         <td>{kwotaDokladna(wynik.po.nettoRocznie)}</td>
       </tr>
+      <!-- Pod sumą, nie w niej — i to jest cała treść tego wiersza: te pieniądze
+           nie są częścią wypłaty, ale też nie znikają. Obie wpłaty razem leżą na
+           rachunku PPK, więc wiersz stoi za netto jak dopisek, a nie jak kolejny
+           składnik odejmowania. -->
+      {#if wynik.po.ppk > 0 || wynik.po.ppkPracodawcy > 0}
+        <tr class="poza-suma">
+          <th scope="row">Trafia na rachunek PPK</th>
+          <td>{kwotaDokladna(wynik.przed.ppk + wynik.przed.ppkPracodawcy)}</td>
+          <td>{kwotaDokladna(wynik.po.ppk + wynik.po.ppkPracodawcy)}</td>
+        </tr>
+      {/if}
     </tbody>
   </table>
 
@@ -696,6 +1017,20 @@
       wysokości: art. 83 ust. 2a ustawy zdrowotnej każe porównywać ją z zaliczką policzoną wg
       stanu na 31.12.2021 tak, jakby zwolnienie nie przysługiwało — więc wbrew częstej opinii
       nie spada przy uldze do zera.
+    {/if}
+    {#if ppk}
+      PPK: Twoja wpłata ({procent(PPK_PRACOWNIK_PODSTAWOWY)} wynagrodzenia) potrącana jest
+      z gotowej wypłaty i podatku nie zmienia. Wpłata pracodawcy
+      ({procent(PPK_PRACODAWCA_PODSTAWOWY)}) nie jest z wypłaty potrącana ani nie wchodzi do
+      składek ZUS, ale jest przychodem pracownika — dlatego podnosi podstawę opodatkowania i to
+      sam podatek od niej jest tu realnym kosztem. Obie kwoty trafiają na rachunek PPK, są
+      własnością pracownika i dlatego stoją pod sumą, a nie w niej; wypłata przed 60. rokiem życia
+      wiąże się jednak z potrąceniami.
+    {/if}
+    {#if podwyzszoneKoszty}
+      Koszty uzyskania przychodu są podwyższone do {kwota(KUP_PODWYZSZONE_MIES)} miesięcznie
+      ({kwota(KUP_PODWYZSZONE_MIES * 12)} rocznie) — tyle przysługuje osobie mieszkającej poza
+      miejscowością, w której znajduje się zakład pracy.
     {/if}
   </p>
 </details>
@@ -986,6 +1321,24 @@
     color: var(--tekst-cichy);
   }
 
+  /* Nota o PPK należy do kwot netto nad nią, więc podchodzi do nich bliżej, niż
+     wynikałby z odstępu między sekcjami (ujemny margines znosi część dolnego
+     marginesu `.porownanie`). Wyśrodkowana i przygaszona jak podpisy pod
+     kwotami: to dopowiedzenie do liczby, nie druga liczba. */
+  .ppk-obok {
+    margin: -1rem 0 1.75rem;
+  }
+
+  .ppk-nota {
+    margin: 0 auto;
+    max-width: 35rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--tekst-cichy);
+    text-align: center;
+    text-wrap: pretty;
+  }
+
   .porownanie {
     display: flex;
     align-items: center;
@@ -1091,9 +1444,24 @@
     color: var(--tekst-cichy);
   }
 
-  details {
+  /* Kreska nad rozbiciem oddziela je od treści strony; rozwijak z opcjami żadnej
+     nie dostaje, bo należy jeszcze do grupy przełączników nad sobą. Wspólne dla
+     obu zostaje to, co jest w nich tym samym: wygląd `summary` i znacznika. */
+  .rozbicie {
     border-top: 1px solid var(--linia);
     padding-top: 1.25rem;
+  }
+
+  /* Ten sam odstęp co między przełącznikami — rozwijak jest kolejną pozycją tej
+     samej listy pytań, tylko taką, której wolno zostać zamkniętą. */
+  .opcje {
+    margin-top: 0.5rem;
+  }
+
+  /* Wewnątrz rozwijaka przełącznik nie zaczyna nowej grupy, więc odstęp jak
+     między rodzeństwem, a nie jak po suwaku. */
+  .opcje .przelacznik {
+    margin-top: 0.75rem;
   }
 
   summary {
@@ -1246,6 +1614,15 @@
     border-top: 1px solid var(--linia);
     font-weight: 600;
     color: var(--tekst);
+  }
+
+  /* Wiersz stojący poza odejmowaniem: mniejszy stopień i przygaszony kolor
+     mówią, że to dopisek pod sumą, a nie jej kolejny składnik. */
+  .poza-suma th,
+  .poza-suma td {
+    padding-top: 0.625rem;
+    font-size: 0.8125rem;
+    color: var(--tekst-cichy);
   }
 
   .nota {
