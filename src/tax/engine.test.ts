@@ -2514,3 +2514,160 @@ describe('danina solidarnościowa (model.md B.8)', () => {
     });
   });
 });
+
+/*
+ * Składki odliczalne — art. 26 ust. 1 pkt 2 ustawy o PIT.
+ *
+ * Pole `skladkiOdliczalne` nie zmienia w silniku niczego: ta sama liczba była
+ * w nim liczona od zawsze, tyle że lokalnie. Wystawiona jest po to, żeby
+ * rozbicie w interfejsie dało się pokazać uczciwie — wiersz „Składki społeczne"
+ * niesie kwotę **opłaconą** (bo tyle schodzi z wypłaty i tyle stoi na pasku),
+ * a od podstawy odchodzi tylko ta jej część, która przypada na przychód
+ * opodatkowany. Bez tej liczby kolumna z ulgą dla młodych nie schodziła się do
+ * podstawy opodatkowania i różniła się o 11 725,89 zł — dokładnie o 13,71%
+ * z 85 528 zł zwolnienia.
+ *
+ * Testy pilnują obu rzeczy naraz: że kolumna rozbicia się spina i że netto
+ * liczy się nadal od CAŁOŚCI składek, bo płaci się je od całości.
+ */
+describe('składki odliczalne (art. 26 ust. 1 pkt 2)', () => {
+  const lata: Rok[] = [2026, 2027];
+  const U = { ulgaDlaMlodych: true } as const;
+  const Z = { forma: 'zlecenie' } as const;
+
+  /** Zestawy opcji przemiatane w każdym teście — bez ulgi i z ulgą osobno. */
+  const zestawy = [
+    {},
+    { kupPodwyzszone: true },
+    { ppkPracownik: PPK_PRACOWNIK_PODSTAWOWY, ppkPracodawca: PPK_PRACODAWCA_PODSTAWOWY },
+    Z,
+    { ...Z, chorobowaDobrowolna: false },
+    { ...Z, studentDo26: true },
+  ] as const;
+
+  const kwoty = [1_000, 3_000, 7_127, 7_128, 12_000, 20_000, 30_000, 60_000];
+
+  it('bez ulgi odliczalna jest całość składek, co do grosza', () => {
+    for (const rok of lata) {
+      for (const opcje of zestawy) {
+        for (const brutto of kwoty) {
+          const w = oblicz(brutto, rok, opcje);
+          expect(w.skladkiOdliczalne).toBe(w.skladkiSpoleczne);
+        }
+      }
+    }
+  });
+
+  it('z ulgą mieści się między zerem a całością składek', () => {
+    for (const rok of lata) {
+      for (const opcje of zestawy) {
+        for (const brutto of kwoty) {
+          const w = oblicz(brutto, rok, { ...opcje, ...U });
+
+          expect(w.skladkiOdliczalne).toBeGreaterThanOrEqual(0);
+          expect(w.skladkiOdliczalne).toBeLessThanOrEqual(w.skladkiSpoleczne);
+        }
+      }
+    }
+  });
+
+  /*
+   * Właściwość, dla której to pole w ogóle istnieje: kolumna rozbicia
+   * (brutto + wpłata pracodawcy − przychód zwolniony − składki odliczalne −
+   * koszty) musi dawać dokładnie tę podstawę opodatkowania, którą tabela
+   * pokazuje wierszem niżej. Zaokrąglenie do pełnych złotych z art. 63 §1
+   * zostaje po drodze jedyną różnicą.
+   */
+  it('kolumna rozbicia schodzi się do podstawy opodatkowania', () => {
+    for (const rok of lata) {
+      for (const opcje of zestawy) {
+        for (const brutto of kwoty) {
+          for (const ulga of [{}, U]) {
+            const w = oblicz(brutto, rok, { ...opcje, ...ulga });
+
+            expect(w.podstawaOpodatkowania).toBe(
+              roundPln(
+                Math.max(
+                  0,
+                  w.przychodPodatkowy - w.przychodZwolniony - w.skladkiOdliczalne - w.kup,
+                ),
+              ),
+            );
+          }
+        }
+      }
+    }
+  });
+
+  /*
+   * Druga połowa tej samej uczciwości: od netto odchodzi CAŁOŚĆ składek, także
+   * ta część, której odliczyć nie wolno. Gdyby interfejs pokazał w wierszu
+   * „Składki społeczne" samą kwotę odliczalną, tabela spinałaby się do podstawy,
+   * ale rozjechałaby się o tę samą kwotę na netto — dlatego wiersz niesie
+   * całość, a część nieodliczalną dopisuje osobny wiersz.
+   */
+  it('netto liczy się od całości składek, nie od części odliczalnej', () => {
+    for (const rok of lata) {
+      for (const opcje of zestawy) {
+        for (const brutto of kwoty) {
+          const w = oblicz(brutto, rok, { ...opcje, ...U });
+
+          expect(w.nettoRocznie).toBe(
+            round2(
+              w.bruttoRocznie -
+                w.skladkiSpoleczne -
+                w.skladkaZdrowotna -
+                w.podatek -
+                w.danina -
+                w.ppk,
+            ),
+          );
+        }
+      }
+    }
+  });
+
+  /*
+   * Powyżej limitu PIT-0 część nieodliczalna nie zależy od wynagrodzenia:
+   * to zawsze 13,71% z 85 528 zł zwolnionego przychodu. Liczba stoi tu wprost,
+   * bo to ona pojawia się w rozbiciu i to o nią kolumna się dotąd nie zgadzała.
+   */
+  it('powyżej limitu nieodliczalne jest 13,71% z 85 528 zł, niezależnie od pensji', () => {
+    const stawka = RATE_EMERYTALNA + RATE_RENTOWA + RATE_CHOROBOWA;
+
+    for (const brutto of [12_000, 15_000, 20_000]) {
+      const w = oblicz(brutto, 2027, U);
+
+      expect(round2(w.skladkiSpoleczne - w.skladkiOdliczalne)).toBe(
+        round2(LIMIT_PIT_ZERO * stawka),
+      );
+      expect(round2(w.skladkiSpoleczne - w.skladkiOdliczalne)).toBe(11_725.89);
+    }
+  });
+
+  it('przy przychodzie w całości zwolnionym nie odlicza się nic', () => {
+    const w = oblicz(5_000, 2027, U);
+
+    expect(w.przychodZwolniony).toBe(w.przychodPodatkowy);
+    expect(w.skladkiOdliczalne).toBe(0);
+    expect(w.skladkiSpoleczne).toBeGreaterThan(0);
+    expect(w.podstawaOpodatkowania).toBe(0);
+  });
+
+  it('przy wspólnym rozliczeniu jest sumą obojga', () => {
+    for (const rok of lata) {
+      for (const [a, b] of [
+        [12_000, 0],
+        [12_000, 4_000],
+        [20_000, 20_000],
+      ]) {
+        const w = obliczWspolnie(a, b, rok, { ...U, malzonek: {} });
+
+        expect(w.skladkiOdliczalne).toBe(
+          round2(w.osoby[0].skladkiOdliczalne + w.osoby[1].skladkiOdliczalne),
+        );
+        expect(w.osoby[1].skladkiOdliczalne).toBe(w.osoby[1].skladkiSpoleczne);
+      }
+    }
+  });
+});

@@ -32,6 +32,7 @@
     porownajWspolnie,
     progiIndywidualne,
     progiWspolne,
+    round2,
   } from '../tax/engine';
   import WykresZysku from './WykresZysku.svelte';
   import { kwota, kwotaDokladna, zeZnakiem } from './format';
@@ -482,6 +483,36 @@
         }))
       : null,
   );
+
+  /**
+   * Ta część składek społecznych, której odliczyć od podstawy nie wolno —
+   * art. 26 ust. 1 pkt 2 ustawy o PIT.
+   *
+   * Zwolnienie z PIT-0 jest podatkowe, nie składkowe: składki naliczają się od
+   * całości brutto, ale odliczeniu podlegają wyłącznie te, których podstawą był
+   * przychód **opodatkowany**. Reszta — przy pełnym wykorzystaniu limitu zawsze
+   * te same 11 725,89 zł, czyli 13,71% z 85 528 zł — jest opłacona i podstawy
+   * nie pomniejsza.
+   *
+   * Bez tej liczby kolumna rozbicia po prostu się nie zgadzała: wiersz składek
+   * pokazywał całość, a podstawa niżej była policzona z części, więc odjęcie
+   * w pamięci dawało kwotę mniejszą o te 11 725,89 zł. Tabela ma budować
+   * zaufanie do wyliczeń, więc musi się spinać w obie strony — od brutto do
+   * podstawy i od brutto do netto — a to wychodzi tylko wtedy, gdy część
+   * nieodliczalna stoi w niej jawnie.
+   *
+   * Zero (a więc i brak wiersza) wszędzie poza ulgą dla młodych, a przy niej
+   * zero tylko wtedy, gdy składek nie ma wcale — u studenta na zleceniu.
+   * Od kwoty w polu to nie zależy: ulga włączona i jakiekolwiek składki znaczą
+   * wiersz w całym zakresie suwaka, także poniżej limitu zwolnienia (tam
+   * zwolniony jest cały przychód, więc nieodliczalna jest całość składek).
+   * Dlatego wiersz nie potrzebuje rezerwacji wysokości — w środku przeciągania
+   * nie dołoży się ani nie zniknie.
+   */
+  const skladkiNieodliczalne = $derived({
+    przed: round2(wynik.przed.skladkiSpoleczne - wynik.przed.skladkiOdliczalne),
+    po: round2(wynik.po.skladkiSpoleczne - wynik.po.skladkiOdliczalne),
+  });
 
   /**
    * Kwota odejmowana w rozbiciu. Zero pisze się bez znaku, bo „−0,00 zł"
@@ -1478,6 +1509,33 @@
         <td>{odjac(wynik.przed.skladkiSpoleczne)}</td>
         <td>{odjac(wynik.po.skladkiSpoleczne)}</td>
       </tr>
+      <!-- Wiersz istnieje po to, żeby kolumna się spinała, i stoi na plus
+           z tego samego powodu, co wpłata pracodawcy do PPK wyżej: opisuje
+           drogę do podstawy opodatkowania, a nie do wypłaty. Składki wyżej są
+           odjęte w całości — bo w całości się je płaci — a podstawę pomniejsza
+           tylko ta ich część, która przypada na przychód opodatkowany, więc
+           resztę trzeba w tym rachunku dodać z powrotem. Netto niżej zostaje
+           policzone od całości, i to jest właśnie ta rzecz, której jednym
+           wierszem pokazać się nie da: składki płaci się od wszystkiego,
+           a odlicza od części opodatkowanej. -->
+      {#if skladkiNieodliczalne.po > 0}
+        <tr>
+          <!-- Nazwa i dopisek są krótkie nie dla urody: przy tej szerokości
+               kolumny etykiet zmienia się o kilka pikseli, gdy kwoty obok
+               przekraczają 100 000 zł, a dłuższy tekst łamał się wtedy na
+               dodatkowy wiersz — czyli tabela rosła o 40 px w środku
+               przeciągania suwaka. Ta para mieści się w stałej liczbie wierszy
+               po obu stronach tej granicy (sprawdzone na 320, 375 i 414 px).
+               Pełne zdanie o tym, czemu te składki wracają do podstawy, stoi
+               w nocie pod tabelą — tam wolno mu być długim. -->
+          <th scope="row">
+            Składki nieodliczalne
+            <span class="dopisek">od przychodu zwolnionego</span>
+          </th>
+          <td>+{kwotaDokladna(skladkiNieodliczalne.przed)}</td>
+          <td>+{kwotaDokladna(skladkiNieodliczalne.po)}</td>
+        </tr>
+      {/if}
       <tr>
         <th scope="row">Składka zdrowotna</th>
         <td>{odjac(wynik.przed.skladkaZdrowotna)}</td>
@@ -1575,7 +1633,11 @@
       Ulga dla młodych (PIT-0, art. 21 ust. 1 pkt 148 ustawy o PIT) zwalnia z podatku przychód
       do {kwota(LIMIT_PIT_ZERO)} rocznie — limit przysługuje każdemu osobno i jest wspólny dla
       wszystkich zwolnień PIT-0. Składki ZUS naliczają się od całości wynagrodzenia, bo
-      zwolnienie jest podatkowe, nie składkowe. Składka zdrowotna też się należy w pełnej
+      zwolnienie jest podatkowe, nie składkowe — ale odliczyć od podstawy wolno wyłącznie tę ich
+      część, która przypada na przychód opodatkowany (art. 26 ust. 1 pkt 2 ustawy o PIT;
+      objaśnienia MF liczą ją udziałem przychodów). Pozostałe
+      {kwotaDokladna(skladkiNieodliczalne.po)} płaci się tak samo jak resztę, tyle że podstawy
+      nie pomniejsza — stąd w tabeli osobny wiersz, który dodaje je z powrotem. Składka zdrowotna też się należy w pełnej
       wysokości: art. 83 ust. 2a ustawy zdrowotnej każe porównywać ją z zaliczką policzoną wg
       stanu na 31.12.2021 tak, jakby zwolnienie nie przysługiwało — więc wbrew częstej opinii
       nie spada przy uldze do zera.

@@ -264,6 +264,23 @@ export interface SkladnikiOsoby {
   /** Przychód podlegający opodatkowaniu: przychód podatkowy − przychód zwolniony. */
   przychodOpodatkowany: number;
   skladkiSpoleczne: number;
+  /**
+   * Ta część składek społecznych, którą wolno odliczyć od podstawy — art. 26
+   * ust. 1 pkt 2 ustawy o PIT.
+   *
+   * Bez ulgi dla młodych równa się `skladkiSpoleczne` co do grosza; ze
+   * zwolnieniem jest od nich **niższa**, bo odliczeniu nie podlegają składki,
+   * których podstawę wymiaru stanowi przychód zwolniony (proporcja udziału
+   * przychodu opodatkowanego — patrz `skladniki`). Przy przychodzie w całości
+   * zwolnionym jest zerem, choć składki i tak się płaci.
+   *
+   * Wystawiona osobno wyłącznie po to, żeby dało się to pokazać w rozbiciu:
+   * wiersz „Składki społeczne" niesie kwotę **opłaconą**, a od podstawy odchodzi
+   * mniej — bez tej liczby kolumna rozbicia nie schodzi się do podstawy
+   * opodatkowania i tabela, która ma budować zaufanie do wyliczeń, przestaje
+   * się spinać. Sama arytmetyka wyniku nie zależy od tego pola.
+   */
+  skladkiOdliczalne: number;
   skladkaZdrowotna: number;
   /**
    * Faktycznie odliczone koszty uzyskania przychodu.
@@ -508,6 +525,7 @@ function skladniki(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): Skla
     przychodZwolniony,
     przychodOpodatkowany,
     skladkiSpoleczne,
+    skladkiOdliczalne,
     skladkaZdrowotna,
     kup,
     dochod,
@@ -541,6 +559,12 @@ export interface Wynik {
   /** Przychód podlegający opodatkowaniu: przychód podatkowy − przychód zwolniony. */
   przychodOpodatkowany: number;
   skladkiSpoleczne: number;
+  /**
+   * Część składek społecznych odliczalna od podstawy — patrz
+   * `SkladnikiOsoby.skladkiOdliczalne`. Bez ulgi dla młodych równa się
+   * `skladkiSpoleczne`; przy wspólnym rozliczeniu jest sumą obojga.
+   */
+  skladkiOdliczalne: number;
   skladkaZdrowotna: number;
   kup: number;
   podstawaOpodatkowania: number;
@@ -598,6 +622,7 @@ export function oblicz(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): 
     przychodZwolniony: osoba.przychodZwolniony,
     przychodOpodatkowany: osoba.przychodOpodatkowany,
     skladkiSpoleczne: osoba.skladkiSpoleczne,
+    skladkiOdliczalne: osoba.skladkiOdliczalne,
     skladkaZdrowotna: osoba.skladkaZdrowotna,
     kup: osoba.kup,
     podstawaOpodatkowania: osoba.dochod,
@@ -738,6 +763,10 @@ export function obliczWspolnie(
   const danina = suma((o) => o.danina);
 
   const skladkiSpoleczne = round2(suma((o) => o.skladkiSpoleczne));
+  // Odliczalność jest indywidualna — każdy małżonek ma własny limit PIT-0
+  // i własną proporcję przychodu zwolnionego — więc tu tylko suma, jak przy
+  // składkach i KUP.
+  const skladkiOdliczalne = round2(suma((o) => o.skladkiOdliczalne));
   const skladkaZdrowotna = round2(suma((o) => o.skladkaZdrowotna));
   // Wpłaty PPK są indywidualne — jak składki i jak limit PIT-0. Każdy małżonek
   // ma własną podstawę i własną stawkę, więc liczą się osobno w `skladniki`,
@@ -765,6 +794,7 @@ export function obliczWspolnie(
     przychodZwolniony: suma((o) => o.przychodZwolniony),
     przychodOpodatkowany: round2(suma((o) => o.przychodOpodatkowany)),
     skladkiSpoleczne,
+    skladkiOdliczalne,
     skladkaZdrowotna,
     kup: suma((o) => o.kup),
     podstawaOpodatkowania,
