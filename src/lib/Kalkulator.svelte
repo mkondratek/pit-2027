@@ -1306,6 +1306,29 @@
   }}
 />
 
+<!-- Obie notki o wpisanej kwocie stoją w jednym miejscu, tuż pod wykresem: ta
+     o wyjściu poza oś (w środku `figure`, bo mówi o znaczniku) i ta o płacy
+     minimalnej. Wcześniej druga z nich stała dopiero pod rozbiciem, kilka
+     ekranów niżej, i ten rozjazd wyglądał przypadkowo — dwa zdania o tej samej
+     rzeczy, czyli o kwocie, którą ktoś wpisał, w dwóch odległych miejscach.
+
+     Nadal bez rezerwacji wysokości i to jest tu cała trudność. Kiedy obie notki
+     stały pod wynikiem w konstrukcji rezerwującej miejsce, ceną był stały pusty
+     pas, który w środkowym zakresie zarobków widział KAŻDY — gorzej niż
+     drgnięcie widoczne dla przeciągających suwak. Zostaje więc drgnięcie:
+     przejście przez płacę minimalną przesuwa w dół wszystko, co jest pod notką
+     (rozbicie i dalszą treść) — zmierzone 141,6 px na 375 px i 96,8 px na
+     1280 px, czyli mniej więcej dwa razy tyle, co notka o wyjściu poza oś przy
+     20 000 zł (70,4 i 49,6 px), którą ten wykres ma od zawsze. Pole kwoty,
+     panel wyniku, sekcja dochodu i sam wykres stoją przy tym nieruchomo przez
+     cały zakres suwaka — notka jest pod nimi, a nie nad nimi. -->
+{#if ponizejMinimalnej}
+  <p class="uwaga">
+    To mniej niż płaca minimalna ({kwota(PLACA_MINIMALNA)} w 2026 r.), która obowiązuje przy pełnym
+    etacie. Przy niepełnym taka kwota jest jak najbardziej możliwa i wyliczenie pozostaje poprawne.
+  </p>
+{/if}
+
 <details class="rozbicie" bind:open={rozwiniete}>
   <summary>
     <span class="znacznik" aria-hidden="true"></span>
@@ -1508,15 +1531,6 @@
     </p>
   {/if}
 </details>
-
-<!-- Na końcu treści: pojawienie się tej uwagi nic nie przesuwa, więc nie trzeba
-     rezerwować na nią miejsca i nie zostaje pusty pas pod wykresem. -->
-{#if ponizejMinimalnej}
-  <p class="uwaga">
-    To mniej niż płaca minimalna ({kwota(PLACA_MINIMALNA)} w 2026 r.), która obowiązuje przy pełnym
-    etacie. Przy niepełnym taka kwota jest jak najbardziej możliwa i wyliczenie pozostaje poprawne.
-  </p>
-{/if}
 
 
 <style>
