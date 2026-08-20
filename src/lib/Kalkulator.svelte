@@ -217,7 +217,7 @@
    *
    * Stałe pokrywają trzy najczęstsze scenariusze: etat, etat z ulgą dla młodych
    * (pierwsze 85 528 zł przychodu jest wolne od podatku, więc nowa skala rusza
-   * dopiero od 20 139 zł brutto) i zlecenie z opłacaną chorobową (koszty 20%
+   * dopiero od 19 007 zł brutto) i zlecenie z opłacaną chorobową (koszty 20%
    * zjadają jedną piątą przychodu, więc próg idzie w górę do 14 487 zł).
    * Wszystko poza nimi — PPK, podwyższone koszty, brak chorobowej, status
    * studenta i ich kombinacje — stałych nie ma i mieć nie powinno: to byłyby
@@ -270,7 +270,7 @@
    * na 20 000 zł. Widełki pilnują, żeby oś nie zrobiła się absurdalnie ciasna,
    * gdy małżonek zarabia tyle, że para ma pełną korzyść niemal od razu.
    *
-   * Ulga przesuwa oba załamania w górę (23 036 zł indywidualnie, prawie 36 000 zł
+   * Ulga przesuwa oba załamania w górę (21 903 zł indywidualnie, ponad 35 000 zł
    * przy małżonku bez dochodu), więc sufit 40 000 zł ścinałby wtedy podpis progu
    * przy krawędzi. Podnosimy go tylko w scenariuszach z ulgą — bez niej oś
    * zostaje co do złotówki taka jak dotąd.
@@ -333,18 +333,27 @@
   const DUCH_POZYCJI = zdaniePozycji({ percentyl: 90, poza: null });
 
   /**
-   * Percentyl progu reformy — liczony, nie wpisany w zdanie.
+   * Percentyl progu reformy — liczony, nie wpisany w zdanie, i to z progu
+   * **bieżących ustawień**, a nie ze stałej etatowej.
    *
    * Wyjaśnienie mówi, gdzie próg wypada w rozkładzie, i to zdanie musi zostać
    * prawdziwe po najbliższym odczycie GUS-u. Wpisana z ręki „75." przeżyłaby
    * podmianę decyli w `rozklad.ts` i zaczęłaby cicho kłamać — a to jest dokładnie
    * ten rodzaj liczby, dla którego ta strona w ogóle powstała.
    *
-   * Próg umowy o pracę, nie bieżącej formy: grupą odniesienia są zatrudnieni na
-   * etacie, więc zestawianie ich rozkładu z progiem zlecenia (14 487 zł)
-   * porównywałoby dwie różne rzeczy naraz.
+   * Do 2026-08-20 stała tu stała {@link BRUTTO_POCZATEK_KORZYSCI} (11 878 zł),
+   * czyli próg etatu bez ulg — we **wszystkich** stanach, także wtedy, gdy pół
+   * ekranu wyżej strona pisała 19 007 zł (ulga) albo 14 487 zł (zlecenie).
+   * Uzasadnieniem było, że grupą odniesienia są zatrudnieni na etacie, więc próg
+   * zlecenia zestawiałby z ich rozkładem coś nie z tej grupy. Argument nie
+   * broni się jednak przy zdaniu **nad** tym wyjaśnieniem: percentyl własnej
+   * pensji liczymy z tego samego rozkładu niezależnie od formy, bo to jedyny
+   * rozkład, jaki mamy. Skoro tak, to i próg wolno na tę samą oś nanieść —
+   * a przypis, który podaje inną liczbę niż reszta strony, jest po prostu
+   * nieprawdziwy. Grupa odniesienia pada w akapicie wprost, więc czytelnik wie,
+   * z czym porównujemy.
    */
-  const POZYCJA_PROGU = pozycjaWRozkladzie(BRUTTO_POCZATEK_KORZYSCI);
+  const POZYCJA_PROGU = $derived(pozycjaWRozkladzie(progi.poczatek));
 
   /**
    * Wyjaśnienie percentyla. Osobny stan, nie `?otwarte=` w adresie: to jest
@@ -893,13 +902,29 @@
         z interpolacji między decylami i jest zaokrąglony do 5 punktów: to oszacowanie, nie odczyt.
         Poniżej {kwota(DECYLE[0])} i powyżej {kwota(DECYLE[8])} dane nie dzielą już grupy dokładniej.
       </p>
+      <!-- Próg jest tym z bieżących ustawień (patrz `POZYCJA_PROGU`), więc poza
+           siatką decyli bywa częściej niż etatowe 11 878 zł: z ulgą dla młodych
+           wypada przy 19 007 zł, a przy wspólnym rozliczeniu z niezarabiającym
+           małżonkiem jeszcze wyżej. Zamiast dociągać go do 90. percentyla —
+           czyli zgadywać kształt ogona, którego `rozklad.ts` świadomie nie zna —
+           zdanie zmienia formę, dokładnie jak przy własnej pensji nad suwakiem. -->
       <p>
-        Próg reformy przy umowie o pracę, {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto, wypada koło
-        {POZYCJA_PROGU.percentyl}. percentyla — tyle albo więcej zarabia ok. {100 -
-          POZYCJA_PROGU.percentyl}% zatrudnionych. Nie przeczy to zapowiedzianemu „co dziesiątemu
-        podatnikowi”: tamta liczba obejmuje wszystkich rozliczających PIT, razem z emerytami
-        i osobami pracującymi część roku, i liczy się od rocznego dochodu, a nie od pensji
-        z jednego miesiąca.
+        {#if POZYCJA_PROGU.poza === 'powyzej'}
+          Próg reformy przy tych ustawieniach, {kwota(progi.poczatek)} brutto, leży powyżej
+          ostatniego znanego decyla ({kwota(DECYLE[8])}) — sięga po niego mniej niż co dziesiąty
+          zatrudniony.
+        {:else if POZYCJA_PROGU.poza === 'ponizej'}
+          Próg reformy przy tych ustawieniach, {kwota(progi.poczatek)} brutto, leży poniżej
+          pierwszego decyla ({kwota(DECYLE[0])}) — na tych ustawieniach zysk zaczyna się
+          praktycznie przy każdej pensji.
+        {:else}
+          Próg reformy przy tych ustawieniach, {kwota(progi.poczatek)} brutto, wypada koło
+          {POZYCJA_PROGU.percentyl}. percentyla — tyle albo więcej zarabia ok. {100 -
+            POZYCJA_PROGU.percentyl}% zatrudnionych.
+        {/if}
+        Nie przeczy to zapowiedzianemu „co dziesiątemu podatnikowi”: tamta liczba obejmuje
+        wszystkich rozliczających PIT, razem z emerytami i osobami pracującymi część roku, i liczy
+        się od rocznego dochodu, a nie od pensji z jednego miesiąca.
       </p>
     </div>
   </details>

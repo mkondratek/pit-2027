@@ -1,7 +1,23 @@
 <script lang="ts">
   import Kalkulator from './lib/Kalkulator.svelte';
+  import { kwota } from './lib/format';
+  import { SKALA } from './tax/constants';
+  import { BRUTTO_POCZATEK_KORZYSCI } from './tax/engine';
 
   const MODEL = 'https://github.com/mkondratek/pit-2027/blob/main/model.md';
+
+  /**
+   * Liczby w odpowiedzi o próg czytamy ze stałych, a nie wpisujemy z ręki.
+   *
+   * FAQ mówi o **mechanizmie** („skąd w ogóle bierze się próg w złotówkach"),
+   * więc podaje jeden przykład, a nie wartość dla bieżących ustawień — te są
+   * w kalkulatorze wyżej i zmieniają się z każdą opcją. Nawet przykład ma
+   * jednak przestać być prawdziwy razem z modelem, a nie przeżyć go w tekście:
+   * dzisiejsza poprawka odliczenia składek przesunęła próg z ulgą z 20 139 zł
+   * na 19 007 zł i każda liczba wklepana gdziekolwiek w prozie stała się przez
+   * to podejrzana.
+   */
+  const PROG_DZIS = SKALA[2026][0].do;
 
   let faqOtwarte = $state(false);
 </script>
@@ -95,12 +111,16 @@
       wielokrotnie większe od samego PIT, a ich reforma nie rusza w ogóle.
     </p>
 
-    <h3>Skąd się bierze próg 11 878 zł?</h3>
+    <h3>Skąd się biorą progi podane w złotówkach brutto?</h3>
     <p>
-      Zmiana zaczyna działać powyżej 120 000 zł rocznego dochodu, bo tam kończy się
-      dzisiejszy pierwszy próg. Po doliczeniu składek i kosztów uzyskania przychodu wychodzi
-      z tego mniej więcej 11 878 zł brutto miesięcznie — całe wyprowadzenie jest
-      w <a href={MODEL}>model.md</a>, a źródła samej skali w sekcji „Na czym to się opiera" wyżej.
+      Zmiana zaczyna działać powyżej {kwota(PROG_DZIS)} rocznego <em>dochodu</em>, bo tam kończy
+      się dzisiejszy pierwszy próg. Na umowie o pracę, bez ulg i bez PPK, po doliczeniu składek
+      i kosztów uzyskania przychodu wychodzi z tego mniej więcej
+      {kwota(BRUTTO_POCZATEK_KORZYSCI)} brutto miesięcznie. To przykład jednej drogi od dochodu
+      do wynagrodzenia, a nie stała: ulga dla młodych, umowa zlecenia i PPK przesuwają tę kwotę
+      o tysiące złotych, więc próg dla Twoich ustawień podaje kalkulator wyżej. Całe wyprowadzenie
+      jest w <a href={MODEL}>model.md</a>, a źródła samej skali w sekcji „Na czym to się opiera”
+      wyżej.
     </p>
 
     <h3>A co z B2B, podatkiem liniowym i ryczałtem?</h3>
