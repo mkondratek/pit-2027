@@ -8,7 +8,7 @@
     porownaj,
     porownajWspolnie,
   } from '../tax/engine';
-  import { kwota } from './format';
+  import { kwota, zeZnakiem } from './format';
   import { rzedyPodpisow, WYSOKOSC_WIERSZA } from './osWykresu';
 
   let {
@@ -144,6 +144,70 @@
     maximumFractionDigits: 0,
     useGrouping: 'always',
   });
+
+  /* ————————————————————— Odczyt przy znaczniku ————————————————————— */
+
+  /**
+   * Kwota i zysk przy samej kropce — bo bez nich wykres jest kontrolką bez
+   * wskazania.
+   *
+   * Wielka liczba nad stroną stoi jakieś 300 px wyżej i na telefonie jest poza
+   * ekranem, więc przy przeciąganiu po wykresie nie widać było **niczego**, co
+   * odpowiada na gest. Najgorzej tam, gdzie zysk przez cały typowy zakres jest
+   * zerowy — para z małżonkiem zarabiającym 6 000 zł ma próg powyżej 23 000 zł,
+   * więc znacznik jeździł, a każda widoczna liczba stała w miejscu i wykres
+   * wyglądał na zepsuty. Odczyt pokazuje obie wartości, których dotyczy gest:
+   * kwotę spod palca i zysk z krzywej.
+   *
+   * Zysk poniżej złotówki pisze się jak w panelu wyniku — „< 1 zł" zamiast
+   * zaokrąglonego w dół „+0 zł", które wyglądałoby na brak zysku tam, gdzie on
+   * właśnie się zaczyna.
+   */
+  const odczytZysku = $derived(
+    zysk >= 1 ? zeZnakiem(zysk) : zysk > 0 ? '<\u00a01 zł' : '0 zł',
+  );
+
+  /**
+   * Szerokość odczytu w jednostkach viewBox — mierzona, nie szacowana.
+   *
+   * Stopień pisma zmienia się z szerokością ekranu (media query przy 30rem),
+   * więc policzenie szerokości z długości napisu wymagałoby powtórzenia tego
+   * progu w JS i trafiania w metryki kroju. `getComputedTextLength` mówi to
+   * dokładnie, a mierzymy jeden krótki tekst przy zmianie jego treści — czyli
+   * najwyżej raz na krok przeciągania.
+   */
+  const odczytTekst = $derived(`${liczba.format(brutto)} zł → ${odczytZysku}`);
+
+  let odczytEl = $state<SVGTextElement | undefined>(undefined);
+  let szerokoscOdczytu = $state(0);
+
+  $effect(() => {
+    // Zależność jawna: szerokość zmienia treść, a nie samo podpięcie elementu.
+    odczytTekst;
+    szerokoscOdczytu = odczytEl?.getComputedTextLength() ?? 0;
+  });
+
+  /**
+   * Odczyt jedzie za znacznikiem, ale zatrzymuje się przy krawędziach osi:
+   * przy obu krańcach znacznik dojeżdża do L albo R, a wyśrodkowany na nim
+   * napis wystawałby wtedy pół swojej szerokości poza wykres. Przypięcie
+   * (a nie przerzucenie na drugą stronę kropki) jest jedyną wersją, która przy
+   * przeciąganiu nie skacze — napis po prostu przestaje nadążać za kropką na
+   * ostatnich kilkudziesięciu pikselach.
+   */
+  const odczytX = $derived(
+    Math.min(Math.max(znacznikX, L + szerokoscOdczytu / 2), R - szerokoscOdczytu / 2),
+  );
+
+  /**
+   * Nad kropką, a pod nią dopiero przy pułapie wykresu — tam nad znacznikiem
+   * nie ma już miejsca, a po lewej stoi podpis osi pionowej („zysk (zł/mies.)"),
+   * w który napis przy pełnej korzyści od pierwszej złotówki wjechałby wprost.
+   * Pod kropką napis leży na wypełnieniu pod krzywą, więc czytelność trzyma
+   * obwódka w kolorze tła (patrz `.odczyt` w stylach), a nie prostokąt — ten
+   * wymagałby znów mierzenia i drgałby przy każdym kroku.
+   */
+  const odczytY = $derived(znacznikY < T + 14 ? znacznikY + 17 : znacznikY - 11);
 
   /**
    * Podpisy pod osią, z gotowym miejscem dla każdego.
@@ -348,6 +412,16 @@
          wskaźnik), ale daje kursor „przeciągnij" dokładnie nad kropką. -->
     <circle class="chwyt" cx={znacznikX} cy={znacznikY} r="16" />
 
+    <!-- Odczyt przy kropce. `aria-hidden`, bo `<title>` wyżej niesie dokładnie
+         te same dwie liczby zdaniem — czytnik ekranu dostałby je dwa razy. -->
+    <text
+      bind:this={odczytEl}
+      class="odczyt"
+      x={odczytX}
+      y={odczytY}
+      text-anchor="middle"
+      aria-hidden="true">{odczytTekst}</text>
+
     <!-- Końce osi to nie ucięcie wykresu, tylko granice, za którymi krzywa jest
          płaska — podpis mówi to wprost, zamiast rysować symbol przerwania osi.
          Oba są dosunięte do końców osi (start / end), a nie wyśrodkowane na
@@ -545,6 +619,22 @@
     fill: var(--akcent);
     stroke: var(--tlo);
     stroke-width: 2;
+  }
+
+  /* Odczyt bywa nad wypełnieniem pod krzywą albo wprost na niej, więc dostaje
+     obwódkę w kolorze tła zamiast prostokąta: `paint-order: stroke` maluje ją
+     pod literami, a nie na nich. Prostokąt trzeba by mierzyć i przerysowywać
+     przy każdym kroku przeciągania, a obwódka jest jedną regułą CSS i skaluje
+     się razem ze stopniem pisma, bo obie wielkości są w jednostkach viewBox. */
+  .odczyt {
+    fill: var(--tekst);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    paint-order: stroke;
+    stroke: var(--tlo);
+    stroke-width: 3;
+    stroke-linejoin: round;
+    pointer-events: none;
   }
 
   /* Wszystkie warianty w jednej komórce — wysokość to maksimum z nich, liczone
