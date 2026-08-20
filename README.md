@@ -1,8 +1,12 @@
 # pit.kondratek.pl — kalkulator zmiany PIT od 2027 r.
 
 Jednoekranowy kalkulator pokazujący, jak zapowiadana 19 sierpnia 2026 r. zmiana skali
-podatkowej wpłynęłaby na wynagrodzenie netto z umowy o pracę. Wpisujesz kwotę brutto,
-widzisz wypłatę według obecnych przepisów, według zapowiedzianych i różnicę między nimi.
+podatkowej wpłynęłaby na wynagrodzenie netto. Wpisujesz kwotę brutto, widzisz wypłatę
+według obecnych przepisów, według zapowiedzianych i różnicę między nimi.
+
+Liczy umowę o pracę i umowę zlecenia, a w wierszu założeń pod kwotą włącza się ulgę dla
+młodych, PPK, podwyższone koszty uzyskania przychodu, rozliczenie z małżonkiem oraz —
+na zleceniu — status studenta i rezygnację z dobrowolnej chorobowej.
 
 Zapowiedź to trzy rzeczy naraz: pierwszy próg rośnie ze 120 000 do 130 000 zł, między
 130 000 a 150 000 zł pojawia się nowa stawka 24%, a stawka 32% zaczyna się od
@@ -47,8 +51,8 @@ część pomysłów została już zbudowana, obejrzana i odrzucona z konkretnych
 ## Walidacja silnika
 
 Silnik podatkowy jest zamknięty w [`src/tax/engine.ts`](src/tax/engine.ts) i pokryty testami
-w [`src/tax/engine.test.ts`](src/tax/engine.test.ts) — obecnie **51 testów**; aktualną liczbę
-wypisze `npm test`.
+w [`src/tax/engine.test.ts`](src/tax/engine.test.ts). Liczby testów tu nie podajemy — rośnie
+z każdą poprawką i każda wpisana wprost zdąży się zestarzeć; wypisze ją `npm test`.
 
 Część z nich to testy właściwości (nowa skala nigdy nie jest gorsza od obecnej, zysk rośnie
 monotonicznie, zatrzymuje się na 3 600 zł), a część odtwarza konkretne kwoty opublikowane
@@ -76,6 +80,14 @@ npm run build    # produkcyjny build do dist/
 
 Cała logika wykonuje się w przeglądarce — nie ma backendu, żadne wpisane kwoty nigdzie nie
 wychodzą.
+
+`npm run build` to trzy kroki, nie jeden: build kliencki, build serwerowy
+([`vite.ssr.config.ts`](vite.ssr.config.ts)) i [`scripts/prerender.mjs`](scripts/prerender.mjs),
+który renderuje stronę w Node i wkleja gotowy HTML do `dist/index.html`. Bez tego kroku robot
+wyszukiwarki widzi pusty `<div id="app">` i ~150 znaków zamiast całej treści; przeglądarka
+przejmuje ten HTML przez `hydrate`, a nie buduje go od zera. Prerender **przerywa build**,
+gdy render wyjdzie podejrzanie krótki — cicha awaria tego kroku jest niewidoczna na stronie
+i widoczna dopiero w wynikach wyszukiwania. Katalog `dist-ssr/` to produkt pośredni.
 
 ## Zgłaszanie błędów i własne przypadki
 
@@ -105,5 +117,6 @@ MIT — patrz [`LICENSE`](LICENSE).
 
 Wyliczenia mają charakter poglądowy i **nie są poradą podatkową**. Model liczy w skali roku
 (nie miesiąc po miesiącu), więc może różnić się o kilka złotych od sumy dwunastu zaliczek,
-i zakłada typowy przypadek: podstawowe koszty uzyskania przychodu, złożony PIT-2, brak ulg
-PIT-0 i brak PPK. Autorem jest programista, nie doradca podatkowy.
+i zakłada złożony PIT-2. Reszta założeń — koszty, ulga dla młodych, PPK, rozliczenie
+z małżonkiem — jest przełącznikami w interfejsie, a nie stałymi. Autorem jest programista,
+nie doradca podatkowy.
