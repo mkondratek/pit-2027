@@ -130,9 +130,9 @@
   <footer>
     <p>
       Wyliczenia mają charakter poglądowy i nie są poradą podatkową. Model zakłada złożony PIT-2;
-      ulgę dla młodych, PPK i podwyższone koszty uzyskania przychodu włącza się przełącznikami nad
-      kwotą, a bez nich liczy koszty podstawowe i brak PPK. Liczy w skali roku, więc może różnić się
-      o kilka złotych od sumy dwunastu zaliczek.
+      ulgę dla młodych, PPK i podwyższone koszty uzyskania przychodu włącza się w wierszu założeń
+      pod kwotą, a bez nich liczy koszty podstawowe i brak PPK. Liczy w skali roku, więc może różnić
+      się o kilka złotych od sumy dwunastu zaliczek.
     </p>
     <p>
       Wszystko liczy się w Twojej przeglądarce — żadne dane nie są nigdzie wysyłane.

@@ -38,12 +38,28 @@ liczbę, której naprawdę dotyczą progi — i wyjaśnia, czym różni się od 
 Kryterium jest jedno: **czy niewłączenie opcji sprawi, że pokażemy komuś nieprawdę
 o setki złotych.**
 
-Widoczne: forma zatrudnienia, wspólne rozliczenie, ulga dla młodych, PPK, status
-studenta. Schowane w „Więcej opcji": podwyższone koszty dojazdu (kilka złotych
-miesięcznie), dobrowolna chorobowa.
-
 Uczestnik PPK, który nie kliknie, zobaczyłby netto zawyżone o 322 zł miesięcznie.
 Prostszy ekran nie jest wart pokazywania ludziom nieprawdziwych liczb.
+
+Same przełączniki są jednak zwinięte, a widoczny jest **wiersz przyjętych założeń** —
+„26 lat lub więcej · bez PPK · rozliczenie indywidualne" — który je rozwija.
+Kryterium powyżej rozstrzyga nie o tym, czy kontrolka jest na wierzchu, tylko czy
+założenie jest **wypowiedziane**: opcje ważące setki złotych (wspólne rozliczenie,
+ulga dla młodych, PPK, status studenta) mają w wierszu swój człon w obu stanach, bo
+„bez PPK" jest równie ważną informacją jak „z PPK". Drobiazgi — podwyższone koszty
+dojazdu (kilka złotych) i rezygnacja z dobrowolnej chorobowej — dopisują się dopiero
+włączone i w panelu stoją pod kreską; przy wyłączonych mówi o nich wyjaśnienie
+w panelu, nie wiersz.
+
+Rząd niezaznaczonych przełączników nie mówił nic o tym, na czym policzyliśmy wynik —
+trzeba go było odczytać z wygaszonych suwaczków. Wiersz mówi to wprost i dlatego
+wolno mu je zwinąć; samego „Więcej opcji", które chowałoby założenia bez ich
+wypowiedzenia, na tej stronie nie ma.
+
+Forma zatrudnienia jest wyjątkiem podwójnym: stoi **nad kwotą**, bo jest ramą
+wyliczenia, a nie modyfikatorem gotowego wyniku, i nie ma swojego członu w wierszu,
+bo jako jedyna pokazuje swój stan sama — podświetlony segment mówi „umowa zlecenia"
+bez niczyjej pomocy, a niezaznaczony przełącznik nie mówi nic.
 
 ## Wyświetlany próg to 11 878 zł, choć zysk zaczyna się od 11 879
 

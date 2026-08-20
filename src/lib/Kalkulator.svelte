@@ -134,11 +134,77 @@
   let rozwiniete = $state(false);
 
   /**
-   * Rozwijak z rzadszymi opcjami. Otwarty od razu, gdy link niesie którąś
-   * z nich — schowane ustawienie, które jednak działa, byłoby gorsze niż brak
-   * rozwijaka.
+   * Panel opcji. Zwinięty pokazuje same przyjęte założenia (patrz `zalozenia`),
+   * rozwinięty — kontrolki, którymi się je zmienia.
+   *
+   * Otwarty od razu, gdy link niesie którekolwiek z tych ustawień: wynik jest
+   * wtedy inny niż domyślny i trzeba widzieć czym się różni, a nie tylko że się
+   * różni. Kwota (`?brutto=`) i forma (`?forma=`) panelu nie otwierają — obie
+   * mają na stronie własną, zawsze widoczną kontrolkę, która pokazuje swój stan
+   * sama.
    */
-  let wiecejOpcji = $state(startoweKoszty || startowaBezChorobowej);
+  let opcjeOtwarte = $state(
+    startowyMalzonek !== null ||
+      startowaUlga ||
+      startowaUlgaMalzonka ||
+      startowePpk ||
+      startoweKoszty ||
+      startowaBezChorobowej ||
+      startowyStudent,
+  );
+
+  /**
+   * Wiek zostaje jednym założeniem także przy wspólnym rozliczeniu, choć osób
+   * jest wtedy dwie i każda ma własną ulgę. Drugi kawałek tekstu byłby gorszy
+   * niż dłuższy pierwszy: „26 lat lub więcej · małżonek poniżej 26 lat" czyta
+   * się jak zaprzeczenie samego siebie, dopóki nie domyślisz się, że pierwsze
+   * mówiło wyłącznie o Tobie. Zdanie o dwojgu tej luki nie zostawia, a wiersz
+   * i tak zostaje trzyczłonowy.
+   */
+  const wiek = $derived.by(() => {
+    if (!wspolne) return ulga ? 'mniej niż 26 lat' : '26 lat lub więcej';
+    if (ulga && ulgaMalzonka) return 'oboje poniżej 26 lat';
+    if (ulga) return 'tylko Ty poniżej 26 lat';
+    if (ulgaMalzonka) return 'tylko małżonek poniżej 26 lat';
+    return 'oboje 26 lat lub więcej';
+  });
+
+  /**
+   * Przyjęte założenia, po jednym kawałku tekstu — treść zwiniętego panelu.
+   *
+   * Zwinięty panel nie ma prawa milczeć. Ktoś w PPK, kto go nie rozwinie,
+   * zobaczyłby netto zawyżone o ponad 300 zł miesięcznie, student na zleceniu
+   * zaniżone o jedną piątą — i nie mieliby skąd wiedzieć dlaczego. Dlatego
+   * opcje ważące setki złotych mają tu swój kawałek tekstu **w obu stanach**:
+   * „bez PPK" jest dokładnie tak samo ważną informacją jak „z PPK".
+   *
+   * Drobiazgi — koszty dojazdu, rezygnacja z chorobowej — dopisują się dopiero
+   * włączone. Gdyby stały tu zawsze, wiersz rósłby z każdą nową opcją o rzecz,
+   * której nikt nie szukał, a to jego długość decyduje, czy da się go przeczytać
+   * jednym rzutem oka. Ten sam podział przebiega w panelu: nad kreską opcje
+   * stąd, pod kreską te dopisywane warunkowo.
+   *
+   * Formy zatrudnienia tu nie ma świadomie — jako jedyna ma nad kwotą własną
+   * kontrolkę, która swój stan pokazuje zawsze i bez rozwijania. Wiersz istnieje
+   * dla ustawień, których niezaznaczony przełącznik nie umie powiedzieć;
+   * podświetlony segment mówi „umowa zlecenia" sam, a powtórzenie zjadałoby
+   * szerokość, której na 375 px nie ma.
+   *
+   * Sformułowania są bezosobowe („rozliczenie indywidualne", nie „rozliczam się
+   * sam"): jedno obok drugiego czytają się jak dane, a nie jak zdania, i nie
+   * zakładają rodzaju gramatycznego czytelnika, którego nie znamy.
+   */
+  const zalozenia = $derived([
+    wiek,
+    // Zwolnienie studenckie zdejmuje ~22% wynagrodzenia — najcięższa opcja
+    // w kalkulatorze, więc na zleceniu stoi w wierszu tak samo w obu stanach.
+    // Przy etacie nie istnieje i nie ma o czym pisać.
+    ...(zlecenie ? [student ? 'student do 26 lat' : 'bez statusu studenta'] : []),
+    ppk ? 'z PPK' : 'bez PPK',
+    wspolne ? 'rozliczenie wspólne' : 'rozliczenie indywidualne',
+    ...(bezChorobowej ? ['bez chorobowej'] : []),
+    ...(podwyzszoneKoszty ? ['dojazd spoza miejscowości'] : []),
+  ]);
 
   /** Czy w bieżącym scenariuszu ktokolwiek korzysta ze zwolnienia. */
   const jakasUlga = $derived(ulga || (wspolne && ulgaMalzonka));
@@ -621,265 +687,301 @@
     onchange={zapisz}
   />
 
-  <!-- Przełączniki i drugie pole są pod suwakiem, bo oba pytania mają sens
-       dopiero po podaniu własnej pensji. Treść pojawia się na kliknięcie, nie
-       w trakcie przeciągania, więc zmiana wysokości strony jest tu odpowiedzią
-       na decyzję użytkownika, a nie drganiem układu — i dlatego wolno jej być
-       animacją, a nie przeskokiem.
+  <!-- Zamiast rzędu pełnowymiarowych przełączników — jeden wiersz z przyjętymi
+       założeniami, który je rozwija. Powód jest podwójny.
 
-       Kontrolki zostają zwykłymi checkboxami (klawiatura, fokus i ogłaszanie
-       stanu za darmo), tylko z wygaszonym wyglądem systemowym. Każda robi dwie
-       rzeczy naraz: przełącza tryb obliczeń i otwiera dodatkową treść —
-       pierwsze niesie `checked`, drugie `aria-expanded` z `aria-controls`.
+       Miejsce: pasek z ramką na każdą opcję czytał się przy trzech opcjach jak
+       formularz przed wynikiem, a przy zleceniu opcji jest pięć — zrobiłaby się
+       z tego ankieta przed liczbą, po którą się tu przyszło. Siłą tej strony
+       jest jeden ekran i jedna liczba.
 
-       Etykieta mówi o wieku, nie o nazwie przepisu: „PIT-0" i „ulga dla
-       młodych" to hasła dla kogoś, kto już wie, że mu przysługują, a ta
-       kontrolka istnieje głównie dla tych, którzy nie wiedzą. Nazwa ulgi pada
-       dopiero w wyjaśnieniu pod spodem i w rozbiciu. -->
-  <label class="przelacznik">
-    <input
-      type="checkbox"
-      checked={ulga}
-      aria-expanded={ulga}
-      aria-controls="ulga-wyjasnienie"
-      onchange={(e) => przelaczUlge(e.currentTarget.checked)}
-    />
-    Mam mniej niż 26 lat
-  </label>
+       Ważniejsze jednak, że rząd niezaznaczonych przełączników wcale nie mówił,
+       na czym policzyliśmy wynik: trzeba było przeczytać kilka wygaszonych
+       suwaczków i samemu wyciągnąć z nich wniosek. Wiersz mówi to wprost i
+       dlatego wolno mu zwinąć kontrolki — schowane zostaje ustawianie opcji,
+       a nie to, co przyjęliśmy. Samego „Więcej opcji" tu nie ma i być nie może:
+       uczestnik PPK, który nie kliknie, ma przeczytać „z PPK" albo „bez PPK",
+       a nie zobaczyć netto zawyżone o 322 zł miesięcznie.
 
-  <div class="rozwijane" class:otwarte={ulga} id="ulga-wyjasnienie">
-    <div class="klip" inert={!ulga}>
-      <!-- Najważniejsze zdanie na tej stronie dla osoby poniżej 26 lat: zwolnienie
-           obowiązuje już dziś, więc podnosi netto po obu stronach porównania i
-           właśnie dlatego zysk z reformy zwykle zostaje zerowy. Bez tego wyższe
-           netto przy zerowym zysku wygląda na błąd kalkulatora. -->
-      <p class="wskazowka wyjasnienie">
-        Zarobki do {kwota(LIMIT_PIT_ZERO)} rocznie są wtedy wolne od PIT. Ta ulga obowiązuje już
-        dziś i zapowiedź jej nie zmienia — widać ją więc w netto po obu stronach, ale nie w zysku
-        z reformy.
-      </p>
-    </div>
-  </div>
+       Wzór rozwijania ten sam co przy „Skąd ta liczba?" — `details` ze
+       znacznikiem i podpowiedzią przy prawej krawędzi, trzeciego sposobu strona
+       nie potrzebuje. Cały wiersz jest celem kliknięcia, więc osobnego przycisku
+       „zmień" nie ma; „zmień" to sama podpowiedź, dokładnie jak „pokaż rozbicie"
+       niżej.
 
-  <!-- Status studenta zostaje widoczny, a nie ląduje w „Więcej opcji" razem
-       z chorobową — z dokładnie tego powodu, dla którego widoczne jest PPK:
-       o miejscu decyduje waga opcji, nie to, jak wielu ludzi jej użyje. Ta jest
-       najcięższa w całym kalkulatorze — zdejmuje z brutto ~22% — więc schowana
-       zostawiałaby każdemu studentowi liczbę wyraźnie za niską. Chorobowa
-       (2,45%) jest w rozwijaku, bo waży tyle co podwyższone koszty.
+       Wiersz i kontrolki stoją pod suwakiem, bo wszystkie te pytania mają sens
+       dopiero po podaniu własnej pensji — inaczej niż forma zatrudnienia, która
+       jest ramą wyliczenia i dlatego stoi nad kwotą. Treść pojawia się na
+       kliknięcie, nie w trakcie przeciągania, więc zmiana wysokości strony jest
+       odpowiedzią na decyzję użytkownika, a nie drganiem układu — i dlatego
+       wolno jej być animacją, a nie przeskokiem. -->
+  <details class="opcje" bind:open={opcjeOtwarte}>
+    <summary>
+      <span class="znacznik" aria-hidden="true"></span>
+      <!-- Wzrokiem widać po miejscu i kroju, że to lista przyjętych założeń;
+           czytnik ekranu przeczytałby ciąg oderwanych fraz, więc dostaje jedno
+           słowo wprowadzenia. Napis widoczny zostaje w całości częścią nazwy
+           kontrolki, więc sterowanie głosem działa jak dotąd. -->
+      <span class="tylko-czytnik">Założenia:</span>
+      <span class="zalozenia">
+        <!-- Spacja jest tu wypisana wprost, bo tę z wcięcia szablon zjada —
+             a bez niej nazwa kontrolki brzmi „26 lat lub więcejbez PPK". -->
+        {#each zalozenia as zalozenie}<span class="zalozenie">{zalozenie}</span>{' '}{/each}
+      </span>
+      <!-- Stan i tak ogłasza czytnik ekranu przez samo details — to wyłącznie
+           wizualna zachęta do kliknięcia, jak przy „Skąd ta liczba?". -->
+      <span class="podpowiedz" aria-hidden="true">{opcjeOtwarte ? 'ukryj' : 'zmień'}</span>
+    </summary>
 
-       Miejsce zaraz pod ulgą dla młodych jest celowe: obie opcje mówią o wieku
-       do 26 lat i łatwo je pomylić, więc mają stać obok siebie, gdzie różnicę
-       widać (jedna zdejmuje podatek, druga składki), a nie na dwóch końcach
-       formularza. Znika razem ze zleceniem — przy etacie status studenta nie
-       zmienia niczego.
+    <!-- Kontrolki zostają zwykłymi checkboxami (klawiatura, fokus i ogłaszanie
+         stanu za darmo), tylko z wygaszonym wyglądem systemowym. Każda robi dwie
+         rzeczy naraz: przełącza tryb obliczeń i otwiera dodatkową treść —
+         pierwsze niesie `checked`, drugie `aria-expanded` z `aria-controls`.
 
-       Blok jest zwykłym `{#if}`, nie animowanym `.rozwijane`: to nie treść
-       rozwijana przełącznikiem obok, tylko zmiana zestawu pytań po zmianie
-       formy — a wewnątrz siedzi już jedno rozwinięcie, które trzeba móc
-       animować osobno. -->
-  {#if zlecenie}
+         Etykieta mówi o wieku, nie o nazwie przepisu: „PIT-0" i „ulga dla
+         młodych" to hasła dla kogoś, kto już wie, że mu przysługują, a ta
+         kontrolka istnieje głównie dla tych, którzy nie wiedzą. Nazwa ulgi pada
+         dopiero w wyjaśnieniu pod spodem i w rozbiciu. -->
     <label class="przelacznik">
       <input
         type="checkbox"
-        checked={student}
-        aria-expanded={student}
-        aria-controls="student-wyjasnienie"
-        onchange={(e) => przelaczStudenta(e.currentTarget.checked)}
+        checked={ulga}
+        aria-expanded={ulga}
+        aria-controls="ulga-wyjasnienie"
+        onchange={(e) => przelaczUlge(e.currentTarget.checked)}
       />
-      Jestem studentem do 26 lat
+      Mam mniej niż 26 lat
     </label>
 
-    <div class="rozwijane" class:otwarte={student} id="student-wyjasnienie">
-      <div class="klip" inert={!student}>
-        <!-- Bez tego zdania wynik wygląda na zepsuty kalkulator: przy 8 000 zł
-             brutto z zaznaczoną obok ulgą dla młodych netto wychodzi równe
-             8 000 zł, co czyta się jak brak wyliczenia, a nie jak wynik. -->
+    <div class="rozwijane" class:otwarte={ulga} id="ulga-wyjasnienie">
+      <div class="klip" inert={!ulga}>
+        <!-- Najważniejsze zdanie na tej stronie dla osoby poniżej 26 lat: zwolnienie
+             obowiązuje już dziś, więc podnosi netto po obu stronach porównania i
+             właśnie dlatego zysk z reformy zwykle zostaje zerowy. Bez tego wyższe
+             netto przy zerowym zysku wygląda na błąd kalkulatora. -->
         <p class="wskazowka wyjasnienie">
-          Uczeń i student do 26 lat nie płaci od zlecenia żadnych składek — ani społecznych, ani
-          zdrowotnej — a z ulgą dla młodych powyżej znika też podatek, więc netto potrafi się
-          wtedy równać brutto co do grosza.
+          Zarobki do {kwota(LIMIT_PIT_ZERO)} rocznie są wtedy wolne od PIT. Ta ulga obowiązuje już
+          dziś i zapowiedź jej nie zmienia — widać ją więc w netto po obu stronach, ale nie w zysku
+          z reformy.
+        </p>
+      </div>
+    </div>
+
+    <!-- Status studenta zostaje widoczny, a nie ląduje w „Więcej opcji" razem
+         z chorobową — z dokładnie tego powodu, dla którego widoczne jest PPK:
+         o miejscu decyduje waga opcji, nie to, jak wielu ludzi jej użyje. Ta jest
+         najcięższa w całym kalkulatorze — zdejmuje z brutto ~22% — więc schowana
+         zostawiałaby każdemu studentowi liczbę wyraźnie za niską. Chorobowa
+         (2,45%) jest w rozwijaku, bo waży tyle co podwyższone koszty.
+
+         Miejsce zaraz pod ulgą dla młodych jest celowe: obie opcje mówią o wieku
+         do 26 lat i łatwo je pomylić, więc mają stać obok siebie, gdzie różnicę
+         widać (jedna zdejmuje podatek, druga składki), a nie na dwóch końcach
+         formularza. Znika razem ze zleceniem — przy etacie status studenta nie
+         zmienia niczego.
+
+         Blok jest zwykłym `{#if}`, nie animowanym `.rozwijane`: to nie treść
+         rozwijana przełącznikiem obok, tylko zmiana zestawu pytań po zmianie
+         formy — a wewnątrz siedzi już jedno rozwinięcie, które trzeba móc
+         animować osobno. -->
+    {#if zlecenie}
+      <label class="przelacznik">
+        <input
+          type="checkbox"
+          checked={student}
+          aria-expanded={student}
+          aria-controls="student-wyjasnienie"
+          onchange={(e) => przelaczStudenta(e.currentTarget.checked)}
+        />
+        Jestem studentem do 26 lat
+      </label>
+
+      <div class="rozwijane" class:otwarte={student} id="student-wyjasnienie">
+        <div class="klip" inert={!student}>
+          <!-- Bez tego zdania wynik wygląda na zepsuty kalkulator: przy 8 000 zł
+               brutto z zaznaczoną obok ulgą dla młodych netto wychodzi równe
+               8 000 zł, co czyta się jak brak wyliczenia, a nie jak wynik. -->
+          <p class="wskazowka wyjasnienie">
+            Uczeń i student do 26 lat nie płaci od zlecenia żadnych składek — ani społecznych, ani
+            zdrowotnej — a z ulgą dla młodych powyżej znika też podatek, więc netto potrafi się
+            wtedy równać brutto co do grosza.
+            {#if wspolne}
+              Liczymy to tylko Tobie: małżonek płaci składki jak zwykle.
+            {/if}
+          </p>
+        </div>
+      </div>
+    {/if}
+
+    <!-- PPK stoi tutaj, wśród widocznych przełączników, a nie w „Więcej opcji":
+         do programu wciąga automatyczny zapis, więc siedzi w nim spora część
+         pracowników — część nawet o tym nie pamiętając — a przy 13 000 zł brutto
+         chodzi o ponad 300 zł miesięcznie różnicy w wypłacie. Schowana opcja
+         o takiej wadze zostawiałaby większości z nich liczbę wyraźnie za dobrą.
+
+         Etykieta mówi, co się dzieje („odkładam"), a nie tylko jak się to nazywa:
+         skrót zna każdy, kto widział go na pasku wypłaty, ale nie każdy skojarzy
+         go z odkładaniem. Czym to jest, tłumaczy zdanie pod spodem. -->
+    <label class="przelacznik">
+      <input
+        type="checkbox"
+        checked={ppk}
+        aria-expanded={ppk}
+        aria-controls="ppk-wyjasnienie"
+        onchange={(e) => przelaczPpk(e.currentTarget.checked)}
+      />
+      Odkładam w PPK
+    </label>
+
+    <div class="rozwijane" class:otwarte={ppk} id="ppk-wyjasnienie">
+      <div class="klip" inert={!ppk}>
+        <!-- Najważniejsze zdanie dla kogoś w PPK: niższe netto to nie strata.
+             Własna wpłata i dopłata pracodawcy trafiają na jego rachunek —
+             realnym kosztem jest sam podatek od dopłaty. Pełne rozbicie siedzi
+             w „Skąd ta liczba?", tu ma wystarczyć jedno zdanie. -->
+        <p class="wskazowka wyjasnienie">
+          Z wypłaty odchodzi wtedy {procent(PPK_PRACOWNIK_PODSTAWOWY)} na Twój rachunek PPK,
+          a pracodawca dokłada {procent(PPK_PRACODAWCA_PODSTAWOWY)}. Netto spada o Twoją wpłatę
+          i o podatek od dopłaty pracodawcy — ale obie kwoty zostają Twoje.
           {#if wspolne}
-            Liczymy to tylko Tobie: małżonek płaci składki jak zwykle.
+            Przy wspólnym rozliczeniu liczymy PPK obojgu małżonkom.
+          {/if}
+          <!-- Bez obowiązkowych składek emerytalno-rentowych zleceniobiorca nie
+               jest „osobą zatrudnioną" w rozumieniu ustawy o PPK, więc silnik
+               zeruje wpłaty. Gdyby to zdanie nie padło, przełącznik zostałby
+               zaznaczony, a w rozbiciu nie byłoby po nim śladu. -->
+          {#if student}
+            Studenta na zleceniu PPK jednak nie obejmuje — nie ma obowiązkowych składek
+            emerytalno-rentowych, więc {wspolne ? 'Twoich wpłat' : 'wpłat'} nie liczymy.
           {/if}
         </p>
       </div>
     </div>
-  {/if}
 
-  <!-- PPK stoi tutaj, wśród widocznych przełączników, a nie w „Więcej opcji":
-       do programu wciąga automatyczny zapis, więc siedzi w nim spora część
-       pracowników — część nawet o tym nie pamiętając — a przy 13 000 zł brutto
-       chodzi o ponad 300 zł miesięcznie różnicy w wypłacie. Schowana opcja
-       o takiej wadze zostawiałaby większości z nich liczbę wyraźnie za dobrą.
+    <label class="przelacznik">
+      <input
+        type="checkbox"
+        checked={wspolne}
+        aria-expanded={wspolne}
+        aria-controls="malzonek"
+        onchange={(e) => przelaczWspolne(e.currentTarget.checked)}
+      />
+      Rozliczam się wspólnie z małżonkiem
+    </label>
 
-       Etykieta mówi, co się dzieje („odkładam"), a nie tylko jak się to nazywa:
-       skrót zna każdy, kto widział go na pasku wypłaty, ale nie każdy skojarzy
-       go z odkładaniem. Czym to jest, tłumaczy zdanie pod spodem. -->
-  <label class="przelacznik">
-    <input
-      type="checkbox"
-      checked={ppk}
-      aria-expanded={ppk}
-      aria-controls="ppk-wyjasnienie"
-      onchange={(e) => przelaczPpk(e.currentTarget.checked)}
-    />
-    Odkładam w PPK
-  </label>
+    <!-- Blok zostaje w drzewie także zwinięty — to warunek animowania wysokości.
+         Zwinięty jest jednak `inert` i `visibility: hidden`, więc wypada z
+         kolejności fokusu i z drzewa dostępności dokładnie tak, jakby go nie
+         było; wynik i tak liczy się z `wspolne`, nie z zawartości pola. -->
+    <div class="rozwijane" class:otwarte={wspolne} id="malzonek">
+      <div class="klip" inert={!wspolne}>
+        <div class="malzonek">
+          <label for="brutto-malzonka">Wynagrodzenie brutto małżonka</label>
 
-  <div class="rozwijane" class:otwarte={ppk} id="ppk-wyjasnienie">
-    <div class="klip" inert={!ppk}>
-      <!-- Najważniejsze zdanie dla kogoś w PPK: niższe netto to nie strata.
-           Własna wpłata i dopłata pracodawcy trafiają na jego rachunek —
-           realnym kosztem jest sam podatek od dopłaty. Pełne rozbicie siedzi
-           w „Skąd ta liczba?", tu ma wystarczyć jedno zdanie. -->
-      <p class="wskazowka wyjasnienie">
-        Z wypłaty odchodzi wtedy {procent(PPK_PRACOWNIK_PODSTAWOWY)} na Twój rachunek PPK,
-        a pracodawca dokłada {procent(PPK_PRACODAWCA_PODSTAWOWY)}. Netto spada o Twoją wpłatę
-        i o podatek od dopłaty pracodawcy — ale obie kwoty zostają Twoje.
-        {#if wspolne}
-          Przy wspólnym rozliczeniu liczymy PPK obojgu małżonkom.
-        {/if}
-        <!-- Bez obowiązkowych składek emerytalno-rentowych zleceniobiorca nie
-             jest „osobą zatrudnioną" w rozumieniu ustawy o PPK, więc silnik
-             zeruje wpłaty. Gdyby to zdanie nie padło, przełącznik zostałby
-             zaznaczony, a w rozbiciu nie byłoby po nim śladu. -->
-        {#if student}
-          Studenta na zleceniu PPK jednak nie obejmuje — nie ma obowiązkowych składek
-          emerytalno-rentowych, więc {wspolne ? 'Twoich wpłat' : 'wpłat'} nie liczymy.
-        {/if}
-      </p>
-    </div>
-  </div>
+          <div class="pole">
+            <input
+              id="brutto-malzonka"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              max={MAX_POLE}
+              step="100"
+              value={poleMalzonka}
+              oninput={(e) => piszMalzonka(e.currentTarget.value)}
+              onblur={zakonczMalzonka}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') zakonczMalzonka();
+              }}
+            />
+            <span class="jednostka">zł / mies.</span>
+          </div>
 
-  <label class="przelacznik">
-    <input
-      type="checkbox"
-      checked={wspolne}
-      aria-expanded={wspolne}
-      aria-controls="malzonek"
-      onchange={(e) => przelaczWspolne(e.currentTarget.checked)}
-    />
-    Rozliczam się wspólnie z małżonkiem
-  </label>
+          <p class="wskazowka">
+            Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
+            z reformy potrafi być wtedy dwa razy większy.
+          </p>
 
-  <!-- Blok zostaje w drzewie także zwinięty — to warunek animowania wysokości.
-       Zwinięty jest jednak `inert` i `visibility: hidden`, więc wypada z
-       kolejności fokusu i z drzewa dostępności dokładnie tak, jakby go nie
-       było; wynik i tak liczy się z `wspolne`, nie z zawartości pola. -->
-  <div class="rozwijane" class:otwarte={wspolne} id="malzonek">
-    <div class="klip" inert={!wspolne}>
-      <div class="malzonek">
-        <label for="brutto-malzonka">Wynagrodzenie brutto małżonka</label>
-
-        <div class="pole">
-          <input
-            id="brutto-malzonka"
-            type="number"
-            inputmode="numeric"
-            min="0"
-            max={MAX_POLE}
-            step="100"
-            value={poleMalzonka}
-            oninput={(e) => piszMalzonka(e.currentTarget.value)}
-            onblur={zakonczMalzonka}
-            onkeydown={(e) => {
-              if (e.key === 'Enter') zakonczMalzonka();
-            }}
-          />
-          <span class="jednostka">zł / mies.</span>
+          <!-- Druga, niezależna ulga stoi tutaj, przy wynagrodzeniu małżonka, a nie
+               obok Twojej: wiek jest cechą osoby, więc przełącznik należy do tej
+               samej grupki co pole, którego dotyczy. Wcięcie i pionowa kreska
+               sekcji małżonka mówią to samo bez ani jednego dodatkowego słowa,
+               dzięki czemu etykiety mogą zostać krótkie, a kontrolek jest tyle,
+               ile osób — nie ich dwukrotność ze zdublowanym „Twoja / małżonka".
+               Nic nie rozwija, więc bez `aria-expanded`: wyjaśnienie o zwolnieniu
+               pada raz, wyżej, i dotyczy obojga. -->
+          <label class="przelacznik">
+            <input
+              type="checkbox"
+              checked={ulgaMalzonka}
+              onchange={(e) => przelaczUlgeMalzonka(e.currentTarget.checked)}
+            />
+            Małżonek ma mniej niż 26 lat
+          </label>
         </div>
+      </div>
+    </div>
 
-        <p class="wskazowka">
-          Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
-          z reformy potrafi być wtedy dwa razy większy.
-        </p>
+    <!-- Kreska dzieli panel dokładnie tam, gdzie przebiega podział w wierszu
+         założeń: nad nią opcje, które stoją w nim zawsze, bo ich niewłączenie
+         pokazuje komuś nieprawdę o setki złotych; pod nią te, które dopisują
+         się dopiero włączone, bo ważą kilka złotych albo dwa procent. Drugiego
+         rozwijaka („Więcej opcji") już nie ma: zwinięty panel nikomu nie stoi na
+         drodze do wyniku, więc jedyne, co dokładałby kolejny poziom, to jedno
+         kliknięcie więcej dla kogoś, kto właśnie przyszedł tu coś ustawić. Sam
+         podział na ważne i drugorzędne zostaje — niesie go wiersz założeń,
+         a widać go w tej kresce.
 
-        <!-- Druga, niezależna ulga stoi tutaj, przy wynagrodzeniu małżonka, a nie
-             obok Twojej: wiek jest cechą osoby, więc przełącznik należy do tej
-             samej grupki co pole, którego dotyczy. Wcięcie i pionowa kreska
-             sekcji małżonka mówią to samo bez ani jednego dodatkowego słowa,
-             dzięki czemu etykiety mogą zostać krótkie, a kontrolek jest tyle,
-             ile osób — nie ich dwukrotność ze zdublowanym „Twoja / małżonka".
-             Nic nie rozwija, więc bez `aria-expanded`: wyjaśnienie o zwolnieniu
-             pada raz, wyżej, i dotyczy obojga. -->
+         Wyjaśnienia pod obiema opcjami są widoczne od razu, a nie dopiero po
+         zaznaczeniu jak wyżej: to jedyne miejsce, w którym pada, co przyjmujemy
+         przy wyłączonym przełączniku („domyślnie liczymy chorobową opłacaną"),
+         bo wiersz założeń o tych dwóch milczy, dopóki się ich nie włączy. -->
+    <div class="drobne">
+      <!-- Zawartość tej grupy zależy od formy, bo obie opcje, które w niej
+           siedzą, istnieją tylko po jednej stronie: podwyższone koszty są
+           pracownicze (przy zleceniu koszty są procentowe i wariantu „poza
+           miejscowością" nie mają), a dobrowolność chorobowej to cecha zlecenia.
+           Opcja z drugiej formy nie zostaje wyszarzona ani schowana ze stanem —
+           `ustawForme` gasi jej wartość, żeby nie wracała przy przełączeniu
+           formy tam i z powrotem. -->
+      {#if zlecenie}
+        <!-- Etykieta przeczy domyślnemu ustawieniu („nie płacę"), bo model
+             zakłada chorobową opłacaną — a zaznacza się to, co jest odstępstwem.
+             Odwrotna etykieta („Płacę dobrowolną chorobową") kazałaby odznaczyć
+             coś, czego się nigdy nie zaznaczyło. -->
         <label class="przelacznik">
           <input
             type="checkbox"
-            checked={ulgaMalzonka}
-            onchange={(e) => przelaczUlgeMalzonka(e.currentTarget.checked)}
+            checked={bezChorobowej}
+            onchange={(e) => przelaczChorobowa(e.currentTarget.checked)}
           />
-          Małżonek ma mniej niż 26 lat
+          Nie płacę dobrowolnej składki chorobowej
         </label>
-      </div>
+
+        <p class="wskazowka wyjasnienie">
+          Przy zleceniu chorobowa ({procent(RATE_CHOROBOWA, 2)} brutto) jest dobrowolna. Bez niej
+          wypłata jest o tyle wyższa, ale nie przysługuje zasiłek chorobowy ani macierzyński.
+          Domyślnie liczymy ją opłacaną.
+        </p>
+      {:else}
+        <!-- Etykieta o zamieszkaniu, nie o „podwyższonych KUP": warunek z ustawy
+             brzmi „zamieszkanie poza miejscowością zakładu pracy", a nazwa kosztów
+             nic nikomu nie mówi. Nazwa pada w zdaniu pod spodem i w rozbiciu. -->
+        <label class="przelacznik">
+          <input
+            type="checkbox"
+            checked={podwyzszoneKoszty}
+            onchange={(e) => przelaczKoszty(e.currentTarget.checked)}
+          />
+          Mieszkam poza miejscowością, w której pracuję
+        </label>
+
+        <p class="wskazowka wyjasnienie">
+          Koszty uzyskania przychodu są wtedy podwyższone do {kwota(KUP_PODWYZSZONE_MIES)}
+          miesięcznie zamiast {kwota(KUP_PODSTAWOWE_MIES)} — w wypłacie to kilka złotych. Nie
+          przysługują, jeśli pracodawca zwraca Ci koszty dojazdu, a zwrot jest wolny od podatku.
+        </p>
+      {/if}
     </div>
-  </div>
-
-  <!-- Podwyższone koszty zmieniają wypłatę o kilka złotych miesięcznie, więc
-       czwarty przełącznik w rzędzie kosztowałby więcej uwagi, niż daje odpowiedź
-       — a to uwaga potrzebna wyżej, na kwocie i na PPK. Rozwijak zajmuje
-       dokładnie tyle samo miejsca co przełącznik, którego chowa, i nie o miejsce
-       tu chodzi, tylko o jedno pytanie mniej do rozstrzygnięcia przed
-       zobaczeniem wyniku: „więcej opcji" wolno minąć, przełącznika trzeba
-       świadomie nie zaznaczyć.
-
-       Wzór jest ten sam co przy „Skąd ta liczba?" i przy FAQ — `details` ze
-       znacznikiem i podpowiedzią, wyglądem rodzeństwo przełączników nad nim.
-       Trzeciego sposobu rozwijania strona nie potrzebuje. -->
-  <details class="opcje" bind:open={wiecejOpcji}>
-    <summary>
-      <span class="znacznik" aria-hidden="true"></span>
-      Więcej opcji
-      <!-- Stan i tak ogłasza czytnik ekranu przez samo details — to wyłącznie
-           wizualna zachęta do kliknięcia, jak przy „Skąd ta liczba?". -->
-      <span class="podpowiedz" aria-hidden="true">{wiecejOpcji ? 'ukryj' : 'pokaż'}</span>
-    </summary>
-
-    <!-- Zawartość rozwijaka zależy od formy, bo obie opcje, które w nim
-         siedzą, istnieją tylko po jednej stronie: podwyższone koszty są
-         pracownicze (przy zleceniu koszty są procentowe i wariantu „poza
-         miejscowością" nie mają), a dobrowolność chorobowej to cecha zlecenia.
-         Opcja z drugiej formy nie zostaje wyszarzona ani schowana ze stanem —
-         `ustawForme` gasi jej wartość, żeby nie wracała przy przełączeniu
-         formy tam i z powrotem. -->
-    {#if zlecenie}
-      <!-- Etykieta przeczy domyślnemu ustawieniu („nie płacę"), bo model
-           zakłada chorobową opłacaną — a zaznacza się to, co jest odstępstwem.
-           Odwrotna etykieta („Płacę dobrowolną chorobową") kazałaby odznaczyć
-           coś, czego się nigdy nie zaznaczyło. -->
-      <label class="przelacznik">
-        <input
-          type="checkbox"
-          checked={bezChorobowej}
-          onchange={(e) => przelaczChorobowa(e.currentTarget.checked)}
-        />
-        Nie płacę dobrowolnej składki chorobowej
-      </label>
-
-      <p class="wskazowka wyjasnienie">
-        Przy zleceniu chorobowa ({procent(RATE_CHOROBOWA, 2)} brutto) jest dobrowolna. Bez niej
-        wypłata jest o tyle wyższa, ale nie przysługuje zasiłek chorobowy ani macierzyński.
-        Domyślnie liczymy ją opłacaną.
-      </p>
-    {:else}
-      <!-- Etykieta o zamieszkaniu, nie o „podwyższonych KUP": warunek z ustawy
-           brzmi „zamieszkanie poza miejscowością zakładu pracy", a nazwa kosztów
-           nic nikomu nie mówi. Nazwa pada w zdaniu pod spodem i w rozbiciu. -->
-      <label class="przelacznik">
-        <input
-          type="checkbox"
-          checked={podwyzszoneKoszty}
-          onchange={(e) => przelaczKoszty(e.currentTarget.checked)}
-        />
-        Mieszkam poza miejscowością, w której pracuję
-      </label>
-
-      <p class="wskazowka wyjasnienie">
-        Koszty uzyskania przychodu są wtedy podwyższone do {kwota(KUP_PODWYZSZONE_MIES)}
-        miesięcznie zamiast {kwota(KUP_PODSTAWOWE_MIES)} — w wypłacie to kilka złotych. Nie
-        przysługują, jeśli pracodawca zwraca Ci koszty dojazdu, a zwrot jest wolny od podatku.
-      </p>
-    {/if}
   </details>
 </section>
 
@@ -1495,9 +1597,9 @@
       border-color 0.15s ease;
   }
 
-  /* Drugi przełącznik pod pierwszym: ciaśniej niż odstęp od suwaka, żeby oba
-     czytały się jako jedna grupa pytań o Twoją sytuację. Kombinator ogólny
-     (`~`, nie `+`), bo między nimi siedzi rozwijane wyjaśnienie ulgi. */
+  /* Drugi przełącznik pod pierwszym: ciaśniej niż odstęp od wiersza założeń,
+     żeby oba czytały się jako jedna grupa pytań o Twoją sytuację. Kombinator
+     ogólny (`~`, nie `+`), bo między nimi siedzi rozwijane wyjaśnienie ulgi. */
   .przelacznik ~ .przelacznik {
     margin-top: 0.5rem;
   }
@@ -1814,24 +1916,75 @@
     color: var(--tekst-cichy);
   }
 
-  /* Kreska nad rozbiciem oddziela je od treści strony; rozwijak z opcjami żadnej
-     nie dostaje, bo należy jeszcze do grupy przełączników nad sobą. Wspólne dla
-     obu zostaje to, co jest w nich tym samym: wygląd `summary` i znacznika. */
+  /* Kreska nad rozbiciem oddziela je od treści strony; panel założeń żadnej nie
+     dostaje, bo należy jeszcze do pola nad sobą. Wspólne dla obu zostaje to, co
+     jest w nich tym samym: wygląd `summary` i znacznika. */
   .rozbicie {
     border-top: 1px solid var(--linia);
     padding-top: 1.25rem;
   }
 
-  /* Ten sam odstęp co między przełącznikami — rozwijak jest kolejną pozycją tej
-     samej listy pytań, tylko taką, której wolno zostać zamkniętą. */
+  /* Ten sam odstęp od suwaka, jaki miał pierwszy przełącznik, gdy stał w tym
+     miejscu — wiersz założeń zaczyna nową grupę, a nie ciąg dalszy pola. */
   .opcje {
-    margin-top: 0.5rem;
+    margin-top: 1.25rem;
   }
 
-  /* Wewnątrz rozwijaka przełącznik nie zaczyna nowej grupy, więc odstęp jak
-     między rodzeństwem, a nie jak po suwaku. */
-  .opcje .przelacznik {
-    margin-top: 0.75rem;
+  /* Na wąskim ekranie zawijają się napisy, a nie wiersz: znacznik i podpowiedź
+     zostają na swoich krawędziach, bo kurczy się kolumna ze środka. `min-width`
+     jej na to pozwala — bez niego element `flex` nie schodzi poniżej swojej
+     naturalnej szerokości i podpowiedź wyleciałaby poza ramkę.
+
+     W środku zwykły tekst, nie druga siatka: odstępy między założeniami są
+     wtedy prawdziwymi spacjami, więc czytnik ekranu czyta „26 lat lub więcej
+     bez PPK", a nie „więcejbez" — nazwa kontrolki składa się z tego, co jest
+     w treści, i sklejone pudełka skleiłyby też wyrazy. */
+  .zalozenia {
+    min-width: 0;
+    /* Lżej od `summary`, w którym siedzi: to jest odczyt stanu, nie nagłówek. */
+    font-weight: 400;
+    text-wrap: pretty;
+  }
+
+  /* Kropka rozdzielająca rysowana, a nie wpisana w treść: to interpunkcja
+     układu, więc nie ma jej w tekście, z którego składa się nazwa kontrolki,
+     i przy zawijaniu zostaje przyklejona do swojego napisu — czyli na końcu
+     wiersza, nigdy sama na początku następnego. */
+  .zalozenie:not(:last-child)::after {
+    content: '·';
+    margin-left: 0.25rem;
+    color: var(--tekst-cichy);
+  }
+
+  /* Schowane przed wzrokiem, czytane przez czytnik ekranu. */
+  .tylko-czytnik {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* Pierwszy przełącznik odsuwa się od wiersza założeń mniej niż grupa od
+     suwaka: to jego rozwinięcie, nie nowa sekcja. */
+  .opcje > .przelacznik:first-of-type {
+    margin-top: 1rem;
+  }
+
+  /* Kreska oddzielająca drobiazgi — ta sama linia co nad rozbiciem, bo robi to
+     samo: mówi, że dalej jest treść innej wagi. */
+  .drobne {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--linia);
+  }
+
+  /* Pod kreską przełącznik nie potrzebuje już odstępu — daje go padding grupy. */
+  .drobne .przelacznik {
+    margin-top: 0;
   }
 
   summary {
