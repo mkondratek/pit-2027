@@ -13,3 +13,6 @@ decisions-research.md
 
 # lokalna konfiguracja Claude Code
 .claude/
+
+# wynik pośredni prerenderu — powstaje przy każdym buildzie
+dist-ssr/
