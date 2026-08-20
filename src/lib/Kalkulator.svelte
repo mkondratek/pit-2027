@@ -1010,7 +1010,7 @@
         aria-controls="ulga-wyjasnienie"
         onchange={(e) => przelaczUlge(e.currentTarget.checked)}
       />
-      Mam mniej niż 26 lat
+      Mam poniżej 26 lat
     </label>
 
     <div class="rozwijane" class:otwarte={ulga} id="ulga-wyjasnienie">
@@ -1161,10 +1161,20 @@
             <span class="jednostka">zł / mies.</span>
           </div>
 
-          <p class="wskazowka">
-            Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
-            z reformy potrafi być wtedy dwa razy większy.
-          </p>
+          <!-- Notka jest poradą do pustego pola, więc znika, gdy pole przestaje
+               być puste: przy wpisanych 4 000 zł „zostaw 0" nie jest już radą,
+               tylko zdaniem obok, które trzeba przeczytać, żeby stwierdzić, że
+               nie dotyczy. Rezerwacji wysokości tu nie ma i być nie powinno —
+               zmiana zachodzi przy pisaniu w polu tuż nad notką, nigdy przy
+               przeciąganiu suwaka, a stały pusty pas widziałby za to każdy,
+               kto zarabiającego małżonka wpisał (patrz notka o płacy
+               minimalnej pod wykresem, gdzie ten sam rachunek wypadł tak samo). -->
+          {#if bruttoMalzonka === 0}
+            <p class="wskazowka">
+              Jeśli małżonek nie pracuje, zostaw 0 — to poprawny i najczęstszy przypadek, a zysk
+              z reformy potrafi być wtedy dwa razy większy.
+            </p>
+          {/if}
 
           <!-- Druga, niezależna ulga stoi tutaj, przy wynagrodzeniu małżonka, a nie
                obok Twojej: wiek jest cechą osoby, więc przełącznik należy do tej
@@ -1180,7 +1190,7 @@
               checked={ulgaMalzonka}
               onchange={(e) => przelaczUlgeMalzonka(e.currentTarget.checked)}
             />
-            Małżonek ma mniej niż 26 lat
+            Małżonek ma poniżej 26 lat
           </label>
         </div>
       </div>
@@ -1475,7 +1485,7 @@
       uzyskania przychodu — składka zdrowotna go nie pomniejsza.
     {/if}
     Progi z zapowiedzi są progami dochodu, nie wynagrodzenia; w rozbiciu niżej ta sama liczba to
-    „podstawa opodatkowania".
+    „podstawa opodatkowania”.
     {#if wspolne}
       Skalę stosuje się przy tym do połowy łącznego dochodu (art. 6 ust. 2 ustawy o PIT), więc to
       ona, a nie suma, stoi obok progów.
@@ -1758,7 +1768,7 @@
       całego dochodu — przy dochodzie {kwota(DANINA_PROG + 13)} wychodzi z niej złotówka, a nie
       czterdzieści tysięcy. Płaci się ją raz w roku, deklaracją DSF-1 do 30 kwietnia, poza
       miesięcznymi zaliczkami: w pasku wypłaty jej nie widać, ale w rachunku „ile zostaje na
-      rękę" być musi.
+      rękę” być musi.
       {#if wiecejDaniny > 0}
         To jedyna pozycja w tym rozliczeniu, w której 2027 r. zabiera więcej niż 2026: wyższa
         stawka kosztuje {kwotaDokladna(wiecejDaniny)} rocznie i dokładnie o tyle mniejszy jest
@@ -1768,7 +1778,7 @@
         Wspólne rozliczenie daniny nie dotyczy w ogóle (objaśnienia MF z 28.08.2019): każdy liczy
         ją od swojego dochodu — Ty od {kwotaDokladna(daninyOsob[0].podstawa)}, małżonek
         od {kwotaDokladna(daninyOsob[1].podstawa)} — a nie od połowy Waszej sumy, jak podatek.
-        Dlatego nie da się jej odtworzyć z „podstawy opodatkowania" w tabeli: tam stoi łączny
+        Dlatego nie da się jej odtworzyć z „podstawy opodatkowania” w tabeli: tam stoi łączny
         dochód gospodarstwa, którego pod próg {kwota(DANINA_PROG)} podstawiać nie wolno — para
         z dochodami po 700 000 zł nie płaci daniny w ogóle, choć razem ma 1 400 000 zł. W wierszu
         stoi suma obu: {kwotaDokladna(daninyOsob[0].danina)} Twojej daniny
