@@ -1,5 +1,7 @@
 <script lang="ts">
   import {
+    DANINA_PROG,
+    DANINA_STAWKA,
     type FormaZatrudnienia,
     KUP_PODSTAWOWE_MIES,
     KUP_PODWYZSZONE_MIES,
@@ -24,6 +26,8 @@
     MAKSYMALNA_KORZYSC_WSPOLNA,
     type Opcje,
     type OpcjeWspolne,
+    type Porownanie,
+    type PorownanieWspolne,
     porownaj,
     porownajWspolnie,
     progiIndywidualne,
@@ -387,6 +391,49 @@
    * w rozbiciu są sumą obojga.
    */
   const ppkDziala = $derived(wynik.po.ppk > 0 || wynik.po.ppkPracodawcy > 0);
+
+  /**
+   * O ile więcej zabiera danina w 2027 r. niż w 2026 — czyli o ile mniejszy
+   * jest z jej powodu zysk z reformy.
+   *
+   * Podstawa daniny jest w obu latach ta sama (silnik liczy dochód bez oglądania
+   * się na rok), więc różnica bierze się wyłącznie z podniesienia stawki z 4%
+   * na 5% i jest dokładnie tym, co zjada zysk z nowej skali: przy 100 000 zł
+   * brutto 1 358 zł z 3 600 zł.
+   */
+  const wiecejDaniny = $derived(wynik.po.danina - wynik.przed.danina);
+
+  /**
+   * Czy wynik jest wynikiem pary, a więc czy da się z niego wyjąć składniki
+   * każdego z małżonków osobno.
+   *
+   * `wspolne` mówi to samo, ale mówi to stanowi interfejsu, nie systemowi
+   * typów: `porownaj` i `porownajWspolnie` w wyrażeniu warunkowym są ścinane
+   * do wspólnego nadtypu `Porownanie`, więc bez tego predykatu `osoby` po
+   * prostu nie istnieją dla sprawdzania typów.
+   */
+  function zRozbiciemNaOsoby(w: Porownanie): w is PorownanieWspolne {
+    return 'osoby' in w.po;
+  }
+
+  /**
+   * Podstawy i daniny obu małżonków — albo `null` przy rozliczeniu
+   * indywidualnym, gdzie rozbijać nie ma czego.
+   *
+   * Danina jest indywidualna, więc przy wspólnym rozliczeniu wiersz w tabeli
+   * niesie sumę dwóch liczb policzonych od dwóch różnych podstaw, a żadnej
+   * z tych podstaw nie ma w `Wynik` — i to jest w silniku świadome: podstawa
+   * gospodarstwa jako jedna liczba byłaby dokładnie tą, której pod próg
+   * 1 000 000 zł podstawiać nie wolno. Dlatego sięgamy do `osoby`.
+   */
+  const daninyOsob = $derived(
+    zRozbiciemNaOsoby(wynik)
+      ? wynik.po.osoby.map((osoba) => ({
+          podstawa: osoba.podstawaDaniny,
+          danina: osoba.danina,
+        }))
+      : null,
+  );
 
   /**
    * Kwota odejmowana w rozbiciu. Zero pisze się bez znaku, bo „−0,00 zł"
@@ -1329,6 +1376,26 @@
         <td>{odjac(wynik.przed.podatek)}</td>
         <td>{odjac(wynik.po.podatek)}</td>
       </tr>
+      <!-- Danina wchodzi dopiero od ok. 88 400 zł brutto miesięcznie, ale bez
+           tego wiersza ten, kto ten próg przekroczy, widzi po prostu niższe
+           netto — i jedyne miejsce w całym kalkulatorze, w którym 2027 r. daje
+           mniej niż 2026, wygląda na błąd rachunkowy.
+
+           Stoi pod podatkiem, bo liczy się od tej samej podstawy, ale osobno od
+           skali. Dopisek w nagłówku wiersza nie jest ozdobą: bez niego 6 789 zł
+           obok podstawy 1 135 779 zł wygląda na policzone od całości, a jest
+           policzone od 135 779 zł nadwyżki — i to jest właśnie ta rzecz,
+           w której przy daninie najłatwiej się pomylić. -->
+      {#if wynik.po.danina > 0}
+        <tr>
+          <th scope="row">
+            Danina solidarnościowa
+            <span class="dopisek">tylko od nadwyżki ponad {kwota(DANINA_PROG)}</span>
+          </th>
+          <td>{odjac(wynik.przed.danina)}</td>
+          <td>{odjac(wynik.po.danina)}</td>
+        </tr>
+      {/if}
       <!-- Wpłata pracownika idzie na sam dół odejmowania, bo tam ją potrąca
            lista płac: po podatku i po składkach, z gotowej już wypłaty. -->
       {#if wynik.po.ppk > 0}
@@ -1406,6 +1473,40 @@
       miejscowością, w której znajduje się zakład pracy.
     {/if}
   </p>
+
+  <!-- Osobny akapit, a nie kolejne zdanie w nocie wyżej: tamta objaśnia rzeczy,
+       o których czytelnik już wie, że go dotyczą (jego PPK, jego ulga), a ta
+       tłumaczy pozycję, o której większość słyszy pierwszy raz — razem
+       z jedynym miejscem na stronie, gdzie zapowiedź zabiera, zamiast dawać. -->
+  {#if wynik.po.danina > 0}
+    <p class="nota">
+      Danina solidarnościowa (art. 30h ustawy o PIT) to osobny podatek, obok skali:
+      {procent(DANINA_STAWKA[2026])} w 2026 r. i {procent(DANINA_STAWKA[2027])} w 2027 r., ale
+      liczone <strong>wyłącznie od nadwyżki</strong> dochodu ponad {kwota(DANINA_PROG)}, a nie od
+      całego dochodu — przy dochodzie {kwota(DANINA_PROG + 13)} wychodzi z niej złotówka, a nie
+      czterdzieści tysięcy. Płaci się ją raz w roku, deklaracją DSF-1 do 30 kwietnia, poza
+      miesięcznymi zaliczkami: w pasku wypłaty jej nie widać, ale w rachunku „ile zostaje na
+      rękę" być musi.
+      {#if wiecejDaniny > 0}
+        To jedyna pozycja w tym rozliczeniu, w której 2027 r. zabiera więcej niż 2026: wyższa
+        stawka kosztuje {kwotaDokladna(wiecejDaniny)} rocznie i dokładnie o tyle mniejszy jest
+        zysk z nowej skali, pokazany na górze strony.
+      {/if}
+      {#if daninyOsob}
+        Wspólne rozliczenie daniny nie dotyczy w ogóle (objaśnienia MF z 28.08.2019): każdy liczy
+        ją od swojego dochodu — Ty od {kwotaDokladna(daninyOsob[0].podstawa)}, małżonek
+        od {kwotaDokladna(daninyOsob[1].podstawa)} — a nie od połowy Waszej sumy, jak podatek.
+        Dlatego nie da się jej odtworzyć z „podstawy opodatkowania" w tabeli: tam stoi łączny
+        dochód gospodarstwa, którego pod próg {kwota(DANINA_PROG)} podstawiać nie wolno — para
+        z dochodami po 700 000 zł nie płaci daniny w ogóle, choć razem ma 1 400 000 zł. W wierszu
+        stoi suma obu: {kwotaDokladna(daninyOsob[0].danina)} Twojej daniny
+        i {kwotaDokladna(daninyOsob[1].danina)} małżonka.
+      {/if}
+      Kalkulator liczy ją wyłącznie z wynagrodzenia, więc <strong>zaniża, nigdy nie zawyża</strong>:
+      do podstawy wchodzą też m.in. dochody z kapitałów (art. 30b) i z działalności opodatkowanej
+      liniowo (art. 30c), których ta strona nie zna.
+    </p>
+  {/if}
 </details>
 
 <!-- Na końcu treści: pojawienie się tej uwagi nic nie przesuwa, więc nie trzeba
@@ -2120,6 +2221,14 @@
   th[scope='row'] {
     font-weight: 400;
     color: var(--tekst-cichy);
+  }
+
+  /* Warunek dopisany pod nazwą pozycji, a nie obok niej: w tej kolumnie i tak
+     się zawija, a złamanie w wybranym miejscu czyta się lepiej niż w losowym.
+     Mniejszy stopień, bo to zastrzeżenie do nazwy, nie druga nazwa. */
+  th[scope='row'] .dopisek {
+    display: block;
+    font-size: 0.75rem;
   }
 
   /* Odstęp od lewej, bo przy wąskim ekranie sąsiednie kwoty inaczej się stykają. */
