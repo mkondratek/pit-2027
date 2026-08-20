@@ -436,11 +436,15 @@ widzi.
 1. **Stawka płaska 17%**, bez drugiego progu z 2021 r. (32% powyżej 85 528 zł dochodu). 17% zaniża
    kap, więc uproszczenie może go tylko „przedwcześnie" zacisnąć — a wiąże on dopiero poniżej
    1 250 zł/mies, o dwa rzędy wielkości od tego progu. Bezpieczne.
-2. **Bez ulgi silnik kapu w ogóle nie stosuje**, choć w prawie (ust. 1) obowiązuje zawsze. Skutek
-   jest widoczny wyłącznie poniżej ~1 250 zł/mies brutto, gdzie osoba z ulgą dostaje składkę
-   obniżoną, a osoba bez ulgi nie. Zostawione tak, żeby włączenie ulgi pozostało jedyną rzeczą
-   zmieniającą dotychczasowe, zwalidowane wyniki; do naprawienia razem z jakąkolwiek przyszłą
-   rewizją zakresu bardzo niskich wynagrodzeń.
+2. ~~**Bez ulgi silnik kapu w ogóle nie stosuje.**~~ **Naprawione 2026-08-20** — kap jest
+   stosowany zawsze, tak jak każe ust. 1. Wcześniej silnik wchodził w kap tylko przy
+   `przychod_zwolniony > 0`, co bez ulgi **zawyżało** składkę poniżej ~1 250 zł/mies brutto
+   (przy 1 000 zł/mies: 931,93 zł zamiast 725,23 zł rocznie, czyli o 206,70 zł za dużo).
+   Uzasadnieniem było „ćwiartka płacy minimalnej jest poza zakresem kalkulatora" — nieprawda:
+   `MIN_POLE = 1 000` pilnuje tylko pola głównego, pole małżonka przy wspólnym rozliczeniu
+   przyjmuje kwoty od zera, a `oblicz` jest funkcją publiczną. Zawyżenie działało na niekorzyść
+   podatnika, więc zniknęło mimo że łamie zasadę „bez ulgi wyniki bit w bit jak dotąd" —
+   w paśmie 0–1 372 zł/mies i wyłącznie na składce zdrowotnej (w dół).
 
 Źródła:
 - art. 83 ust. 1, 2, 2a i 2b:
@@ -451,6 +455,11 @@ widzi.
   <https://edgp.gazetaprawna.pl/kadry-i-place/ubezpieczenia/artykuly/11249487,przy-uldze-dla-mlodych-skladka-zdrowotna-nie-jest-automatycznie-reduko.html>
 
 ### Historia poprawek
+
+**2026-08-20 (druga poprawka tego dnia)** — kap przestał być stosowany warunkowo. Do tej chwili
+silnik nakładał go wyłącznie na osoby z ulgą PIT-0, więc bez ulgi składka zdrowotna poniżej
+~1 250 zł/mies brutto była zawyżona (o 206,70 zł rocznie przy 1 000 zł/mies). Szczegóły
+w uproszczeniu 2 wyżej.
 
 **2026-08-20** — do tego dnia B.5 i silnik twierdziły, że przy przychodzie w całości zwolnionym
 z PIT składka zdrowotna spada do zera. Było to czytanie samego ust. 2 z pominięciem ust. 2a.
@@ -484,11 +493,54 @@ kwoty wolnej). Analogicznie dla pozostałych ulg PIT-0.
 przychod_zwolniony_msc = min(P, max(0, LIMIT_PIT_ZERO - zwolnione_narastajaco))
 przychod_opodatkowany  = P - przychod_zwolniony_msc
 
-# KUP stosuje się TYLKO do części opodatkowanej
+# KUP stosuje się TYLKO do części opodatkowanej, i najwyżej do jej wysokości
+# (art. 22 ust. 3b) — w silniku do jej wysokości POMNIEJSZONEJ o składki
 # Składki społeczne i zdrowotna nalicza się od CAŁOŚCI (zwolnienie jest podatkowe, nie składkowe)
+# …ale ODLICZA się tylko część przypadającą na przychód opodatkowany — patrz niżej
 # Zdrowotna podlega kapowi z B.5, ale kap liczy się od podstawy SPRZED zwolnienia
 # (art. 83 ust. 2a) → przy przychodzie w całości zwolnionym składka NIE spada do 0
 ```
+
+### ⚠️ Składki od przychodu zwolnionego nie podlegają odliczeniu
+
+`[PEWNE]` **Art. 26 ust. 1 pkt 2 ustawy o PIT**, część wspólna po wyliczeniu: odliczeniu nie
+podlegają składki, „których podstawę wymiaru stanowi dochód (przychód) zwolniony od podatku na
+podstawie ustawy". Składki naliczają się od całości brutto, ale ta ich część, której podstawą był
+przychód objęty ulgą PIT-0, **z odliczenia wypada**.
+
+Metodę podaje wprost **MF w objaśnieniach z 14.04.2020**, punkt 7:
+
+> „odliczeniu podlega tylko część z ogółu zapłaconych składek, która odpowiada **udziałowi
+> przychodów podlegających opodatkowaniu** w sumie przychodów objętych ulgą dla młodych oraz
+> przychodów podlegających opodatkowaniu"
+
+Wyjaśnienia praktyczne (13) z tego samego punktu: przy 85 000 zł przychodu, z czego 35 000 zł
+objęte ulgą, odliczyć wolno **58,82%** ogółu składek (50 000 ÷ 85 000).
+
+```
+s_spol_odliczalne = s_spol * (przychod_opodatkowany / przychod_podatkowy)
+```
+
+Dotyczy wyłącznie osób z ulgą PIT-0 zarabiających powyżej 85 528 zł rocznie — poniżej limitu
+przychód opodatkowany jest zerowy i nie ma czego odliczać. Przy zleceniu ta sama kwota wchodzi
+do wzoru dwa razy, bo pomniejsza również podstawę kosztów 20% (F.1).
+
+> **Uwaga na kolejność.** MF stawia na pierwszym miejscu metodę dokładną — odliczyć faktyczne
+> składki pobrane od przychodu opodatkowanego — a proporcję dopuszcza, gdy podatnik „nie zna kwoty
+> składek pobranych przez płatnika od przychodów objętych ulgą". W modelu rocznym o równych
+> miesiącach obie metody dają tę samą liczbę **poniżej 30-krotności**, bo składki są tam dokładnie
+> 13,71% przychodu. Powyżej się rozjeżdżają (emerytalna i rentowa przestają rosnąć, więc średnia
+> stawka spada) — silnik liczy proporcją, co dla zarabiających ponad 23 550 zł/mies jest
+> rozstrzygnięciem na korzyść podatnika. Odnotowane w części E.
+
+**Historia poprawek**
+
+**2026-08-20** — do tego dnia silnik (i część C) odejmowały od podstawy **całość** składek
+społecznych, także tę przypadającą na przychód zwolniony. Skutek na produkcji: zaniżony podatek,
+czyli zawyżone netto, każdemu z ulgą PIT-0 powyżej 85 528 zł rocznie — 1 407 zł/rok przy 12 000
+i 15 000 zł/mies, 3 466 zł przy 20 000 zł/mies, 3 090 zł przy 30 000 zł/mies. Przy zleceniu błąd
+wchodził dwa razy, ale drugie wejście działało w przeciwną stronę (zaniżone koszty), więc netto
+było zawyżone o 80% pierwszego efektu, a nie o 200%.
 
 Źródła:
 - <https://www.pit.pl/pit-0-dla-mlodych/>
@@ -686,30 +738,50 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
     podstawa_er = min(brutto_rok, LIMIT_30X)
     s_emer = podstawa_er * 0.0976
     s_rent = podstawa_er * 0.0150
-    s_chor = brutto_rok  * 0.0245          # BEZ limitu
+    # Chorobowa pracownika jest OBOWIĄZKOWA i jej podstawy nic nie ogranicza.
+    # Przy zleceniu jest dobrowolna i ma WŁASNY limit — 250% przeciętnego
+    # miesięcznie, co w modelu rocznym schodzi się do 30-krotności (F.2).
+    # Ten pseudokod jest etatowy; wariant zleceniowy liczy F.3.
+    s_chor = brutto_rok  * 0.0245
     s_spol = s_emer + s_rent + s_chor
 
     # --- zdrowotna ---
     # Kap art. 83 (B.5) liczy się od podstawy SPRZED zwolnienia PIT-0, więc przy
-    # realnych wynagrodzeniach nie wiąże — także u osoby z ulgą.
-    s_zdrow = (brutto_rok - s_spol) * 0.09  # + kap art. 83 (B.5)
+    # realnych wynagrodzeniach nie wiąże — także u osoby z ulgą. Stosuje się go
+    # ZAWSZE, również bez ulgi; poniżej ~1 250 zł/mies brutto realnie obniża
+    # składkę. Podstawą kapu jest podstawa policzona tak, jakby zwolnienia nie
+    # było — z PEŁNYM odliczeniem składek i pełnymi KUP (ust. 2a).
+    s_zdrow = min((brutto_rok - s_spol) * 0.09, kap_zdrowotnej(...))
+
+    # --- zwolnienie PIT-0 (B.6) ---
+    zwolniony   = min(brutto_rok, 85_528) if opcje.ulga_pit0 else 0
+    opodatkowany = brutto_rok - zwolniony
+
+    # --- odliczalna część składek (art. 26 ust. 1 pkt 2) ---
+    # Składki naliczyły się od CAŁOŚCI brutto (zwolnienie jest podatkowe, nie
+    # składkowe), ale odliczyć wolno tylko tę część, której podstawą nie był
+    # przychód zwolniony. Metoda MF: udział przychodu opodatkowanego w całości
+    # przychodu. Bez ulgi udział wynosi 1 i odliczalna jest całość.
+    s_spol_odlicz = s_spol * (opodatkowany / brutto_rok) if brutto_rok else 0
 
     # --- KUP ---
-    kup = (300 if opcje.kup_podwyzszone else 250) * 12
-
-    # --- zwolnienie PIT-0 ---
-    zwolniony = min(brutto_rok, 85_528) if opcje.ulga_pit0 else 0
+    # Stosuje się je WYŁĄCZNIE do części opodatkowanej i najwyżej do tego, co
+    # z niej zostało po składkach (B.6, art. 22 ust. 3b). Przy przychodzie
+    # w całości zwolnionym nie ma ich wcale.
+    kup_roczne = (300 if opcje.kup_podwyzszone else 250) * 12
+    kup = min(kup_roczne, max(0, opodatkowany - s_spol_odlicz))
 
     # --- podstawa opodatkowania ---
-    podstawa = round_pln(max(0, brutto_rok - zwolniony - s_spol - kup))
+    podstawa = round_pln(max(0, opodatkowany - s_spol_odlicz - kup))
 
     # --- podatek ---
     podatek = round_pln(podatek_roczny(podstawa, rok))   # patrz B.3
 
     # --- danina solidarnościowa (B.8) ---
     # Podstawą jest ta sama liczba co podstawa opodatkowania (dochód po składkach
-    # i po KUP), bo art. 30h ust. 2 pomniejsza sumę dochodów dokładnie o składki
-    # społeczne. Płatna poza zaliczkami, do 30 kwietnia — ale zapłacona, więc
+    # i po KUP), bo art. 30h ust. 2 pomniejsza sumę dochodów o składki z art. 26
+    # ust. 1 pkt 2 — czyli o dokładnie tę odliczalną część, którą policzono
+    # wyżej. Płatna poza zaliczkami, do 30 kwietnia — ale zapłacona, więc
     # w modelu ROCZNYM od netto odchodzi.
     STAWKA_DANINY = 0.04 if rok <= 2026 else 0.05     # [ZAPOWIEDŹ dla 2027]
     danina = round_pln(max(0, podstawa - 1_000_000) * STAWKA_DANINY)
@@ -729,10 +801,16 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
 > składek (te zostają liczone od `brutto_rok`) i **nie** do odejmowania w netto:
 >
 > ```python
-> ppk_firmy   = brutto_rok * opcje.ppk_pracodawca      # 0, jeśli brak PPK
-> przychod    = brutto_rok + ppk_firmy                 # tylko dla celów podatkowych
-> zwolniony   = min(przychod, 85_528) if opcje.ulga_pit0 else 0
-> podstawa    = round_pln(max(0, przychod - zwolniony - s_spol - kup))
+> ppk_firmy    = brutto_rok * opcje.ppk_pracodawca     # 0, jeśli brak PPK
+> przychod     = brutto_rok + ppk_firmy                # tylko dla celów podatkowych
+> zwolniony    = min(przychod, 85_528) if opcje.ulga_pit0 else 0
+> opodatkowany = przychod - zwolniony
+> # Udział liczy się od przychodu PODATKOWEGO, więc wpłata pracodawcy — sama
+> # nieoskładkowana — podnosi odliczalną część składek. To rozstrzygnięcie,
+> # nie ustalenie; patrz część E.
+> s_spol_odlicz = s_spol * (opodatkowany / przychod)
+> kup           = min(kup_roczne, max(0, opodatkowany - s_spol_odlicz))
+> podstawa      = round_pln(max(0, opodatkowany - s_spol_odlicz - kup))
 > # s_spol, s_zdrow i netto liczą się dalej od brutto_rok — bez ppk_firmy
 > ```
 
@@ -824,12 +902,34 @@ Rzeczy, których **nie udało się ustalić** — nie zgadywać w kodzie, wystaw
 ## Dotyczące ulgi dla młodych (PIT-0)
 
 **Czy składki społeczne odlicza się w całości, gdy część przychodu jest zwolniona?**
-Część C tego dokumentu odejmuje od podstawy **całość** składek społecznych, także tę
-przypadającą na przychód objęty zwolnieniem — i tak to zaimplementowano w silniku.
-Art. 26 ust. 1 pkt 2 ustawy o PIT daje się jednak czytać jako zakaz odliczania składek
-przypadających na przychód zwolniony, co prowadziłoby do proporcji. Różnica dotyczy
-wyłącznie osób z ulgą zarabiających powyżej 85 528 zł rocznie i działa na korzyść
-podatnika. **Nierozstrzygnięte** — wymaga sprawdzenia w interpretacjach.
+**ROZSTRZYGNIĘTE — nie, odliczenie jest proporcjonalne.** Art. 26 ust. 1 pkt 2 wyłącza
+z odliczenia składki, „których podstawę wymiaru stanowi dochód (przychód) zwolniony od podatku
+na podstawie ustawy", a MF podaje gotową metodę w objaśnieniach podatkowych z 14.04.2020,
+punkt 7:
+
+> „odliczeniu podlega tylko część z ogółu zapłaconych składek, która odpowiada **udziałowi
+> przychodów podlegających opodatkowaniu** w sumie przychodów objętych ulgą dla młodych oraz
+> przychodów podlegających opodatkowaniu"
+
+Wyjaśnienia praktyczne (13): przy 85 000 zł przychodu, z czego 35 000 zł objęte ulgą, odliczyć
+wolno **58,82%** ogółu składek (50 000 ÷ 85 000). Pełny opis i historia poprawki — w **B.6**.
+
+<https://podatki-arch.mf.gov.pl/media/5974/obja%C5%9Bnienia-podatkowe-ulga-dla-m%C5%82odych-14-kwietnia-2020-r.pdf>
+(strona MF: <https://www.gov.pl/web/finanse/objasnienia-podatkowe-z-dnia-14-kwietnia-2020-r-dot-nowej-preferencji-w-podatku-dochodowym-od-osob-fizycznych-dla-mlodych-osob>)
+
+**Co z tego zostaje otwarte:** MF stawia proporcję jako metodę zastępczą — dla podatnika, który
+„nie zna kwoty składek pobranych przez płatnika od przychodów objętych ulgą". Metoda dokładna
+(faktyczne składki od części opodatkowanej) daje tę samą liczbę poniżej 30-krotności, ale wyżej
+się z proporcją rozjeżdża, bo emerytalna i rentowa przestają rosnąć i średnia stawka spada.
+Silnik liczy proporcją; powyżej 23 550 zł/mies jest to rozstrzygnięcie **na korzyść podatnika**
+(przy 100 000 zł/mies nieodliczalne wychodzi 4 363 zł zamiast 11 726 zł). `[NIEJASNE]`
+
+**Czy proporcja dotyczy też podstawy kosztów 20% przy zleceniu?** `[NIEJASNE — wnioskowanie]`
+Silnik przyjmuje, że **tak** — art. 22 ust. 9 pkt 4 zawęża podstawę kosztów tym samym zwrotem
+(„składki [...], których podstawę wymiaru stanowi **ten** przychód"), a MF potwierdza w pkt 6
+tych samych objaśnień, że koszty procentowe „są obliczane wyłącznie od przychodów podlegających
+opodatkowaniu". Gotowego przykładu MF na to jednak **nie ma**, więc to nadal wnioskowanie
+z brzmienia przepisu, a nie ustalenie. Szczegóły — F.1 pkt 4.
 
 **Czy wpłata pracodawcy do PPK jest objęta zwolnieniem PIT-0?**
 Rozstrzygnięte **w silniku na „tak"** — ale rozstrzygnięte, nie ustalone: część B.7 tego dokumentu
@@ -862,12 +962,13 @@ To ta sama granica dokładności, co przy zwykłym rozliczeniu (patrz uwaga w cz
 ## Dotyczące umowy zlecenia (część F)
 
 **Czy koszty 20% liczy się od przychodu pomniejszonego o składki *przypadające na część
-opodatkowaną*, czy o całość składek?** `[NIEJASNE]`
-To ta sama wątpliwość, co przy składkach społecznych wyżej, tylko podniesiona do kwadratu:
-przy zleceniu składki wchodzą do wzoru dwa razy — raz jako odliczenie od dochodu, raz jako
-pomniejszenie podstawy kosztów. Silnik odejmuje **całość** składek w obu miejscach, spójnie
-z częścią C. Dotyczy wyłącznie zleceniobiorców z ulgą PIT-0 zarabiających powyżej 85 528 zł
-rocznie.
+opodatkowaną*, czy o całość składek?** `[NIEJASNE — wnioskowanie]`
+Silnik odejmuje od 2026-08-20 **część proporcjonalną** w obu miejscach, w których składki
+wchodzą do wzoru zlecenia — raz jako odliczenie od dochodu (tam jest to pewne, patrz wyżej),
+raz jako pomniejszenie podstawy kosztów (tam jest to wnioskowanie z identycznego zwrotu
+w art. 22 ust. 9 pkt 4). Dotyczy wyłącznie zleceniobiorców z ulgą PIT-0 zarabiających powyżej
+85 528 zł rocznie. Uwaga na kierunek: te dwa wejścia działają przeciwnie — mniejsze odliczenie
+podnosi dochód, ale wyższa podstawa kosztów go obniża, więc netto efekt to 80% pierwszego.
 
 **Czy wpłata pracodawcy do PPK dostaje przy zleceniu koszty 20%?** `[NIEJASNE]`
 Silnik przyjmuje, że tak: wpłata jest przychodem z tego samego źródła (art. 13 pkt 8),
@@ -974,7 +1075,27 @@ Trzy rzeczy, na których łatwo się przejechać:
    o podniesieniu limitu do 130 000 zł w 2027 r. **nie dotyczy** kosztów 20%.
 3. **Przy uldze PIT-0 kosztów nie ma od części zwolnionej.** podatki.gov.pl wprost:
    „Od przychodów objętych ulgą nie obliczasz 20% kosztów uzyskania przychodów". Ta sama
-   zasada, co przy etacie (B.6), tylko widoczniejsza, bo koszty są proporcjonalne.
+   zasada, co przy etacie (B.6), tylko widoczniejsza, bo koszty są proporcjonalne. Potwierdza
+   to MF w objaśnieniach z 14.04.2020, pkt 6: art. 22 ust. 3b „nie ma zastosowania do kosztów
+   zryczałtowanych procentowych, które są **obliczane wyłącznie od przychodów podlegających
+   opodatkowaniu**".
+4. **Składki pomniejszające tę podstawę też są tylko te „od tego przychodu".** Przepis mówi
+   o składkach, „których podstawę wymiaru stanowi **ten** przychód" — a skoro koszty liczy się
+   wyłącznie od części opodatkowanej, to i pomniejsza się ją wyłącznie o składki przypadające
+   na tę część, tak samo jak przy odliczeniu z art. 26 ust. 1 pkt 2 (B.6). Przy zleceniu
+   proporcja wchodzi więc do wzoru dwa razy:
+
+   ```
+   s_spol_odliczalne = s_spol * (przychod_opodatkowany / przychod_podatkowy)
+   KUP_zlecenie      = 0.20 * (przychod_opodatkowany - s_spol_odliczalne)
+   dochod            = przychod_opodatkowany - s_spol_odliczalne - KUP_zlecenie
+   ```
+
+   `[NIEJASNE — wnioskowanie]` Sama proporcja jest pewna dla art. 26 ust. 1 pkt 2 (MF podaje ją
+   wprost), ale MF nie ma przykładu dla podstawy kosztów 20%. Wnioskowanie opiera się na
+   identycznym zwrocie w obu przepisach. Kierunek: gdyby prawidłowe było pomniejszanie o całość
+   składek, koszty byłyby niższe, a podatek wyższy — czyli obecne rozwiązanie działa na korzyść
+   podatnika. Odnotowane w części E.
 
 Konsekwencja arytmetyczna, którą warto mieć z tyłu głowy: przy zleceniu
 **dochód = 0,8 × (przychód − składki)**, czyli okrągłe 80%. Dla etatu poniżej
