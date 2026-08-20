@@ -728,11 +728,21 @@
     gap: 0.5rem;
   }
 
+  /* Szerokość liczona z najdłuższej dopuszczalnej wartości, nie zgadywana:
+     `--cyfry` to jej liczba cyfr (100 000 zł = sześć), a reszta to obudowa
+     pola — poziomy `padding`, ramka i pas, który Chrome rezerwuje w środku na
+     strzałki `input[type=number]` (~15 px, niezależnie od stopnia pisma; stąd
+     `rem`, a nie `ch`). Dzięki temu jedna reguła obsługuje oba pola mimo
+     różnych krojów: to samo maksimum, każde w swoim stopniu pisma — wspólna
+     szerokość w pikselach zmuszałaby mniejsze pole do rezerwy na cyfry, których
+     w jego rozmiarze nie potrzebuje, i marnowała miejsce na wąskim ekranie.
+     Wartość jest stała, więc pisanie ani przeciąganie suwaka nie rusza układu. */
   input[type='number'] {
+    --cyfry: 6;
     font-size: 2rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    width: 7ch;
+    width: calc(var(--cyfry) * 1ch + 1rem + 2px + 1.125rem);
     padding: 0.25rem 0.5rem;
     border: 1px solid var(--linia);
     border-radius: 0.375rem;
@@ -893,12 +903,11 @@
   }
 
   /* Mniejsze od pola głównego: druga pensja jest dopowiedzeniem do pierwszej,
-     nie drugim równorzędnym pytaniem. Szersze o znak, bo `ch` maleje razem
-     z krojem, a stałe `padding` w rem — nie, więc przy 7ch pięciocyfrowa kwota
-     ucinała się o ostatnią cyfrę. */
+     nie drugim równorzędnym pytaniem. Szerokości nie trzeba tu poprawiać —
+     wzór wyżej sam schodzi razem ze stopniem pisma, bo w `ch` liczy tylko
+     cyfry. */
   .malzonek input[type='number'] {
     font-size: 1.5rem;
-    width: 8ch;
   }
 
   .wskazowka {
