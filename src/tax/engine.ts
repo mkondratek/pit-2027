@@ -405,18 +405,50 @@ function skladniki(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): Skla
   // wynik jest wtedy co do grosza taki jak przed wprowadzeniem ulgi. Przy
   // zleceniu jest tak zawsze: 20% czegoś nieujemnego nigdy tego nie przekroczy.
   //
-  // Model.md (część C) odejmuje tu **całość** składek społecznych, także tę
-  // przypadającą na przychód zwolniony, i tak jest to zaimplementowane.
+  // Odliczyć wolno tylko składki przypadające na przychód OPODATKOWANY —
+  // art. 26 ust. 1 pkt 2 ustawy o PIT, zdanie po wyliczeniu:
+  //
+  //   „odliczenie nie dotyczy składek, których podstawę wymiaru stanowi dochód
+  //   (przychód) zwolniony od podatku na podstawie ustawy [...]".
+  //
+  // Składki naliczyły się wyżej od CAŁOŚCI brutto (zwolnienie jest podatkowe,
+  // nie składkowe — B.6), więc ta ich część, której podstawą był przychód
+  // zwolniony, wypada z odliczenia. Objaśnienia podatkowe MF do ulgi dla
+  // młodych liczą to wprost przez proporcję: przy 60 000 zł przychodu, z czego
+  // 20 000 zł zwolnione, globalną kwotę składek pomniejsza się o
+  // 20 000 × 13,71% — czyli o dokładnie tę część, która przypada na zwolnione
+  // 1/3 przychodu. Mnożenie przez udział przychodu opodatkowanego jest tego
+  // uogólnieniem: przy składkach równych 13,71% przychodu daje co do grosza tę
+  // samą liczbę (test „przykład MF"), a dodatkowo trafia w przypadki, w których
+  // 13,71% nie jest właściwą stawką — powyżej 30-krotności (emerytalna
+  // i rentowa przestają rosnąć), przy zleceniu bez chorobowej (11,26%) i przy
+  // PPK pracodawcy (jest przychodem, nie jest podstawą składek).
+  //
+  // Ta sama proporcja obsługuje podstawę kosztów 20% przy zleceniu, bo
+  // art. 22 ust. 9 pkt 4 zawęża ją tym samym zwrotem — koszty liczy się od
+  // przychodu pomniejszonego o składki, „których podstawę wymiaru stanowi ten
+  // przychód", a „ten przychód" to przychód dający koszty, czyli wyłącznie
+  // część opodatkowana (od zwolnionej kosztów nie ma wcale — F.1). Przy
+  // zleceniu poprawka wchodzi więc dwa razy: raz w odliczeniu od dochodu, raz
+  // w podstawie kosztów.
+  //
+  // Bez ulgi `przychodZwolniony` jest zerem i odliczalna jest całość — gałąź
+  // jest wtedy dosłownie tą samą liczbą co dotąd, bit w bit.
+  const skladkiOdliczalne =
+    przychodZwolniony > 0
+      ? round2(skladkiSpoleczne * (przychodOpodatkowany / przychodPodatkowy))
+      : skladkiSpoleczne;
+
   const kupRoczne = (opcje.kupPodwyzszone ? KUP_PODWYZSZONE_MIES : KUP_PODSTAWOWE_MIES) * 12;
-  const podstawaZ = (przychod: number) => {
-    const poSkladkach = Math.max(0, przychod - skladkiSpoleczne);
+  const podstawaZ = (przychod: number, skladki: number) => {
+    const poSkladkach = Math.max(0, przychod - skladki);
     const kup = zlecenie
       ? round2(KUP_ZLECENIE_STAWKA * poSkladkach)
       : Math.min(kupRoczne, poSkladkach);
-    return { kup, dochod: roundPln(Math.max(0, przychod - skladkiSpoleczne - kup)) };
+    return { kup, dochod: roundPln(Math.max(0, przychod - skladki - kup)) };
   };
 
-  const { kup, dochod } = podstawaZ(przychodOpodatkowany);
+  const { kup, dochod } = podstawaZ(przychodOpodatkowany, skladkiOdliczalne);
 
   // Podstawa hipotetycznej zaliczki z art. 83 ust. 2a: ta sama arytmetyka, ale
   // od **całego** przychodu podatkowego, bez zdejmowania zwolnienia — bo
@@ -424,7 +456,13 @@ function skladniki(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): Skla
   // ubezpieczonego nie był zwolniony od podatku". Konsekwencja: pełne KUP
   // (przysługują od całości, skoro całość jest w tym rachunku opodatkowana) —
   // przy zleceniu odpowiednio pełne 20%. Bez ulgi jest to dokładnie `dochod`.
-  const podstawaBezZwolnienia = podstawaZ(przychodPodatkowy).dochod;
+  //
+  // Z tego samego powodu odejmuje się tu **całość** składek, a nie
+  // `skladkiOdliczalne`: ograniczenie z art. 26 ust. 1 pkt 2 działa wyłącznie
+  // dlatego, że część przychodu jest zwolniona, a w tym rachunku z założenia
+  // nie jest. Hipotetyczna zaliczka ma być tą, którą płatnik obliczyłby osobie
+  // bez ulgi — a ta odlicza składki w całości.
+  const podstawaBezZwolnienia = podstawaZ(przychodPodatkowy, skladkiSpoleczne).dochod;
 
   // Zdrowotna: 9% po odjęciu społecznych, ale przed KUP — od CAŁOŚCI przychodu,
   // bo zwolnienie nie jest składkowe. Podlega kapowi z art. 83 (B.5), ale kap
@@ -863,17 +901,25 @@ export const MAKSYMALNA_KORZYSC_ROCZNA = 3_600;
  * dochód wciąż przekraczał granicę przedziału.
  *
  * Wyprowadzenie (KUP podstawowe, poniżej 30-krotności, więc składki to 13,71%
- * brutto): dochód = 0,8629 × brutto_rok − 85 528 − 3 000. Żeby ruszył z miejsca
- * zysk z nowej skali, musi przekroczyć 120 000 zł ⇒ brutto_rok > 241 658 zł ⇒
- * **20 139 zł/mies**. Pełna korzyść od dochodu 150 000 zł ⇒ **23 036 zł/mies**.
+ * brutto): odliczalne są tylko składki przypadające na część opodatkowaną
+ * (art. 26 ust. 1 pkt 2), czyli 13,71% z niej samej — więc
+ * dochód = 0,8629 × (brutto_rok − 85 528) − 3 000. Żeby ruszył z miejsca zysk
+ * z nowej skali, musi przekroczyć 120 000 zł ⇒ brutto_rok > 228 072 zł ⇒
+ * **19 007 zł/mies**. Pełna korzyść od dochodu 150 000 zł ⇒ **21 903 zł/mies**.
+ *
+ * Progi są **niższe** niż przed poprawką proporcjonalnego odliczenia
+ * (20 139 / 23 036 zł/mies): skoro odliczenie jest mniejsze, dochód rośnie
+ * szybciej i granicę przedziału przekracza się przy niższym brutto. Zwolnienie
+ * przesuwa je w prawo nie o pełne 85 528 zł podstawy, tylko o 85 528 zł
+ * przychodu, czyli o 0,8629 × 85 528 zł podstawy.
  *
  * Sens tych liczb dla interfejsu: młody pracownik praktycznie nigdy nie zyskuje
  * na zmianie skali, bo jego pierwsze 85 528 zł jest już wolne od podatku.
  * Kalkulator ma mu pokazać poprawne (dużo wyższe) netto, a nie obiecywać zysk.
  * Wartości są testowane co do złotówki na krawędzi — patrz engine.test.ts.
  */
-export const BRUTTO_POCZATEK_KORZYSCI_ULGA = 20_139;
-export const BRUTTO_PELNA_KORZYSC_ULGA = 23_036;
+export const BRUTTO_POCZATEK_KORZYSCI_ULGA = 19_007;
+export const BRUTTO_PELNA_KORZYSC_ULGA = 21_903;
 
 /**
  * To samo dla **umowy zlecenia** (chorobowa opłacana, bez ulg).

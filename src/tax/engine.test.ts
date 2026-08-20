@@ -33,6 +33,8 @@ import {
   PPK_PRACODAWCA_PODSTAWOWY,
   PPK_PRACOWNIK_PODSTAWOWY,
   RATE_CHOROBOWA,
+  RATE_EMERYTALNA,
+  RATE_RENTOWA,
   RATE_ZDROWOTNA,
   SKALA,
   type Rok,
@@ -603,11 +605,21 @@ describe('ulga dla młodych (PIT-0)', () => {
   });
 
   /*
-   * Właściwość 2 — tuż powyżej limitu opodatkowana jest wyłącznie nadwyżka.
+   * Właściwość 2 — tuż powyżej limitu opodatkowana jest wyłącznie nadwyżka,
+   * i odliczyć wolno wyłącznie składki przypadające na tę nadwyżkę.
    *
    * Sprawdzane od strony kwoty, nie tylko znaku: dochód musi być dokładnie tym,
-   * co zostaje z nadwyżki po składkach (liczonych od całości) i KUP. Test na
+   * co zostaje z nadwyżki po **odliczalnej** części składek i po KUP. Test na
    * samym „podatek > 0" przepuściłby implementację opodatkowującą całość.
+   *
+   * ⚠️ Do 2026-08-20 stały tu dwie inne liczby, obie przypinające błąd:
+   * podstawa liczona przez odjęcie od nadwyżki **całości** składek
+   * (`bez.skladkiSpoleczne`) i różnica podstaw równa okrągłemu
+   * `LIMIT_PIT_ZERO`. Art. 26 ust. 1 pkt 2 zabrania odliczania składek,
+   * których podstawę wymiaru stanowi przychód zwolniony, więc tamta podstawa
+   * była zaniżona o 11 725,89 zł (85 528 × 13,71%), a różnica podstaw nie może
+   * wyjść równa zwolnionemu przychodowi — bo razem ze zwolnionym przychodem
+   * z podstawy znika też odliczenie składek od niego.
    */
   it('powyżej limitu opodatkowana jest tylko nadwyżka ponad 85 528 zł', () => {
     const brutto = 10_000;
@@ -615,12 +627,111 @@ describe('ulga dla młodych (PIT-0)', () => {
     const bez = oblicz(brutto, 2026);
 
     expect(w.przychodOpodatkowany).toBe(120_000 - LIMIT_PIT_ZERO);
-    expect(w.podstawaOpodatkowania).toBe(
-      roundPln(w.przychodOpodatkowany - bez.skladkiSpoleczne - w.kup),
+
+    // Składki naliczyły się od całości brutto, ale odliczalne są proporcjonalnie
+    // do udziału części opodatkowanej.
+    const odliczalne = round2(bez.skladkiSpoleczne * (w.przychodOpodatkowany / 120_000));
+    expect(w.podstawaOpodatkowania).toBe(roundPln(w.przychodOpodatkowany - odliczalne - w.kup));
+
+    // Podstawa niższa o zwolniony przychód POMNIEJSZONY o przepadłe odliczenie
+    // (KUP takie same — mieszczą się w części opodatkowanej).
+    expect(bez.podstawaOpodatkowania - w.podstawaOpodatkowania).toBe(
+      roundPln(LIMIT_PIT_ZERO - (bez.skladkiSpoleczne - odliczalne)),
     );
-    // Podstawa niższa dokładnie o zwolniony przychód (KUP takie same — mieszczą
-    // się w części opodatkowanej).
-    expect(bez.podstawaOpodatkowania - w.podstawaOpodatkowania).toBe(LIMIT_PIT_ZERO);
+  });
+
+  /*
+   * Walidacja z oficjalnego źródła — objaśnienia podatkowe MF z 14.04.2020
+   * („Nowa preferencja w podatku dochodowym od osób fizycznych dla młodych
+   * osób"), punkt 7. Rzadki przypadek, w którym mamy metodę podaną wprost
+   * przez organ, a nie własne wnioskowanie z przepisu, więc stoi tu dosłownie:
+   *
+   *   „odliczeniu podlega tylko część z ogółu zapłaconych składek, która
+   *   odpowiada udziałowi przychodów podlegających opodatkowaniu w sumie
+   *   przychodów objętych ulgą dla młodych oraz przychodów podlegających
+   *   opodatkowaniu"
+   *
+   * Wyjaśnienia praktyczne (13) z tego samego punktu podają gotową liczbę:
+   * przy 85 000 zł przychodu, z czego 35 000 zł objęte ulgą, odliczyć wolno
+   * **58,82%** ogółu składek (50 000 ÷ 85 000).
+   *
+   * Silnik zwalnia zawsze do pełnego limitu 85 528 zł, więc podziału 35/50
+   * z przykładu nie da mu się podać wprost — poniżej najpierw sam udział
+   * z przykładu MF, a potem ta sama metoda na kwotach, które silnik przyjmuje.
+   *
+   * <https://podatki-arch.mf.gov.pl/media/5974/obja%C5%9Bnienia-podatkowe-ulga-dla-m%C5%82odych-14-kwietnia-2020-r.pdf>
+   */
+  it('odlicza składki metodą z objaśnień MF — udziałem przychodu opodatkowanego', () => {
+    // Wyjaśnienia praktyczne (13): 50 000 ÷ 85 000 = 58,82%.
+    expect(round2((50_000 / 85_000) * 100)).toBe(58.82);
+
+    // Ta sama metoda w silniku. Sweep poniżej 30-krotności i bez PPK — tam
+    // udział przychodowy i udział w podstawie składek to ta sama liczba.
+    for (const brutto of [8_000, 10_000, 12_000, 15_000, 20_000]) {
+      const w = oblicz(brutto, 2026, U);
+      const bez = oblicz(brutto, 2026);
+      const udzial = w.przychodOpodatkowany / w.przychodPodatkowy;
+
+      expect(w.podstawaOpodatkowania).toBe(
+        roundPln(w.przychodOpodatkowany - round2(bez.skladkiSpoleczne * udzial) - w.kup),
+      );
+    }
+  });
+
+  /*
+   * Ten sam dokument, wyjaśnienia praktyczne (11) — przykład kwotowy wprost:
+   * przy 86 000 zł przychodu z etatu, z czego 85 528 zł objęte ulgą, podstawa
+   * schodzi do zera, bo koszty stosuje się najwyżej do wysokości przychodu
+   * podlegającego opodatkowania (art. 22 ust. 3b, tu 472 zł).
+   *
+   * Silnik ogranicza koszty o oczko mocniej — do przychodu opodatkowanego
+   * **po składkach** (407,29 zł zamiast 472 zł) — więc samej kwoty kosztów tu
+   * nie przypinamy. Na podatek to nie wpływa: dochód i tak jest zerowy, bo
+   * MF-owe 472 zł kosztów zjadłyby cały przychód razem ze składkami.
+   */
+  it('przykład MF: 86 000 zł przychodu przy limicie 85 528 zł daje zerowy podatek', () => {
+    const w = oblicz(86_000 / 12, 2026, U);
+
+    expect(w.przychodPodatkowy).toBeCloseTo(86_000, 2);
+    expect(w.przychodZwolniony).toBe(LIMIT_PIT_ZERO);
+    expect(w.przychodOpodatkowany).toBeCloseTo(472, 2);
+    expect(w.podstawaOpodatkowania).toBe(0);
+    expect(w.podatek).toBe(0);
+  });
+
+  /*
+   * …i granica od dołu, przemiatana: podatek osoby z ulgą nie może zejść
+   * poniżej tego, co daje odliczenie proporcjonalne.
+   *
+   * Brakowało tego przez cały czas życia błędu. Pozostałe właściwości ulgi
+   * („nigdy nie pogarsza netto") pilnują wyłącznie górnej granicy, a pełne
+   * odliczenie składek psuje wynik w drugą stronę — wygląda dla podatnika
+   * korzystnie, więc żaden z tamtych testów by go nie złapał. Sweep, bo błąd
+   * rósł z brutto: 1 407 zł/rok przy 12 000 zł/mies, 3 466 zł przy 20 000 zł.
+   */
+  it('nie schodzi z podatkiem poniżej odliczenia proporcjonalnego', () => {
+    for (const rok of lata) {
+      for (let brutto = 250; brutto <= 40_000; brutto += 250) {
+        const w = oblicz(brutto, rok, U);
+        const bez = oblicz(brutto, rok);
+
+        // To samo, co dawał błąd sprzed 2026-08-20: całość składek odjęta od
+        // samej nadwyżki. Zaniża podstawę, więc jest dolną granicą od złej
+        // strony — podatek musi być co najmniej taki jak przy proporcji.
+        const pelneOdliczenie = roundPln(
+          Math.max(0, w.przychodOpodatkowany - bez.skladkiSpoleczne - w.kup),
+        );
+
+        expect(w.podstawaOpodatkowania).toBeGreaterThanOrEqual(pelneOdliczenie);
+        expect(w.podatek).toBeGreaterThanOrEqual(roundPln(podatekWgSkali(pelneOdliczenie, rok)));
+
+        // …i tam, gdzie zwolnienie w ogóle coś zabiera z podstawy, różnica jest
+        // ścisła, a nie tylko „nie mniejsza".
+        if (w.przychodZwolniony > 0 && w.podstawaOpodatkowania > 0) {
+          expect(w.podstawaOpodatkowania).toBeGreaterThan(pelneOdliczenie);
+        }
+      }
+    }
   });
 
   it('KUP przysługują tylko od części opodatkowanej', () => {
@@ -716,7 +827,14 @@ describe('ulga dla młodych (PIT-0)', () => {
      * choć podstawa opodatkowania jednej z nich wynosi zero.
      */
     it('u osoby z ulgą jest ten sam co bez ulgi — zwolnienia się nie uwzględnia', () => {
-      for (const brutto of [3_000, 5_000, 8_000]) {
+      // Kwoty muszą mieścić się CAŁE w limicie 85 528 zł, bo asercja niżej
+      // wymaga podstawy równej zeru. Było tu 8 000 zł/mies (96 000 zł rocznie,
+      // czyli 10 472 zł ponad limit) i przechodziło tylko dlatego, że pełne
+      // odliczenie składek zbijało tę nadwyżkę do zera. Po poprawce z art. 26
+      // ust. 1 pkt 2 zostaje z niej podstawa 6 036 zł — więc 8 000 zł/mies nie
+      // jest już przypadkiem „całość zwolniona" i zostało zastąpione przez
+      // 7 000 zł/mies (84 000 zł rocznie).
+      for (const brutto of [3_000, 5_000, 7_000]) {
         const z = oblicz(brutto, 2026, U);
         const bez = oblicz(brutto, 2026);
 
@@ -1055,7 +1173,19 @@ describe('PPK (model.md B.7)', () => {
       const bez = oblicz(13_000, 2027, U);
       const z = oblicz(13_000, 2027, { ...U, ...FIRMA });
 
-      expect(z.podstawaOpodatkowania - bez.podstawaOpodatkowania).toBe(z.ppkPracodawcy);
+      // Podstawa rośnie o wpłatę pracodawcy POMNIEJSZONĄ o odzyskane
+      // odliczenie składek. Wpłata nie jest podstawą składek (B.7), ale jest
+      // przychodem podatkowym, więc podnosi udział części opodatkowanej
+      // w przychodzie — a przez to i kwotę składek, którą wolno odliczyć
+      // (art. 26 ust. 1 pkt 2). Do 2026-08-20 stało tu równe `z.ppkPracodawcy`,
+      // co było prawdą tylko przy pełnym, a więc błędnym, odliczeniu składek.
+      const odliczalne = (w: typeof z) =>
+        round2(w.skladkiSpoleczne * (w.przychodOpodatkowany / w.przychodPodatkowy));
+
+      expect(z.podstawaOpodatkowania - bez.podstawaOpodatkowania).toBe(
+        roundPln(z.ppkPracodawcy - (odliczalne(z) - odliczalne(bez))),
+      );
+      expect(z.podstawaOpodatkowania - bez.podstawaOpodatkowania).toBeLessThan(z.ppkPracodawcy);
       expect(z.podatek).toBeGreaterThan(bez.podatek);
       expect(z.skladkiSpoleczne).toBe(bez.skladkiSpoleczne);
     });
@@ -1596,10 +1726,29 @@ describe('umowa zlecenia (model.md część F)', () => {
       // kosztów uzyskania przychodów".
       expect(oblicz(5_000, 2026, { ...Z, ...U }).kup).toBe(0);
 
+      // Podstawą kosztów jest przychód pomniejszony o składki, „których
+      // podstawę wymiaru stanowi TEN przychód" (art. 22 ust. 9 pkt 4) — czyli
+      // o te przypadające na część opodatkowaną, nie o całość. Do 2026-08-20
+      // stała tu `w.skladkiSpoleczne` (całość).
       const w = oblicz(20_000, 2026, { ...Z, ...U });
-      expect(w.kup).toBeCloseTo(
-        KUP_ZLECENIE_STAWKA * (w.przychodOpodatkowany - w.skladkiSpoleczne),
-        2,
+      const odliczalne = round2(
+        w.skladkiSpoleczne * (w.przychodOpodatkowany / w.przychodPodatkowy),
+      );
+
+      expect(w.kup).toBeCloseTo(KUP_ZLECENIE_STAWKA * (w.przychodOpodatkowany - odliczalne), 2);
+
+      // Te same składki wchodzą przy zleceniu do wzoru dwa razy — raz jako
+      // odliczenie, raz jako pomniejszenie podstawy kosztów — więc poprawka
+      // ruszyła oba miejsca. Uwaga na kierunek: w kosztach stary błąd działał
+      // ODWROTNIE, zaniżając je (24 313,60 zł zamiast 26 658,78 zł). Netto
+      // i tak wychodziło na korzyść podatnika, bo zaniżenie kosztów zjada
+      // tylko 20% zawyżonego odliczenia — zostaje 80% z niego.
+      const kupPrzyPelnychSkladkach =
+        KUP_ZLECENIE_STAWKA * (w.przychodOpodatkowany - w.skladkiSpoleczne);
+
+      expect(w.kup).toBeGreaterThan(kupPrzyPelnychSkladkach);
+      expect(w.podstawaOpodatkowania).toBeGreaterThan(
+        roundPln(w.przychodOpodatkowany - w.skladkiSpoleczne - kupPrzyPelnychSkladkach),
       );
     });
 
@@ -2095,8 +2244,11 @@ describe('danina solidarnościowa (model.md B.8)', () => {
       // przestaje się opłacać.
       expect(porownaj(144_898, { forma: 'zlecenie' }).zyskRocznie).toBe(0);
       expect(porownaj(144_899, { forma: 'zlecenie' }).zyskRocznie).toBe(-1);
-      expect(porownaj(126_464, { ulgaDlaMlodych: true }).zyskRocznie).toBe(0);
-      expect(porownaj(126_465, { ulgaDlaMlodych: true }).zyskRocznie).toBe(-1);
+      // Granica dla ulgi jest niższa niż przed poprawką proporcjonalnego
+      // odliczenia składek (126 465 zł/mies): mniejsze odliczenie ⇒ dochód
+      // rośnie szybciej ⇒ milion przekracza się przy niższym brutto.
+      expect(porownaj(126_128, { ulgaDlaMlodych: true }).zyskRocznie).toBe(0);
+      expect(porownaj(126_129, { ulgaDlaMlodych: true }).zyskRocznie).toBe(-1);
     });
   });
 
@@ -2183,13 +2335,29 @@ describe('danina solidarnościowa (model.md B.8)', () => {
     it('przychód zwolniony z PIT nie wchodzi do podstawy (ulga dla młodych)', () => {
       // Art. 30h ust. 2 mówi o dochodach „podlegających opodatkowaniu", a
       // przychód zwolniony z art. 21 ust. 1 pkt 148 opodatkowaniu nie podlega.
-      // Podstawa spada dokładnie o wykorzystany limit PIT-0, ani o grosz więcej.
+      // Podstawa spada o wykorzystany limit PIT-0 POMNIEJSZONY o składki od
+      // niego — te przestają być odliczalne razem z nim (art. 26 ust. 1 pkt 2,
+      // do którego art. 30h ust. 2 odsyła wprost). Do 2026-08-20 stało tu
+      // równe `LIMIT_PIT_ZERO` i podstawa 1 050 251 zł, czyli wartości sprzed
+      // poprawki proporcjonalnego odliczenia.
       const bez = oblicz(100_000, 2026);
       const z = oblicz(100_000, 2026, { ulgaDlaMlodych: true });
 
-      expect(bez.podstawaOpodatkowania - z.podstawaOpodatkowania).toBe(LIMIT_PIT_ZERO);
-      expect(z.podstawaOpodatkowania).toBe(1_050_251);
-      expect(z.danina).toBe(2_010); // 4% z 50 251 zł
+      // Powyżej 30-krotności składki nie są już 13,71% brutto, więc
+      // nieodliczalna część liczy się z faktycznej kwoty składek.
+      const nieodliczalne = round2(
+        bez.skladkiSpoleczne * (z.przychodZwolniony / z.przychodPodatkowy),
+      );
+
+      // Z dokładnością do złotówki, bo obie podstawy zaokrąglono do pełnych
+      // złotych osobno (art. 63 §1 Ordynacji) — ich różnica może się rozejść
+      // z zaokrągleniem różnicy o 1 zł. Kwoty same w sobie są przypięte niżej.
+      expect(bez.podstawaOpodatkowania - z.podstawaOpodatkowania).toBeCloseTo(
+        LIMIT_PIT_ZERO - nieodliczalne,
+        -0.5,
+      );
+      expect(z.podstawaOpodatkowania).toBe(1_054_615);
+      expect(z.danina).toBe(2_185); // 4% z 54 615 zł
       expect(z.danina).toBeLessThan(bez.danina);
     });
 
