@@ -43,11 +43,33 @@
     <script type="module" src="/src/main.ts"></script>
 
     <!-- Cloudflare Web Analytics — bez cookies, bez śledzenia między stronami.
-         Token jest identyfikatorem publicznym, nie sekretem. -->
-    <script
-      type="module"
-      src="https://static.cloudflareinsights.com/beacon.min.js"
-      data-cf-beacon='{"token": "c7368253e5844080bc5e697450d07d72"}'
-    ></script>
+         Token jest identyfikatorem publicznym, nie sekretem.
+
+         Beacon startuje wyłącznie na produkcyjnym hoście, więc podglądy z
+         pit-2027.pages.dev i z branchy nie dokładają się do statystyk.
+         Własne urządzenie wyłącza się raz, wchodząc na /?bez-statystyk=1
+         (i z powrotem włącza przez /?bez-statystyk=0). -->
+    <script>
+      (function () {
+        var KLUCZ = 'pit-2027:bez-statystyk';
+        try {
+          var wybor = new URLSearchParams(location.search).get('bez-statystyk');
+          if (wybor === '1') localStorage.setItem(KLUCZ, '1');
+          else if (wybor === '0') localStorage.removeItem(KLUCZ);
+          if (localStorage.getItem(KLUCZ)) return;
+        } catch (e) {
+          // Tryb prywatny bez localStorage — trudno, ta wizyta się policzy.
+        }
+        if (location.hostname !== 'pit.kondratek.pl') return;
+        var beacon = document.createElement('script');
+        beacon.defer = true;
+        beacon.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+        beacon.setAttribute(
+          'data-cf-beacon',
+          '{"token": "c7368253e5844080bc5e697450d07d72"}'
+        );
+        document.body.appendChild(beacon);
+      })();
+    </script>
   </body>
 </html>
