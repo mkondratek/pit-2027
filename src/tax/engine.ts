@@ -270,9 +270,10 @@ export interface SkladnikiOsoby {
    *
    * Bez ulgi dla młodych równa się `skladkiSpoleczne` co do grosza; ze
    * zwolnieniem jest od nich **niższa**, bo odliczeniu nie podlegają składki,
-   * których podstawę wymiaru stanowi przychód zwolniony (proporcja udziału
-   * przychodu opodatkowanego — patrz `skladniki`). Przy przychodzie w całości
-   * zwolnionym jest zerem, choć składki i tak się płaci.
+   * których podstawę wymiaru stanowi przychód zwolniony — czyli te potrącone od
+   * pierwszych 85 528 zł przychodu, liczone chronologicznie, a nie
+   * proporcjonalnie (patrz `skladniki`). Przy przychodzie w całości zwolnionym
+   * jest zerem, choć składki i tak się płaci.
    *
    * Wystawiona osobno wyłącznie po to, żeby dało się to pokazać w rozbiciu:
    * wiersz „Składki społeczne" niesie kwotę **opłaconą**, a od podstawy odchodzi
@@ -370,9 +371,9 @@ function skladniki(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): Skla
   const podstawaEmerRent = bezZus ? 0 : Math.min(bruttoRocznie, limit30x);
   const podstawaChorobowej =
     bezZus || !chorobowa ? 0 : zlecenie ? Math.min(bruttoRocznie, limit30x) : bruttoRocznie;
-  const skladkiSpoleczne = round2(
-    podstawaEmerRent * (RATE_EMERYTALNA + RATE_RENTOWA) + podstawaChorobowej * RATE_CHOROBOWA,
-  );
+  const skladkiSpoleczneRaw =
+    podstawaEmerRent * (RATE_EMERYTALNA + RATE_RENTOWA) + podstawaChorobowej * RATE_CHOROBOWA;
+  const skladkiSpoleczne = round2(skladkiSpoleczneRaw);
 
   // Wpłata pracodawcy do PPK: przychód podatkowy pracownika, ale NIE podstawa
   // składek (model.md B.7). Dlatego pojawia się dopiero tutaj — po policzeniu
@@ -430,30 +431,64 @@ function skladniki(bruttoMiesiecznie: number, rok: Rok, opcje: Opcje = {}): Skla
   //
   // Składki naliczyły się wyżej od CAŁOŚCI brutto (zwolnienie jest podatkowe,
   // nie składkowe — B.6), więc ta ich część, której podstawą był przychód
-  // zwolniony, wypada z odliczenia. Objaśnienia podatkowe MF do ulgi dla
-  // młodych liczą to wprost przez proporcję: przy 60 000 zł przychodu, z czego
-  // 20 000 zł zwolnione, globalną kwotę składek pomniejsza się o
-  // 20 000 × 13,71% — czyli o dokładnie tę część, która przypada na zwolnione
-  // 1/3 przychodu. Mnożenie przez udział przychodu opodatkowanego jest tego
-  // uogólnieniem: przy składkach równych 13,71% przychodu daje co do grosza tę
-  // samą liczbę (test „przykład MF"), a dodatkowo trafia w przypadki, w których
-  // 13,71% nie jest właściwą stawką — powyżej 30-krotności (emerytalna
-  // i rentowa przestają rosnąć), przy zleceniu bez chorobowej (11,26%) i przy
-  // PPK pracodawcy (jest przychodem, nie jest podstawą składek).
+  // zwolniony, wypada z odliczenia.
   //
-  // Ta sama proporcja obsługuje podstawę kosztów 20% przy zleceniu, bo
-  // art. 22 ust. 9 pkt 4 zawęża ją tym samym zwrotem — koszty liczy się od
-  // przychodu pomniejszonego o składki, „których podstawę wymiaru stanowi ten
-  // przychód", a „ten przychód" to przychód dający koszty, czyli wyłącznie
-  // część opodatkowana (od zwolnionej kosztów nie ma wcale — F.1). Przy
-  // zleceniu poprawka wchodzi więc dwa razy: raz w odliczeniu od dochodu, raz
-  // w podstawie kosztów.
+  // Które to konkretnie składki, przesądza **data uzyskania przychodu**:
+  // zwolnienie obejmuje przychody od początku roku aż do wyczerpania limitu,
+  // więc nieodliczalne są składki potrącone od PIERWSZYCH 85 528 zł przychodu,
+  // a odliczalne — wyłącznie te potrącone od nadwyżki ponad limit. Tak czyta to
+  // interpretacja KIS 0113-KDIPT2-3.4011.224.2026.3.KKA z 19.05.2026 na stanie
+  // faktycznym z tym samym problemem (składki tylko do 30-krotności, zwolnienie
+  // 85 528 zł); proporcję MF podaje w objaśnieniach jako metodę zastępczą —
+  // „jeżeli podatnik nie zna kwoty składek pobranych przez płatnika" — a płatnik
+  // ją zna i wykazuje w PIT-11 poz. 97. Rozbieżność orzeczniczą (wcześniejsza
+  // interpretacja 0113-KDIPT2-2.4011.586.2024.1.ST z 16.10.2024 orzekła
+  // odwrotnie) odnotowuje model.md B.6.
+  //
+  // **Postać zamknięta, nie pętla miesięczna.** Limit 85 528 zł jest zawsze
+  // niższy od 30-krotności (282 600 / 299 130 zł), więc zanim zwolnienie się
+  // wyczerpie, żadna składka nie zdążyła się urwać o limit — od pierwszych
+  // 85 528 zł przychodu naliczają się PEŁNĄ stawką. Rachunek narastający
+  // miesiąc po miesiącu dałby więc co do grosza tę samą liczbę, a model jest
+  // rocznym świadomie (patrz nagłówek pliku), więc zostaje wzór.
+  //
+  // Podstawą składek jest brutto, a limit zwolnienia konsumuje przychód
+  // podatkowy (z wpłatą pracodawcy do PPK), więc na okres zwolnienia przypada
+  // `przychodZwolniony × brutto / przychodPodatkowy` brutto — bez PPK po prostu
+  // `przychodZwolniony`. Każda składka bierze z tego tyle, ile mieści jej własna
+  // podstawa: `min(...)` odwzorowuje urwanie się emerytalnej i rentowej o limit
+  // 30-krotności (i zeruje wszystko przy zwolnieniu studenckim oraz przy
+  // zleceniu bez chorobowej — tam odpowiednia podstawa jest zerowa).
+  //
+  // Poniżej 30-krotności obie metody dają tę samą liczbę co do grosza — składki
+  // są tam stałym procentem przychodu, więc proporcja i chronologia się
+  // pokrywają (test „przykład MF"). Rozjeżdżają się dopiero powyżej
+  // 23 550 zł/mies, i tam poprzednia proporcja zaniżała część nieodliczalną,
+  // czyli ZAWYŻAŁA netto.
+  //
+  // Ta sama liczba wchodzi do podstawy kosztów 20% przy zleceniu, bo art. 22
+  // ust. 9 pkt 4 zawęża ją tym samym zwrotem — koszty liczy się od przychodu
+  // pomniejszonego o składki, „których podstawę wymiaru stanowi ten przychód",
+  // a „ten przychód" to przychód dający koszty, czyli wyłącznie część
+  // opodatkowana (od zwolnionej kosztów nie ma wcale — F.1). Przy zleceniu
+  // poprawka wchodzi więc dwa razy: raz w odliczeniu od dochodu, raz w podstawie
+  // kosztów. Przepis jest tam miesięczny („potrącone [...] w danym miesiącu"),
+  // ale suma dwunastu miesięcy schodzi się do tego samego wzoru — z tego samego
+  // powodu co wyżej.
   //
   // Bez ulgi `przychodZwolniony` jest zerem i odliczalna jest całość — gałąź
   // jest wtedy dosłownie tą samą liczbą co dotąd, bit w bit.
+  const podstawaZwolniona =
+    przychodZwolniony > 0 ? przychodZwolniony * (bruttoRocznie / przychodPodatkowy) : 0;
+  const skladkiNieodliczalne =
+    Math.min(podstawaZwolniona, podstawaEmerRent) * (RATE_EMERYTALNA + RATE_RENTOWA) +
+    Math.min(podstawaZwolniona, podstawaChorobowej) * RATE_CHOROBOWA;
+  // Odejmowanie idzie po kwotach NIEZAOKRĄGLONYCH i dopiero wynik schodzi do
+  // groszy: zaokrąglenie obu składników osobno potrafiłoby przesunąć różnicę
+  // o grosz, a ten grosz przenosi się dalej na podstawę (pełne złote) i podatek.
   const skladkiOdliczalne =
     przychodZwolniony > 0
-      ? round2(skladkiSpoleczne * (przychodOpodatkowany / przychodPodatkowy))
+      ? round2(skladkiSpoleczneRaw - skladkiNieodliczalne)
       : skladkiSpoleczne;
 
   const kupRoczne = (opcje.kupPodwyzszone ? KUP_PODWYZSZONE_MIES : KUP_PODSTAWOWE_MIES) * 12;

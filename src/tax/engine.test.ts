@@ -2265,11 +2265,13 @@ describe('danina solidarnościowa (model.md B.8)', () => {
       // przestaje się opłacać.
       expect(porownaj(144_898, { forma: 'zlecenie' }).zyskRocznie).toBe(0);
       expect(porownaj(144_899, { forma: 'zlecenie' }).zyskRocznie).toBe(-1);
-      // Granica dla ulgi jest niższa niż przed poprawką proporcjonalnego
-      // odliczenia składek (126 465 zł/mies): mniejsze odliczenie ⇒ dochód
-      // rośnie szybciej ⇒ milion przekracza się przy niższym brutto.
-      expect(porownaj(126_128, { ulgaDlaMlodych: true }).zyskRocznie).toBe(0);
-      expect(porownaj(126_129, { ulgaDlaMlodych: true }).zyskRocznie).toBe(-1);
+      // Granica dla ulgi zjeżdżała w dół z każdą poprawką odliczenia składek:
+      // 126 465 zł/mies przy odliczaniu całości, 126 128 zł/mies przy odliczeniu
+      // proporcjonalnym, a po przejściu na metodę chronologiczną (B.6) jest tu.
+      // Kierunek zawsze ten sam: mniejsze odliczenie ⇒ dochód rośnie szybciej
+      // ⇒ milion przekracza się przy niższym brutto.
+      expect(porownaj(125_459, { ulgaDlaMlodych: true }).zyskRocznie).toBe(0);
+      expect(porownaj(125_460, { ulgaDlaMlodych: true }).zyskRocznie).toBe(-1);
     });
   });
 
@@ -2360,15 +2362,21 @@ describe('danina solidarnościowa (model.md B.8)', () => {
       // niego — te przestają być odliczalne razem z nim (art. 26 ust. 1 pkt 2,
       // do którego art. 30h ust. 2 odsyła wprost). Do 2026-08-20 stało tu
       // równe `LIMIT_PIT_ZERO` i podstawa 1 050 251 zł, czyli wartości sprzed
-      // poprawki proporcjonalnego odliczenia.
+      // poprawki odliczenia; potem 1 054 615 zł — wartość z odliczenia
+      // proporcjonalnego, zastąpionego metodą chronologiczną (B.6).
       const bez = oblicz(100_000, 2026);
       const z = oblicz(100_000, 2026, { ulgaDlaMlodych: true });
 
-      // Powyżej 30-krotności składki nie są już 13,71% brutto, więc
-      // nieodliczalna część liczy się z faktycznej kwoty składek.
+      // Nieodliczalne są składki potrącone od pierwszych 85 528 zł przychodu.
+      // Limit wyczerpuje się na długo przed 30-krotnością, więc naliczają się
+      // tam pełną stawką 13,71% — mimo że w skali roku średnia stawka jest
+      // dużo niższa (składki urywają się na 282 600 zł, a brutto to 1,2 mln).
       const nieodliczalne = round2(
-        bez.skladkiSpoleczne * (z.przychodZwolniony / z.przychodPodatkowy),
+        z.przychodZwolniony * (RATE_EMERYTALNA + RATE_RENTOWA + RATE_CHOROBOWA),
       );
+
+      expect(nieodliczalne).toBe(11_725.89);
+      expect(round2(z.skladkiSpoleczne - z.skladkiOdliczalne)).toBe(nieodliczalne);
 
       // Z dokładnością do złotówki, bo obie podstawy zaokrąglono do pełnych
       // złotych osobno (art. 63 §1 Ordynacji) — ich różnica może się rozejść
@@ -2377,8 +2385,8 @@ describe('danina solidarnościowa (model.md B.8)', () => {
         LIMIT_PIT_ZERO - nieodliczalne,
         -0.5,
       );
-      expect(z.podstawaOpodatkowania).toBe(1_054_615);
-      expect(z.danina).toBe(2_185); // 4% z 54 615 zł
+      expect(z.podstawaOpodatkowania).toBe(1_061_977);
+      expect(z.danina).toBe(2_479); // 4% z 61 977 zł
       expect(z.danina).toBeLessThan(bez.danina);
     });
 
