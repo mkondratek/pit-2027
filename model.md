@@ -15,6 +15,7 @@ scenariusza **2027 (proponowanego)**.
 |---|---|
 | `[PEWNE]` | Obowiązujące prawo (2026) albo liczba potwierdzona w oficjalnym komunikacie rządowym |
 | `[ZAPOWIEDŹ]` | Deklaracja polityczna z 19.08.2026 — brak tekstu przepisu, brak projektu ustawy |
+| `[USTALONE]` | Rozstrzygnięte w źródle wtórnym o mocy niższej niż przepis — interpretacja indywidualna, objaśnienia MF, konstrukcja formularza. Doprecyzowanie w nawiasie mówi, ile z tego jest ustaleniem, a ile wnioskowaniem (np. `[USTALONE, ale z rozbieżnością orzeczniczą]`) |
 | `[NIEJASNE]` | Brak danych w źródłach; wnioskowanie z konstrukcji ustawy albo po prostu niewiadoma |
 
 > ⚠️ **Nadrzędne zastrzeżenie do całej części 2027**: na dzień 19.08.2026 **nie istnieje projekt ustawy**
@@ -427,9 +428,13 @@ brutto, czyli ćwiartki płacy minimalnej (składka 9% to ~7,8% brutto, a kap ro
 widzi.
 
 > **Umowa zlecenia**: te same przepisy, dwie różnice w parametrach — koszty 20% zamiast 250 zł/mies
-> i `ma_PIT2 = False`, bo PIT-2 był w 2021 r. zastrzeżony dla pracowników. Skutek: kap wychodzi
-> 17% × 80% = 13,6% podstawy i **nie wiąże przy żadnej kwocie brutto**, więc progu 1 250 zł tam nie
-> ma. Szczegóły i podstawa tego wnioskowania — F.6.
+> i `ma_PIT2 = False`. Powód nie jest ten, że zleceniobiorca nie mógł w 2021 r. złożyć PIT-2 (choć
+> nie mógł), tylko że **przepis o jego zaliczce kwoty zmniejszającej w ogóle nie zna**: art. 41
+> ust. 1 każe wziąć „najniższą stawkę podatkową" od świadczenia po kosztach i składkach, a 1/12
+> kwoty zmniejszającej dawał wyłącznie art. 32 ust. 3 — „jeżeli **pracownik** […] złoży **zakładowi
+> pracy** oświadczenie". Skutek: kap wychodzi 17% × 80% = 13,6% podstawy i **nie wiąże przy żadnej
+> kwocie brutto**, więc progu 1 250 zł tam nie ma — ale nie jest to skutek żaden: to właśnie brak
+> kwoty zmniejszającej trzyma kap powyżej składki (F.6). Szczegóły — F.6 i część E.
 
 **Dwa świadome uproszczenia w silniku:**
 
@@ -508,32 +513,108 @@ podlegają składki, „których podstawę wymiaru stanowi dochód (przychód) z
 podstawie ustawy". Składki naliczają się od całości brutto, ale ta ich część, której podstawą był
 przychód objęty ulgą PIT-0, **z odliczenia wypada**.
 
-Metodę podaje wprost **MF w objaśnieniach z 14.04.2020**, punkt 7:
+Które to konkretnie składki, przesądza **data uzyskania przychodu**. Zwolnienie nie jest udziałem
+w rocznym przychodzie, tylko obejmuje przychody uzyskiwane **od początku roku**, aż limit się
+wyczerpie — więc nieodliczalne są składki potrącone od **pierwszych 85 528 zł** przychodu,
+a odliczalne wyłącznie te potrącone od nadwyżki ponad limit:
+
+```
+podstawa_zwolniona = przychod_zwolniony * (brutto_rok / przychod_podatkowy)   # bez PPK = przychod_zwolniony
+s_spol_nieodliczalne = min(podstawa_zwolniona, podstawa_er)   * (0.0976 + 0.0150)
+                     + min(podstawa_zwolniona, podstawa_chor) *  0.0245
+s_spol_odliczalne    = s_spol - s_spol_nieodliczalne
+```
+
+Dotyczy wyłącznie osób z ulgą PIT-0 zarabiających powyżej 85 528 zł rocznie — poniżej limitu cały
+przychód jest zwolniony i nie ma czego odliczać. Przy zleceniu ta sama kwota wchodzi do wzoru dwa
+razy, bo pomniejsza również podstawę kosztów 20% (F.1).
+
+**Dlaczego wzór, a nie pętla miesięczna.** Limit 85 528 zł jest zawsze niższy od 30-krotności
+(282 600 / 299 130 zł), więc zanim zwolnienie się wyczerpie, żadna składka nie zdążyła urwać się
+o swój limit — od pierwszych 85 528 zł przychodu naliczają się **pełną stawką**. Rachunek
+narastający miesiąc po miesiącu daje więc co do grosza tę samą liczbę (sprawdzone również dla
+podstawy kosztów 20% przy zleceniu, gdzie przepis jest miesięczny — F.1 pkt 4), a model pozostaje
+rocznym. `min(...)` w obu wierszach jest zabezpieczeniem dla wariantów, w których dana podstawa jest
+mniejsza albo zerowa: zlecenie bez dobrowolnej chorobowej, zwolnienie studenckie, podstawiony
+z zewnątrz mniejszy `limit30x`. Przy wspólnym rozliczeniu limit przysługuje każdemu małżonkowi
+osobno, więc rachunek jest indywidualny — tak jak składki.
+
+**Poniżej 30-krotności obie metody dają tę samą liczbę**, bo składki są tam stałym procentem
+przychodu (13,71%; przy zleceniu bez chorobowej 11,26%) — proporcja i chronologia się pokrywają,
+także przy wpłacie pracodawcy do PPK. Rozjeżdżają się dopiero powyżej **23 550 zł/mies**, gdzie
+emerytalna i rentowa przestają rosnąć i średnia stawka roczna spada poniżej stawki z początku roku.
+
+### Metoda proporcjonalna jest zastępcza — i jest w tym spór
+
+`[USTALONE, ale z rozbieżnością orzeczniczą]` **MF w objaśnieniach z 14.04.2020**, punkt 7, podaje
+proporcję:
 
 > „odliczeniu podlega tylko część z ogółu zapłaconych składek, która odpowiada **udziałowi
 > przychodów podlegających opodatkowaniu** w sumie przychodów objętych ulgą dla młodych oraz
 > przychodów podlegających opodatkowaniu"
 
 Wyjaśnienia praktyczne (13) z tego samego punktu: przy 85 000 zł przychodu, z czego 35 000 zł
-objęte ulgą, odliczyć wolno **58,82%** ogółu składek (50 000 ÷ 85 000).
+objęte ulgą, odliczyć wolno **58,82%** ogółu składek (50 000 ÷ 85 000). Nie jest to jednak metoda
+pierwszego wyboru — cytowane zdanie zaczyna się od warunku, który zwykle się urywa przy cytowaniu:
 
-```
-s_spol_odliczalne = s_spol * (przychod_opodatkowany / przychod_podatkowy)
-```
+> „**Jeżeli podatnik nie zna kwoty składek pobranych przez płatnika od przychodów objętych ulgą dla
+> młodych**, a wyłącznie dysponuje ogólną kwotą zapłaconych składek […], odliczeniu podlega tylko
+> część z ogółu zapłaconych składek, która odpowiada udziałowi […]"
 
-Dotyczy wyłącznie osób z ulgą PIT-0 zarabiających powyżej 85 528 zł rocznie — poniżej limitu
-przychód opodatkowany jest zerowy i nie ma czego odliczać. Przy zleceniu ta sama kwota wchodzi
-do wzoru dwa razy, bo pomniejsza również podstawę kosztów 20% (F.1).
+— i przykład MF domyka to wprost: „**o ile zatem pracodawca nie wyodrębnił w informacji PIT-11
+kwoty tych składek**". Wyodrębnia je: **PIT-11 poz. 97** to „składki […], których podstawę wymiaru
+stanowi przychód zwolniony na podstawie art. 21 ust. 1 pkt 148 oraz 152–154 ustawy", a przypis do
+poz. 95 zabrania wykazywać je wśród odliczalnych. Konstrukcja formularza jest więc **kwotowa
+i faktyczna**, nie proporcjonalna — proporcja jest awaryjnym oszacowaniem dla podatnika, który tej
+kwoty nie zna.
 
-> **Uwaga na kolejność.** MF stawia na pierwszym miejscu metodę dokładną — odliczyć faktyczne
-> składki pobrane od przychodu opodatkowanego — a proporcję dopuszcza, gdy podatnik „nie zna kwoty
-> składek pobranych przez płatnika od przychodów objętych ulgą". W modelu rocznym o równych
-> miesiącach obie metody dają tę samą liczbę **poniżej 30-krotności**, bo składki są tam dokładnie
-> 13,71% przychodu. Powyżej się rozjeżdżają (emerytalna i rentowa przestają rosnąć, więc średnia
-> stawka spada) — silnik liczy proporcją, co dla zarabiających ponad 23 550 zł/mies jest
-> rozstrzygnięciem na korzyść podatnika. Odnotowane w części E.
+Metodę chronologiczną potwierdza **interpretacja KIS 0113-KDIPT2-3.4011.224.2026.3.KKA
+z 19.05.2026** — stan faktyczny niemal identyczny z modelowanym tutaj (688 439 zł przychodu,
+składki pobrane tylko do 260 190 zł, zwolnienie 85 528 zł); dotyczy ulgi dla pracujących seniorów
+(art. 21 ust. 1 pkt 154), ale limit i art. 26 ust. 1 pkt 2 są dla wszystkich czterech ulg PIT-0
+wspólne, więc rozstrzygnięcie przenosi się na ulgę dla młodych wprost. Stanowisko podatnika
+o odliczeniu całości uznano za **nieprawidłowe**:
+
+> „Okoliczność, że uzyskiwane przez podatnika przychody korzystają ze zwolnienia do wysokości
+> określonego limitu oznacza, że to **data ich uzyskania** przesądza o tym, do których konkretnie
+> przychodów ma zastosowanie zwolnienie. […] Zwolnione od podatku powinny być te przychody, które
+> zostały uzyskane przez podatnika **od początku roku**, a więc te, od których pobierane były
+> składki na ubezpieczenie społeczne: emerytalne i rentowe. […] prawo do odliczenia ogranicza się
+> wyłącznie do **składek potrąconych od nadwyżki ponad limit** ww. zwolnienia."
+
+<https://eureka.mf.gov.pl/informacje/podglad/692554>
+
+> ⚠️ **Rozbieżność orzeczniczą trzeba znać.** Wcześniejsza interpretacja
+> **0113-KDIPT2-2.4011.586.2024.1.ST z 16.10.2024** (ta sama ulga dla seniora, to samo przekroczenie
+> 30-krotności) rozstrzygnęła **odwrotnie**: stanowisko o odliczeniu **całości** składek uznano za
+> prawidłowe. Zrobiła to trzecią metodą — ulokowała przychód zwolniony w transzy **ponad**
+> 30-krotnością, czyli tej, od której składek już nie pobierano („ma Pani prawo do zastosowania
+> ulgi […] do tej części osiągniętych przez Panią przychodów, które przekraczają kwotę
+> 208 050 zł"), więc żadna składka nie przypadła na przychód zwolniony. Jest to dokładne
+> przeciwieństwo reguły „od początku roku".
+>
+> Model przyjmuje nowszą — jest spójna z chronologicznym stosowaniem samej ulgi (limit konsumują
+> przychody w kolejności uzyskania, a nie ułamek każdej wypłaty ani jej ostatnia transza)
+> i z kwotową konstrukcją PIT-11. Ale jawnie: **własne uzasadnienie interpretacji z 2026 r. jest
+> jednozdaniowe** i nie wskazuje przepisu, z którego reguła „od początku roku" miałaby wynikać,
+> a stany faktyczne nie są identyczne (w sprawie z 2024 r. zwolnienie ograniczał zbieg z 50% KUP do
+> 69 999,37 zł). Stan bezsporny to nie jest.
+> <https://eureka.mf.gov.pl/informacje/podglad/609227>
 
 **Historia poprawek**
+
+**2026-08-20 (trzecia poprawka tego dnia)** — silnik przeszedł z proporcji na metodę
+chronologiczną opisaną wyżej. Do tej chwili liczył nieodliczalną część jako
+`s_spol × (przychod_opodatkowany / przychod_podatkowy)`, co **poniżej 23 550 zł/mies daje tę samą
+liczbę**, a powyżej ją zaniża — bo dzieli przez roczną średnią stawkę składek, zamiast wziąć pełną
+stawkę z początku roku. Skutek na produkcji: zawyżone netto osobom z ulgą PIT-0 zarabiającym ponad
+23 550 zł/mies — 179 zł/rok przy 25 000 zł/mies, 662 zł przy 30 000 zł, 2 650 zł przy 100 000 zł
+(umowa o pracę). Przy zleceniu poprawka wchodzi dwa razy i drugie wejście działa w przeciwną stronę
+(wyższa podstawa kosztów 20%), więc netto spada o 80% pierwszego efektu: 2 295 zł/rok przy
+100 000 zł/mies z chorobową, 1 885 zł bez niej. Nieodliczalna część nie zależy już od wysokości
+zarobków — przy pełnym wykorzystaniu limitu to zawsze 13,71% z 85 528 zł, czyli **11 725,89 zł**
+(11,26% ⇒ 9 630,45 zł przy zleceniu bez chorobowej, mniej przy wpłacie pracodawcy do PPK, która
+zużywa część limitu, sama nie będąc oskładkowana).
 
 **2026-08-20** — do tego dnia silnik (i część C) odejmowały od podstawy **całość** składek
 społecznych, także tę przypadającą na przychód zwolniony. Skutek na produkcji: zaniżony podatek,
@@ -578,6 +659,12 @@ Obie wpłaty są w silniku osobnymi opcjami (`ppkPracownik`, `ppkPracodawca`), o
 Wpłata pracodawcy kosztuje pracownika **wyłącznie podatek od niej** — sama kwota trafia na jego
 rachunek PPK. Model wystawia ją osobno (`ppkPracodawcy`), żeby dało się to pokazać w rozbiciu jako
 przysporzenie, a nie jako stratę wynikającą z wyższego podatku.
+
+Skoro jest przychodem ze stosunku pracy, to **wchodzi pod zwolnienie PIT-0** i zużywa wspólny limit
+85 528 zł na równi z wynagrodzeniem — u osoby z ulgą zwolnienie zdejmuje więc `wynagrodzenie
++ wpłata` do wysokości limitu, a nie samo wynagrodzenie. Podstawą składek wpłata nie jest ani przed
+zwolnieniem, ani po nim, więc na część nieodliczalną składek wpływa tylko przez to, że przyspiesza
+wyczerpanie limitu (B.6). Rozstrzygnięcie i jego skutek złotówkowy — część E.
 
 Dwa świadome uproszczenia:
 
@@ -760,9 +847,13 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
     # --- odliczalna część składek (art. 26 ust. 1 pkt 2) ---
     # Składki naliczyły się od CAŁOŚCI brutto (zwolnienie jest podatkowe, nie
     # składkowe), ale odliczyć wolno tylko tę część, której podstawą nie był
-    # przychód zwolniony. Metoda MF: udział przychodu opodatkowanego w całości
-    # przychodu. Bez ulgi udział wynosi 1 i odliczalna jest całość.
-    s_spol_odlicz = s_spol * (opodatkowany / brutto_rok) if brutto_rok else 0
+    # przychód zwolniony. Zwolnienie obejmuje przychody OD POCZĄTKU ROKU, więc
+    # nieodliczalne są składki od pierwszych 85 528 zł przychodu — naliczone
+    # pełną stawką, bo limit zwolnienia wyczerpuje się na długo przed
+    # 30-krotnością (B.6). Bez ulgi zwolniony = 0 i odliczalna jest całość.
+    s_spol_nieodlicz = (min(zwolniony, podstawa_er) * (0.0976 + 0.0150)
+                        + min(zwolniony, brutto_rok) * 0.0245)
+    s_spol_odlicz = s_spol - s_spol_nieodlicz
 
     # --- KUP ---
     # Stosuje się je WYŁĄCZNIE do części opodatkowanej i najwyżej do tego, co
@@ -805,10 +896,15 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
 > przychod     = brutto_rok + ppk_firmy                # tylko dla celów podatkowych
 > zwolniony    = min(przychod, 85_528) if opcje.ulga_pit0 else 0
 > opodatkowany = przychod - zwolniony
-> # Udział liczy się od przychodu PODATKOWEGO, więc wpłata pracodawcy — sama
-> # nieoskładkowana — podnosi odliczalną część składek. To rozstrzygnięcie,
-> # nie ustalenie; patrz część E.
-> s_spol_odlicz = s_spol * (opodatkowany / przychod)
+> # Limit zwolnienia konsumuje przychód PODATKOWY (z wpłatą pracodawcy), a
+> # składki liczą się od brutto — więc na okres zwolnienia przypada tylko ta
+> # część brutto, która w nim zmieściła się obok wpłaty. Wpłata pracodawcy
+> # zużywa limit na równi z wynagrodzeniem; to rozstrzygnięcie, nie ustalenie,
+> # patrz część E i B.7.
+> podstawa_zwolniona   = zwolniony * (brutto_rok / przychod)
+> s_spol_nieodlicz     = (min(podstawa_zwolniona, podstawa_er) * (0.0976 + 0.0150)
+>                         + min(podstawa_zwolniona, brutto_rok) * 0.0245)
+> s_spol_odlicz = s_spol - s_spol_nieodlicz
 > kup           = min(kup_roczne, max(0, opodatkowany - s_spol_odlicz))
 > podstawa      = round_pln(max(0, opodatkowany - s_spol_odlicz - kup))
 > # s_spol, s_zdrow i netto liczą się dalej od brutto_rok — bez ppk_firmy
@@ -902,47 +998,67 @@ Rzeczy, których **nie udało się ustalić** — nie zgadywać w kodzie, wystaw
 ## Dotyczące ulgi dla młodych (PIT-0)
 
 **Czy składki społeczne odlicza się w całości, gdy część przychodu jest zwolniona?**
-**ROZSTRZYGNIĘTE — nie, odliczenie jest proporcjonalne.** Art. 26 ust. 1 pkt 2 wyłącza
-z odliczenia składki, „których podstawę wymiaru stanowi dochód (przychód) zwolniony od podatku
-na podstawie ustawy", a MF podaje gotową metodę w objaśnieniach podatkowych z 14.04.2020,
-punkt 7:
+**ROZSTRZYGNIĘTE — nie.** Art. 26 ust. 1 pkt 2 wyłącza z odliczenia składki, „których podstawę
+wymiaru stanowi dochód (przychód) zwolniony od podatku na podstawie ustawy".
 
-> „odliczeniu podlega tylko część z ogółu zapłaconych składek, która odpowiada **udziałowi
-> przychodów podlegających opodatkowaniu** w sumie przychodów objętych ulgą dla młodych oraz
-> przychodów podlegających opodatkowaniu"
+**Którą metodą — proporcją czy chronologicznie? ROZSTRZYGNIĘTE — chronologicznie, i silnik tak
+liczy od 2026-08-20.** Nieodliczalne są składki potrącone od **pierwszych 85 528 zł** przychodu,
+bo to data uzyskania przychodu przesądza, których przychodów dotyczy zwolnienie — tak KIS
+w interpretacji **0113-KDIPT2-3.4011.224.2026.3.KKA z 19.05.2026** na niemal identycznym stanie
+faktycznym (<https://eureka.mf.gov.pl/informacje/podglad/692554>; sprawa dotyczy ulgi dla seniora,
+ale limit i art. 26 ust. 1 pkt 2 są dla wszystkich ulg PIT-0 wspólne). Proporcja z objaśnień MF
+z 14.04.2020 pkt 7 jest metodą **zastępczą** — te same objaśnienia dopuszczają ją tylko, „jeżeli
+podatnik nie zna kwoty składek pobranych przez płatnika […], o ile zatem pracodawca nie wyodrębnił
+w informacji PIT-11 kwoty tych składek". Wyodrębnia je — PIT-11 poz. 97. Poniżej 23 550 zł/mies
+obie metody dają tę samą liczbę; powyżej proporcja zaniżała część nieodliczalną, czyli **zawyżała
+netto** (przy 100 000 zł/mies wychodziło z niej 4 363 zł zamiast 11 726 zł). Pełny opis, wzór
+i historia poprawki — w **B.6**.
 
-Wyjaśnienia praktyczne (13): przy 85 000 zł przychodu, z czego 35 000 zł objęte ulgą, odliczyć
-wolno **58,82%** ogółu składek (50 000 ÷ 85 000). Pełny opis i historia poprawki — w **B.6**.
+⚠️ **Nie jest to stan bezsporny:** wcześniejsza interpretacja
+**0113-KDIPT2-2.4011.586.2024.1.ST z 16.10.2024** orzekła **odwrotnie** — na materialnie tym samym
+problemie (ulga PIT-0 + przekroczenie 30-krotności) uznała odliczenie **całości** składek za
+prawidłowe, lokując przychód zwolniony w transzy ponad 30-krotnością
+(<https://eureka.mf.gov.pl/informacje/podglad/609227>). Przyjmujemy nowszą — spójną
+z chronologicznym stosowaniem samej ulgi i z kwotową konstrukcją PIT-11 — ale jej własne
+uzasadnienie jest jednozdaniowe, więc rozbieżność zostaje odnotowana: dotyczy kwot rzędu tysięcy
+złotych rocznie.
 
 <https://podatki-arch.mf.gov.pl/media/5974/obja%C5%9Bnienia-podatkowe-ulga-dla-m%C5%82odych-14-kwietnia-2020-r.pdf>
 (strona MF: <https://www.gov.pl/web/finanse/objasnienia-podatkowe-z-dnia-14-kwietnia-2020-r-dot-nowej-preferencji-w-podatku-dochodowym-od-osob-fizycznych-dla-mlodych-osob>)
 
-**Co z tego zostaje otwarte:** MF stawia proporcję jako metodę zastępczą — dla podatnika, który
-„nie zna kwoty składek pobranych przez płatnika od przychodów objętych ulgą". Metoda dokładna
-(faktyczne składki od części opodatkowanej) daje tę samą liczbę poniżej 30-krotności, ale wyżej
-się z proporcją rozjeżdża, bo emerytalna i rentowa przestają rosnąć i średnia stawka spada.
-Silnik liczy proporcją; powyżej 23 550 zł/mies jest to rozstrzygnięcie **na korzyść podatnika**
-(przy 100 000 zł/mies nieodliczalne wychodzi 4 363 zł zamiast 11 726 zł). `[NIEJASNE]`
-
-**Czy proporcja dotyczy też podstawy kosztów 20% przy zleceniu?** `[NIEJASNE — wnioskowanie]`
-Silnik przyjmuje, że **tak** — art. 22 ust. 9 pkt 4 zawęża podstawę kosztów tym samym zwrotem
-(„składki [...], których podstawę wymiaru stanowi **ten** przychód"), a MF potwierdza w pkt 6
-tych samych objaśnień, że koszty procentowe „są obliczane wyłącznie od przychodów podlegających
-opodatkowaniu". Gotowego przykładu MF na to jednak **nie ma**, więc to nadal wnioskowanie
-z brzmienia przepisu, a nie ustalenie. Szczegóły — F.1 pkt 4.
+**Czy to samo dotyczy podstawy kosztów 20% przy zleceniu?**
+`[USTALONE co do zasady, wnioskowanie co do składu podstawy]` Silnik przyjmuje, że **tak** —
+art. 22 ust. 9 pkt 4 zawęża podstawę kosztów tym samym zwrotem („składki [...], których podstawę
+wymiaru stanowi **ten** przychód"), a MF potwierdza w pkt 6 tych samych objaśnień, że koszty
+procentowe „są obliczane wyłącznie od przychodów podlegających opodatkowaniu". Chronologiczne
+stosowanie ulgi KIS potwierdziła trzykrotnie (sygnatury i linki — F.1 pkt 4), co współgra
+z miesięczną redakcją przepisu. Interpretacji **wprost o składzie tej podstawy** nie ma —
+przeszukano cały korpus eureka.mf.gov.pl (1069 dokumentów) — więc ostatni krok pozostaje
+wnioskowaniem z brzmienia przepisu. Szczegóły — F.1 pkt 4.
 
 **Czy wpłata pracodawcy do PPK jest objęta zwolnieniem PIT-0?**
-Rozstrzygnięte **w silniku na „tak"** — ale rozstrzygnięte, nie ustalone: część B.7 tego dokumentu
-nie mówi o tym ani słowa, a B.6 wymienia tylko źródła przychodu („stosunek pracy"), nie poszczególne
-składniki. Za „tak" przemawia to, że wpłata pracodawcy **jest** przychodem ze stosunku pracy — to
-jedyny powód, dla którego w ogóle podlega opodatkowaniu — więc zwolnienie obejmujące ten stosunek
-powinno obejmować i ją. Konsekwencja przyjętego rozwiązania: wpłata **zużywa wspólny limit
-85 528 zł** na równi z wynagrodzeniem, przez co osobie zarabiającej tuż poniżej limitu potrafi go
-przekroczyć (przy 7 100 zł/mies samo wynagrodzenie to 85 200 zł, a z wpłatą 1,5% już 86 478 zł).
-Gdyby prawidłowa była odpowiedź „nie", wpłata byłaby opodatkowana od pierwszej złotówki, a limit
-zostawałby dla wynagrodzenia — różnica **działa na niekorzyść podatnika**, odwrotnie niż przy
-pytaniu o składki wyżej. Dotyczy wyłącznie osób z ulgą PIT-0 mających PPK i tylko wokół limitu.
-**Nierozstrzygnięte** — wymaga sprawdzenia w interpretacjach.
+**ROZSTRZYGNIĘTE — tak, jest objęta i zużywa limit; silnik liczy zgodnie.** Zwolnienie z art. 21
+ust. 1 pkt 148 działa na **źródle** przychodu, a nie na jego poszczególnych składnikach:
+objaśnienia MF z 14.04.2020 pkt 4.1 mówią o katalogu **zamkniętym**, ograniczonym do przychodów ze
+stosunku pracy i z umowy zlecenia, a przychodem ze stosunku pracy są także „świadczenia pieniężne
+ponoszone za pracownika" — czyli właśnie wpłata pracodawcy, i to jest jedyny powód, dla którego
+w ogóle podlega opodatkowaniu. Katalog wyłączeń spod limitu w **art. 21 ust. 39** jest zamknięty
+i wpłat PPK nie obejmuje. Interpretacji KIS wprost o tym nie znaleziono, ale konstrukcja przepisów
+nie zostawia tu miejsca na drugie czytanie.
+
+Konsekwencja: wpłata **zużywa wspólny limit 85 528 zł** na równi z wynagrodzeniem, przez co osobie
+zarabiającej tuż poniżej limitu potrafi go przekroczyć (przy 7 100 zł/mies samo wynagrodzenie to
+85 200 zł, a z wpłatą 1,5% już 86 478 zł).
+
+**Kierunek i skutek — obie rzeczy stały tu wcześniej odwrotnie, niż jest.** Nasze „tak" daje
+przychód opodatkowany `max(0, W + PPK − 85 528)`; czytanie „nie" (wpłata opodatkowana od pierwszej
+złotówki, limit zostaje dla wynagrodzenia) dałoby `PPK + max(0, W − 85 528)`, czyli **zawsze co
+najmniej tyle samo**. Nasze rozstrzygnięcie **nigdy nie działa na niekorzyść podatnika** — tak samo
+jak przy pytaniu o składki wyżej, a nie odwrotnie. Skutek złotówkowy wynosi przy tym **0 zł przy
+każdej kwocie**: poniżej limitu nadwyżka z czytania „nie" mieści się w kwocie wolnej, a powyżej oba
+czytania są tożsame. Sprawdzone przemiataniem silnika (oba lata, obie formy, wpłaty pracodawcy
+0,5–4%, brutto 1–130 000 zł/mies): różnica w podatku i w netto **zero** we wszystkich 2 080 000
+przypadków.
 
 **Czy składka zdrowotna przy uldze PIT-0 spada do zera?** **ROZSTRZYGNIĘTE — nie.**
 Pytanie postawione przy pisaniu części F, zamknięte tego samego dnia: art. 83 ust. 2a jest
@@ -962,13 +1078,17 @@ To ta sama granica dokładności, co przy zwykłym rozliczeniu (patrz uwaga w cz
 ## Dotyczące umowy zlecenia (część F)
 
 **Czy koszty 20% liczy się od przychodu pomniejszonego o składki *przypadające na część
-opodatkowaną*, czy o całość składek?** `[NIEJASNE — wnioskowanie]`
-Silnik odejmuje od 2026-08-20 **część proporcjonalną** w obu miejscach, w których składki
-wchodzą do wzoru zlecenia — raz jako odliczenie od dochodu (tam jest to pewne, patrz wyżej),
-raz jako pomniejszenie podstawy kosztów (tam jest to wnioskowanie z identycznego zwrotu
-w art. 22 ust. 9 pkt 4). Dotyczy wyłącznie zleceniobiorców z ulgą PIT-0 zarabiających powyżej
-85 528 zł rocznie. Uwaga na kierunek: te dwa wejścia działają przeciwnie — mniejsze odliczenie
-podnosi dochód, ale wyższa podstawa kosztów go obniża, więc netto efekt to 80% pierwszego.
+opodatkowaną*, czy o całość składek?**
+`[USTALONE co do zasady, wnioskowanie co do składu podstawy]`
+Silnik odejmuje **tę samą, chronologicznie wyliczoną część** (od 2026-08-20; wcześniej
+proporcjonalną) w obu miejscach, w których składki wchodzą do wzoru zlecenia — raz jako odliczenie
+od dochodu (tam jest to pewne, patrz wyżej), raz jako pomniejszenie podstawy kosztów (tam jest to
+wnioskowanie z identycznego zwrotu w art. 22 ust. 9 pkt 4; interpretacji wprost o składzie tej
+podstawy nie ma, choć samo chronologiczne stosowanie ulgi KIS potwierdziła trzykrotnie — F.1
+pkt 4). Dotyczy wyłącznie zleceniobiorców z ulgą PIT-0 zarabiających powyżej 85 528 zł rocznie.
+Uwaga na kierunek: te dwa wejścia działają przeciwnie — mniejsze odliczenie podnosi dochód, ale
+wyższa podstawa kosztów go obniża, więc netto efekt to 80% pierwszego (przy 100 000 zł/mies
+z chorobową: 2 295 zł/rok, a nie 2 869 zł).
 
 **Czy wpłata pracodawcy do PPK dostaje przy zleceniu koszty 20%?** `[NIEJASNE]`
 Silnik przyjmuje, że tak: wpłata jest przychodem z tego samego źródła (art. 13 pkt 8),
@@ -978,12 +1098,27 @@ zleceniobiorców z PPK i wynosi 20% wpłaty razy stawka podatku (przy 1,5% i 10 
 to ok. 43 zł rocznie).
 
 **Czy hipotetyczna zaliczka „z 31.12.2021" ma przy zleceniu kwotę zmniejszającą?**
-`[NIEJASNE — wnioskowanie]`
-Silnik przyjmuje, że **nie**, bo kwota 43,76 zł/mies brała się z PIT-2, a PIT-2 był
-w 2021 r. zastrzeżony dla pracowników (zleceniobiorcy mogą go składać dopiero od 2023 r. —
-patrz F.5). Wniosek z konstrukcji przepisu, nie z komentarza. Skutek praktyczny: żaden
-przy zleceniu bez ulgi (kap i tak nie wiąże, patrz F.6) i drobny przy uldze częściowej.
-Źródło do samego PIT-2: <https://www.podatki.gov.pl/poradniki-i-informatory/pit-2-pit-2a-pit-3-zasady-skladania-oswiadczen-o-stosowaniu-pomniejszenia-zaliczki-o-kwote-zmniejszajaca-podatek-112-124-lub-136>
+**ROZSTRZYGNIĘTE — nie ma jej; silnik liczy poprawnie.** Mocny argument nie jest ten o PIT-2,
+tylko o **braku mechanizmu w przepisie**: zaliczkę od umowy zlecenia pobierało się według
+**art. 41 ust. 1** ustawy o PIT w brzmieniu z 31.12.2021, a ten każe zastosować „najniższą stawkę
+podatkową" do świadczenia pomniejszonego o koszty i o składki — **kwoty zmniejszającej nie zawiera
+w ogóle**. Jedną dwunastą kwoty zmniejszającej dawał wyłącznie **art. 32 ust. 3**, i to pod
+warunkiem, że „**pracownik** […] złoży **zakładowi pracy** oświadczenie" — dwa słowa, których do
+zleceniobiorcy nie da się naciągnąć. Argument z PIT-2 (zastrzeżonego wtedy dla pracowników,
+zleceniobiorcy składają go od 2023 r. — F.5) jest tego skutkiem, nie podstawą.
+
+Źródło: tekst ustawy w brzmieniu obowiązującym 31.12.2021 —
+<https://api.sejm.gov.pl/eli/acts/DU/2021/1128/text.pdf>. Do samego PIT-2:
+<https://www.podatki.gov.pl/poradniki-i-informatory/pit-2-pit-2a-pit-3-zasady-skladania-oswiadczen-o-stosowaniu-pomniejszenia-zaliczki-o-kwote-zmniejszajaca-podatek-112-124-lub-136>
+
+**Skutek praktyczny — nie „żaden".** Stało tu wcześniej, że rozstrzygnięcie nic nie zmienia, bo kap
+przy zleceniu i tak nie wiąże. Jest to rozumowanie w kółko: kap nie wiąże **właśnie dlatego**, że
+kwoty zmniejszającej nie stosujemy. Gdyby przysługiwała, hipotetyczna zaliczka spadłaby o 525,12 zł
+rocznie i kap wiązałby przy zleceniu **poniżej ok. 1 100 zł/mies** brutto (dokładnie: do
+1 102 zł/mies włącznie) — przy 1 000 zł/mies składka zdrowotna byłaby niższa o **48,77 zł/rok**,
+przy 500 zł o **286,95 zł**, a przy 300 zł spadłaby **do zera**. Pasmo wąskie, ale niepuste: pole
+małżonka przy wspólnym rozliczeniu przyjmuje kwoty od zera (ta sama uwaga, co przy poprawce kapu
+w B.5).
 
 **Płaca minimalna i minimalna stawka godzinowa 2026.** `[NIEJASNE]`
 Źródła podają dla stawki godzinowej rozbieżnie **30,50 zł** i **31,40 zł**. Nie wchodzi do
@@ -1082,20 +1217,31 @@ Trzy rzeczy, na których łatwo się przejechać:
 4. **Składki pomniejszające tę podstawę też są tylko te „od tego przychodu".** Przepis mówi
    o składkach, „których podstawę wymiaru stanowi **ten** przychód" — a skoro koszty liczy się
    wyłącznie od części opodatkowanej, to i pomniejsza się ją wyłącznie o składki przypadające
-   na tę część, tak samo jak przy odliczeniu z art. 26 ust. 1 pkt 2 (B.6). Przy zleceniu
-   proporcja wchodzi więc do wzoru dwa razy:
+   na tę część, tak samo jak przy odliczeniu z art. 26 ust. 1 pkt 2 (B.6). Przy zleceniu ta sama
+   kwota wchodzi więc do wzoru dwa razy:
 
    ```
-   s_spol_odliczalne = s_spol * (przychod_opodatkowany / przychod_podatkowy)
+   s_spol_odliczalne = s_spol - s_spol_nieodliczalne      # metoda chronologiczna, B.6
    KUP_zlecenie      = 0.20 * (przychod_opodatkowany - s_spol_odliczalne)
    dochod            = przychod_opodatkowany - s_spol_odliczalne - KUP_zlecenie
    ```
 
-   `[NIEJASNE — wnioskowanie]` Sama proporcja jest pewna dla art. 26 ust. 1 pkt 2 (MF podaje ją
-   wprost), ale MF nie ma przykładu dla podstawy kosztów 20%. Wnioskowanie opiera się na
-   identycznym zwrocie w obu przepisach. Kierunek: gdyby prawidłowe było pomniejszanie o całość
-   składek, koszty byłyby niższe, a podatek wyższy — czyli obecne rozwiązanie działa na korzyść
-   podatnika. Odnotowane w części E.
+   `[USTALONE co do zasady, wnioskowanie co do składu podstawy]` Chronologiczne stosowanie ulgi —
+   limit konsumują przychody w kolejności uzyskania, a nie ułamek każdej wypłaty — KIS potwierdziła
+   trzykrotnie: **0114-KDIP3-2.4011.176.2025.2.MN**
+   (<https://eureka.mf.gov.pl/informacje/podglad/636049>), **0112-KDIL2-1.4011.636.2025.1.KF**
+   (<https://eureka.mf.gov.pl/informacje/podglad/656671>) i **0112-KDIL2-1.4011.617.2023.1.MKA**
+   (<https://eureka.mf.gov.pl/informacje/podglad/559895>). Współgra to z miesięczną redakcją samego
+   przepisu („potrącone […] w danym miesiącu […] których podstawę wymiaru stanowi ten przychód"):
+   w miesiącach objętych zwolnieniem kosztów nie ma wcale, a w pozostałych podstawę pomniejszają
+   składki tych właśnie miesięcy. Suma dwunastu miesięcy schodzi się do wzoru wyżej — sprawdzone
+   rachunkiem narastającym (B.6).
+
+   Czego nadal nie ma: **interpretacji wprost o składzie tej podstawy** przy uldze PIT-0. Przeszukano
+   cały korpus eureka.mf.gov.pl (1069 dokumentów) — bez trafienia, więc ostatni krok pozostaje
+   wnioskowaniem z identycznego zwrotu w art. 22 ust. 9 pkt 4 i art. 26 ust. 1 pkt 2. Kierunek:
+   gdyby prawidłowe było pomniejszanie o całość składek, koszty byłyby niższe, a podatek wyższy —
+   czyli obecne rozwiązanie działa na korzyść podatnika. Odnotowane w części E.
 
 Konsekwencja arytmetyczna, którą warto mieć z tyłu głowy: przy zleceniu
 **dochód = 0,8 × (przychód − składki)**, czyli okrągłe 80%. Dla etatu poniżej
@@ -1254,8 +1400,15 @@ których model jej nie obejmuje (F.7).
 `[PEWNE co do zasady]` Art. 83 ustawy zdrowotnej dotyczy „płatnika, o którym mowa w art. 85
 ust. 1–13", więc obejmuje i zleceniodawcę. Hipotetyczna zaliczka liczy się „wg przepisów
 obowiązujących na dzień 31.12.2021" — a te dla zlecenia oznaczają: stawka **17%**, koszty
-**20%**, i `[NIEJASNE — wnioskowanie]` **bez** miesięcznej kwoty zmniejszającej 43,76 zł,
-bo ta brała się z PIT-2, którego zleceniobiorca w 2021 r. złożyć nie mógł (F.4).
+**20%**, i `[USTALONE]` **bez** miesięcznej kwoty zmniejszającej 43,76 zł.
+
+Podstawa jest mocniejsza niż sam PIT-2: zaliczkę od zlecenia pobierało się wtedy według **art. 41
+ust. 1**, który każe zastosować „najniższą stawkę podatkową" do świadczenia pomniejszonego
+o koszty i składki — **kwoty zmniejszającej ten przepis nie zawiera w ogóle**. Jedną dwunastą
+kwoty dawał wyłącznie **art. 32 ust. 3**, i to „jeżeli **pracownik** […] złoży **zakładowi pracy**
+oświadczenie". To, że zleceniobiorca nie mógł w 2021 r. złożyć PIT-2 (F.4), jest konsekwencją tej
+konstrukcji, a nie samodzielnym argumentem. Tekst ustawy w brzmieniu z 31.12.2021:
+<https://api.sejm.gov.pl/eli/acts/DU/2021/1128/text.pdf>
 
 Ustalenie o kwocie zmniejszającej dotyczy **sposobu** liczenia hipotetycznej zaliczki, a nie
 jej podstawy, więc poprawka z art. 83 ust. 2a (B.5, 20.08.2026) niczego w nim nie zmieniła —
@@ -1272,6 +1425,13 @@ Stąd trzy wnioski:
 - z ulgą PIT-0 składka zdrowotna zleceniobiorcy jest **identyczna** jak bez ulgi, przy
   każdej kwocie brutto — co jest po prostu mocniejszą wersją tego, co B.5 mówi o etacie
   (tam identyczna dopiero powyżej 1 250 zł/mies). Silnik ma na to sweep w testach.
+
+⚠️ Te trzy wnioski **wiszą na rozstrzygnięciu o kwocie zmniejszającej**, więc nie wolno ich czytać
+jako dowodu, że rozstrzygnięcie jest bez znaczenia. Gdyby kwota zmniejszająca przy zleceniu
+przysługiwała, hipotetyczna zaliczka spadłaby o 525,12 zł rocznie i kap **zacząłby wiązać** poniżej
+ok. 1 100 zł/mies brutto (dokładnie: do 1 102 zł/mies): przy 1 000 zł/mies składka byłaby niższa
+o 48,77 zł/rok, przy 500 zł o 286,95 zł, a przy 300 zł spadłaby do zera. Kap nie wiąże **właśnie
+dlatego**, że kwoty zmniejszającej nie stosujemy — a nie niezależnie od tego.
 
 Uwaga praktyczna: dla **studenta do 26 lat** cała ta arytmetyka jest bezprzedmiotowa — on
 nie ma z tego tytułu ubezpieczenia zdrowotnego w ogóle, więc nie ma czego obniżać. Warto to
