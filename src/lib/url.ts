@@ -95,7 +95,14 @@ function flaga(nazwa: string): boolean {
  * zasada „jedno źródło prawdy", którą opisuje `odczytajMalzonka`.
  */
 export function odczytajUlge(): boolean {
-  return flaga(PARAM_ULGA);
+  // Status studenta włącza ulgę, nawet gdy adres jej nie niesie. Zwolnienie
+  // studenckie z art. 6 ust. 4 ustawy o systemie ubezpieczeń społecznych kończy
+  // się z 26. urodzinami, więc `?student=1&ulga=0` opisuje osobę, która nie
+  // istnieje — a interfejs trzyma tę samą zależność przy klikaniu (patrz
+  // `przelaczStudenta` w `Kalkulator.svelte`). Normalizujemy w stronę ulgi,
+  // a nie odrzucenia statusu: odrzucenie zmieniłoby udostępniony wynik o ~22%
+  // wynagrodzenia, włączenie ulgi tylko dopowiada to, co ze statusu wynika.
+  return flaga(PARAM_ULGA) || odczytajStudenta();
 }
 
 export function odczytajUlgeMalzonka(): boolean {

@@ -159,59 +159,6 @@
       startowyStudent,
   );
 
-  /**
-   * Wiek zostaje jednym założeniem także przy wspólnym rozliczeniu, choć osób
-   * jest wtedy dwie i każda ma własną ulgę. Drugi kawałek tekstu byłby gorszy
-   * niż dłuższy pierwszy: „26 lat lub więcej · małżonek poniżej 26 lat" czyta
-   * się jak zaprzeczenie samego siebie, dopóki nie domyślisz się, że pierwsze
-   * mówiło wyłącznie o Tobie. Zdanie o dwojgu tej luki nie zostawia, a wiersz
-   * i tak zostaje trzyczłonowy.
-   */
-  const wiek = $derived.by(() => {
-    if (!wspolne) return ulga ? 'mniej niż 26 lat' : '26 lat lub więcej';
-    if (ulga && ulgaMalzonka) return 'oboje poniżej 26 lat';
-    if (ulga) return 'tylko Ty poniżej 26 lat';
-    if (ulgaMalzonka) return 'tylko małżonek poniżej 26 lat';
-    return 'oboje 26 lat lub więcej';
-  });
-
-  /**
-   * Przyjęte założenia, po jednym kawałku tekstu — treść zwiniętego panelu.
-   *
-   * Zwinięty panel nie ma prawa milczeć. Ktoś w PPK, kto go nie rozwinie,
-   * zobaczyłby netto zawyżone o ponad 300 zł miesięcznie, student na zleceniu
-   * zaniżone o jedną piątą — i nie mieliby skąd wiedzieć dlaczego. Dlatego
-   * opcje ważące setki złotych mają tu swój kawałek tekstu **w obu stanach**:
-   * „bez PPK" jest dokładnie tak samo ważną informacją jak „z PPK".
-   *
-   * Drobiazgi — koszty dojazdu, rezygnacja z chorobowej — dopisują się dopiero
-   * włączone. Gdyby stały tu zawsze, wiersz rósłby z każdą nową opcją o rzecz,
-   * której nikt nie szukał, a to jego długość decyduje, czy da się go przeczytać
-   * jednym rzutem oka. Ten sam podział przebiega w panelu: nad kreską opcje
-   * stąd, pod kreską te dopisywane warunkowo.
-   *
-   * Formy zatrudnienia tu nie ma świadomie — jako jedyna ma nad kwotą własną
-   * kontrolkę, która swój stan pokazuje zawsze i bez rozwijania. Wiersz istnieje
-   * dla ustawień, których niezaznaczony przełącznik nie umie powiedzieć;
-   * podświetlony segment mówi „umowa zlecenia" sam, a powtórzenie zjadałoby
-   * szerokość, której na 375 px nie ma.
-   *
-   * Sformułowania są bezosobowe („rozliczenie indywidualne", nie „rozliczam się
-   * sam"): jedno obok drugiego czytają się jak dane, a nie jak zdania, i nie
-   * zakładają rodzaju gramatycznego czytelnika, którego nie znamy.
-   */
-  const zalozenia = $derived([
-    wiek,
-    // Zwolnienie studenckie zdejmuje ~22% wynagrodzenia — najcięższa opcja
-    // w kalkulatorze, więc na zleceniu stoi w wierszu tak samo w obu stanach.
-    // Przy etacie nie istnieje i nie ma o czym pisać.
-    ...(zlecenie ? [student ? 'student do 26 lat' : 'bez statusu studenta'] : []),
-    ppk ? 'z PPK' : 'bez PPK',
-    wspolne ? 'rozliczenie wspólne' : 'rozliczenie indywidualne',
-    ...(bezChorobowej ? ['bez chorobowej'] : []),
-    ...(podwyzszoneKoszty ? ['dojazd spoza miejscowości'] : []),
-  ]);
-
   /** Czy w bieżącym scenariuszu ktokolwiek korzysta ze zwolnienia. */
   const jakasUlga = $derived(ulga || (wspolne && ulgaMalzonka));
 
@@ -442,6 +389,93 @@
   const ppkDziala = $derived(wynik.po.ppk > 0 || wynik.po.ppkPracodawcy > 0);
 
   /**
+   * Wiek zostaje jednym założeniem także przy wspólnym rozliczeniu, choć osób
+   * jest wtedy dwie i każda ma własną ulgę. Drugi kawałek tekstu byłby gorszy
+   * niż dłuższy pierwszy: „26 lat lub więcej · małżonek poniżej 26 lat" czyta
+   * się jak zaprzeczenie samego siebie, dopóki nie domyślisz się, że pierwsze
+   * mówiło wyłącznie o Tobie. Zdanie o dwojgu tej luki nie zostawia, a wiersz
+   * i tak zostaje trzyczłonowy.
+   *
+   * Wszystkie warianty mówią „poniżej 26 lat" — jedną rzecz nazywamy w wierszu
+   * jednym słowem. Wcześniej wariant indywidualny brzmiał „mniej niż 26 lat",
+   * a wspólny „tylko Ty poniżej 26 lat", więc przełączenie rozliczenia zmieniało
+   * nazwę tego samego progu wieku i wyglądało to na dwa różne warunki.
+   */
+  const wiek = $derived.by(() => {
+    if (!wspolne) return ulga ? 'poniżej 26 lat' : '26 lat lub więcej';
+    if (ulga && ulgaMalzonka) return 'oboje poniżej 26 lat';
+    if (ulga) return 'tylko Ty poniżej 26 lat';
+    if (ulgaMalzonka) return 'tylko małżonek poniżej 26 lat';
+    return 'oboje 26 lat lub więcej';
+  });
+
+  /**
+   * Status studenta w wierszu założeń — albo `null`, gdy nie ma o czym pisać.
+   *
+   * Zwolnienie studenckie zdejmuje ~22% wynagrodzenia, więc na zleceniu stoi
+   * w wierszu w obu stanach: „bez statusu studenta" jest tak samo ważną
+   * informacją jak „ze statusem studenta". Znika natomiast **przy 26 latach
+   * i więcej**, i to jest sedno poprawki: art. 6 ust. 4 ustawy o systemie
+   * ubezpieczeń społecznych kończy zwolnienie z dniem 26. urodzin, więc obok
+   * członu „26 lat lub więcej" nie ma czego zaprzeczać — wiersz brzmiał wtedy
+   * „26 lat lub więcej · student do 26 lat" i przeczył sam sobie (patrz
+   * `przelaczStudenta`, gdzie ta sprzeczność jest rozstrzygana u źródła).
+   *
+   * Człon nie powtarza już „26 lat", bo człon wieku obok mówi to samo; para
+   * „ze statusem / bez statusu" niesie wyłącznie to, czego z wieku nie widać.
+   * Przy dwojgu poniżej 26 lat dopisujemy „tylko Ty", bo silnik zwolnienia
+   * małżonkowi nie dziedziczy — przy „tylko Ty poniżej 26 lat" to samo wynika
+   * już z członu wieku.
+   */
+  const statusStudenta = $derived.by(() => {
+    if (!zlecenie || !ulga) return null;
+    if (!student) return 'bez statusu studenta';
+
+    return wspolne && ulgaMalzonka ? 'tylko Ty ze statusem studenta' : 'ze statusem studenta';
+  });
+
+  /**
+   * Przyjęte założenia, po jednym kawałku tekstu — treść zwiniętego panelu.
+   *
+   * Zwinięty panel nie ma prawa milczeć. Ktoś w PPK, kto go nie rozwinie,
+   * zobaczyłby netto zawyżone o ponad 300 zł miesięcznie, student na zleceniu
+   * zaniżone o jedną piątą — i nie mieliby skąd wiedzieć dlaczego. Dlatego
+   * opcje ważące setki złotych mają tu swój kawałek tekstu **w obu stanach**:
+   * „bez PPK" jest dokładnie tak samo ważną informacją jak „z PPK".
+   *
+   * Drobiazgi — koszty dojazdu, rezygnacja z chorobowej — dopisują się dopiero
+   * włączone. Gdyby stały tu zawsze, wiersz rósłby z każdą nową opcją o rzecz,
+   * której nikt nie szukał, a to jego długość decyduje, czy da się go przeczytać
+   * jednym rzutem oka. Ten sam podział przebiega w panelu: nad kreską opcje
+   * stąd, pod kreską te dopisywane warunkowo.
+   *
+   * Formy zatrudnienia tu nie ma świadomie — jako jedyna ma nad kwotą własną
+   * kontrolkę, która swój stan pokazuje zawsze i bez rozwijania. Wiersz istnieje
+   * dla ustawień, których niezaznaczony przełącznik nie umie powiedzieć;
+   * podświetlony segment mówi „umowa zlecenia" sam, a powtórzenie zjadałoby
+   * szerokość, której na 375 px nie ma.
+   *
+   * O PPK mówi `ppkDziala`, a nie sam przełącznik: student na zleceniu nie jest
+   * „osobą zatrudnioną" w rozumieniu ustawy o PPK, więc silnik zeruje mu wpłaty
+   * mimo zaznaczonej opcji. Wiersz ma mówić, co policzyliśmy, a nie co jest
+   * zaznaczone — inaczej obiecywał „z PPK" tam, gdzie w rozbiciu nie ma po nim
+   * ani grosza. Dlatego cały ten blok stoi poniżej wyniku, a nie przy stanie
+   * kontrolek: bez policzonych wpłat nie da się powiedzieć prawdy o PPK.
+   *
+   * Sformułowania są bezosobowe („rozliczenie indywidualne", nie „rozliczam się
+   * sam"): jedno obok drugiego czytają się jak dane, a nie jak zdania, i nie
+   * zakładają rodzaju gramatycznego czytelnika, którego nie znamy.
+   */
+  const zalozenia = $derived([
+    wiek,
+    ...(statusStudenta ? [statusStudenta] : []),
+    ppkDziala ? 'z PPK' : 'bez PPK',
+    wspolne ? 'rozliczenie wspólne' : 'rozliczenie indywidualne',
+    ...(bezChorobowej ? ['bez chorobowej'] : []),
+    ...(podwyzszoneKoszty ? ['dojazd spoza miejscowości'] : []),
+  ]);
+
+  /**
    * O ile więcej zabiera danina w 2027 r. niż w 2026 — czyli o ile mniejszy
    * jest z jej powodu zysk z reformy.
    *
@@ -646,8 +680,30 @@
     zapisz();
   }
 
+  /**
+   * Ulga dla młodych i status studenta opisują ten sam wiek, więc trzymają się
+   * razem — rozstrzygnięcie u źródła, zamiast łatania sprzecznego wiersza.
+   *
+   * Zwolnienie studenckie z art. 6 ust. 4 ustawy o systemie ubezpieczeń
+   * społecznych przysługuje **do ukończenia 26. roku życia** — dokładnie tak
+   * samo jak ulga dla młodych z art. 21 ust. 1 pkt 148 ustawy o PIT. Kto ma
+   * pierwsze, ma i drugie: nie ma studenta objętego zwolnieniem składkowym,
+   * który jednocześnie miałby 26 lat lub więcej. Bez tej zależności wiersz
+   * założeń potrafił brzmieć „26 lat lub więcej · student do 26 lat", czyli
+   * zaprzeczyć samemu sobie jednym tapnięciem, bez żadnego adresu.
+   *
+   * Kierunek jest więc dwustronny: zaznaczenie statusu studenta włącza ulgę,
+   * a odznaczenie wieku gasi status. Nie odwrotnie — samą ulgę bez studenta ma
+   * każdy 24-latek po studiach i to zostaje osobnym, sensownym wyborem.
+   *
+   * Silnik obu opcji nie łączy i słusznie: `studentDo26` jest zwolnieniem
+   * **składkowym**, `ulgaDlaMlodych` **podatkowym**, a wiąże je dopiero wspólna
+   * granica wieku, czyli fakt o świecie, a nie o rachunku. Miejscem na taki
+   * fakt jest interfejs, który pyta o osobę — nie silnik, który liczy przepisy.
+   */
   function przelaczUlge(wlaczone: boolean) {
     ulga = wlaczone;
+    if (!wlaczone) student = false;
     zapisz();
   }
 
@@ -671,8 +727,10 @@
     zapisz();
   }
 
+  /** Student do 26 lat ma z definicji mniej niż 26 lat — patrz `przelaczUlge`. */
   function przelaczStudenta(wlaczone: boolean) {
     student = wlaczone;
+    if (wlaczone) ulga = true;
     zapisz();
   }
 
@@ -982,6 +1040,11 @@
             Uczeń i student do 26 lat nie płaci od zlecenia żadnych składek — ani społecznych, ani
             zdrowotnej — a z ulgą dla młodych powyżej znika też podatek, więc netto potrafi się
             wtedy równać brutto co do grosza.
+            <!-- Ulga zapala się razem ze statusem studenta (patrz `przelaczStudenta`),
+                 więc trzeba powiedzieć, czemu zaznaczył się przełącznik, którego nikt
+                 nie kliknął — inaczej wygląda to na usterkę formularza. -->
+            Ulgę powyżej zaznaczamy przy tym sami: status studenta do 26 lat znaczy, że masz
+            mniej niż 26 lat, więc przysługują obie.
             {#if wspolne}
               Liczymy to tylko Tobie: małżonek płaci składki jak zwykle.
             {/if}

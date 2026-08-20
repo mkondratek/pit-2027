@@ -353,6 +353,29 @@ describe('opcje zależne od formy w adresie', () => {
     expect(odczytajStudenta()).toBe(false);
   });
 
+  /*
+   * Zwolnienie studenckie kończy się z 26. urodzinami, tak samo jak ulga dla
+   * młodych, więc `?student=1` bez `?ulga=1` opisuje osobę, której nie ma.
+   * Normalizacja idzie w stronę ulgi: odrzucenie statusu zmieniłoby udostępniony
+   * wynik o ~22% wynagrodzenia, dopisanie ulgi tylko dopowiada, co ze statusu
+   * i tak wynika.
+   */
+  it('status studenta w adresie włącza ulgę dla młodych', async () => {
+    ustawWindow('https://pit.example/?brutto=8000&forma=zlecenie&student=1');
+    const { odczytajStudenta, odczytajUlge } = await zaladujModul();
+
+    expect(odczytajStudenta()).toBe(true);
+    expect(odczytajUlge()).toBe(true);
+  });
+
+  it('sam status studenta bez zlecenia nie włącza ulgi', async () => {
+    ustawWindow('https://pit.example/?brutto=8000&student=1');
+    const { odczytajStudenta, odczytajUlge } = await zaladujModul();
+
+    expect(odczytajStudenta()).toBe(false);
+    expect(odczytajUlge()).toBe(false);
+  });
+
   it('nie czyta podwyższonych kosztów przy zleceniu', async () => {
     ustawWindow('https://pit.example/?brutto=8000&forma=zlecenie&koszty=1');
     const { odczytajPodwyzszoneKoszty } = await zaladujModul();
