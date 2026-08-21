@@ -36,9 +36,11 @@ export const FAQ: Pytanie[] = [
   {
     pytanie: 'A co z B2B, podatkiem liniowym i ryczałtem?',
     odpowiedz:
-      'Zapowiedź dotyczy wyłącznie skali podatkowej — obejmuje więc umowę o pracę, zlecenie ' +
-      'i emeryturę, a na liniowym 19% i na ryczałcie nie zmienia nic; tych dwóch form ta strona ' +
-      'nie liczy. Kalkulator liczy umowę o pracę i umowę zlecenia.',
+      'Ta strona liczy wyłącznie zmianę skali podatkowej, a ta obejmuje umowę o pracę, ' +
+      'zlecenie i emeryturę. Na podatku liniowym 19% sama skala nie zmienia nic. Zapowiedziany ' +
+      'pakiet jest jednak szerszy: obejmuje też CIT z 19% na 22% dla firm o przychodach ponad ' +
+      '50 mln euro, przywrócenie limitu 250 tys. euro dla ryczałtu, zmianę ulgi IP Box oraz ' +
+      'wzrost daniny solidarnościowej z 4% na 5%. Kalkulator uwzględnia z tego tylko daninę.',
   },
   {
     pytanie: 'Czy to już pewne?',

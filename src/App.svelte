@@ -121,11 +121,21 @@
 
     <h3>A co z B2B, podatkiem liniowym i ryczałtem?</h3>
     <p>
-      Zapowiedź dotyczy wyłącznie skali podatkowej — obejmuje więc umowę o pracę, zlecenie
-      i emeryturę, a na liniowym 19% i na ryczałcie nie zmienia nic; tych dwóch form ta strona
-      nie liczy. Kalkulator wyżej liczy umowę o pracę i umowę zlecenia. Do liczenia podatków na
-      B2B, umowie o pracę i zleceniu w ogóle, łącznie z porównaniem form opodatkowania, dobrym
-      narzędziem jest <a href="https://ladnepodatki.pl">ladnepodatki.pl</a>.
+      Ta strona liczy wyłącznie zmianę skali podatkowej, a ta obejmuje umowę o pracę, zlecenie
+      i emeryturę. Na podatku liniowym 19% sama skala nie zmienia nic i tej formy kalkulator
+      nie liczy.
+      <!-- Zdanie stało tu wcześniej w brzmieniu „zapowiedź dotyczy wyłącznie skali podatkowej",
+           co było po prostu nieprawdą i przeczyło własnemu silnikowi: `constants.ts` modeluje
+           daninę 4% → 5% i nazywa ją składnikiem *pakietu*. Czytelnik, który chce ocenić tę
+           reformę całościowo, potrzebuje wiedzieć, że skala to jej część, a nie całość. -->
+      Zapowiedziany pakiet jest jednak szerszy niż sama skala. Obejmuje też podniesienie CIT
+      z 19% na 22% dla firm o przychodach powyżej 50 mln euro i dla podatkowych grup
+      kapitałowych, przywrócenie limitu 250 tys. euro dla ryczałtu, zmianę ulgi IP Box oraz
+      wzrost daniny solidarnościowej z 4% na 5%. Z tego wszystkiego kalkulator uwzględnia
+      wyłącznie daninę, bo jako jedyna dotyczy osób rozliczających się według skali.
+      Do liczenia podatków na B2B, umowie o pracę i zleceniu w ogóle, łącznie z porównaniem
+      form opodatkowania, dobrym narzędziem jest
+      <a href="https://ladnepodatki.pl">ladnepodatki.pl</a>.
     </p>
 
     <h3>Czy to już pewne?</h3>
