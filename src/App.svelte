@@ -97,8 +97,8 @@
       koszty uzyskania przychodu 250 zł (albo 300 zł poza miejscowością zakładu pracy), wpłaty PPK
       2% pracownika i 1,5% pracodawcy, kwota zmniejszająca 300 zł miesięcznie, zaokrąglenia
       wg art. 63 §1 Ordynacji podatkowej. Model odtwarza kwoty, które przy tej zapowiedzi
-      opublikowały Bankier i money.pl — jeśli któraś się nie zgadza, to mój błąd i chętnie go
-      poprawię.
+      opublikowały Bankier i money.pl, a od 21 sierpnia także tabelę z art. 27 ust. 1 projektu
+      — co do złotówki w punktach granicznych 130 000 i 150 000 zł.
     </p>
   </section>
 
