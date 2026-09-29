@@ -136,7 +136,8 @@ export const SKALA: Record<Rok, Prog[]> = {
     { do: 120_000, stawka: 0.12 },
     { do: Infinity, stawka: 0.32 },
   ],
-  // [ZAPOWIEDŹ] konferencja prasowa 19.08.2026 — brak projektu ustawy
+  // [PROJEKT] art. 27 ust. 1 w brzmieniu art. 1 pkt 1 projektu UD458 (wersja z 24.09.2026).
+  // Sprawdzone przeciwko tabeli ustawowej w punktach granicznych 130 000 i 150 000 zł.
   2027: [
     { do: 130_000, stawka: 0.12 },
     { do: 150_000, stawka: 0.24 },
@@ -173,5 +174,5 @@ export const DANINA_PROG = 1_000_000;
  */
 export const DANINA_STAWKA: Record<Rok, number> = {
   2026: 0.04, // [PEWNE] art. 30h ust. 1
-  2027: 0.05, // [ZAPOWIEDŹ] konferencja prasowa 19.08.2026 — brak projektu ustawy
+  2027: 0.05, // [PROJEKT] art. 1 pkt 2 UD458 (art. 30h ust. 1); stosowana za rok 2027 — art. 5 ust. 3
 };

@@ -23,7 +23,22 @@ function daneStrukturalne(): Plugin {
   }
 }
 
+/**
+ * Data zbudowania strony, wstrzykiwana przy kompilacji.
+ *
+ * Data wpisana w prozie zestarzałaby się po cichu — a właśnie to przydarzyło się
+ * zdaniu „projektu ustawy nie ma", które przez pięć tygodni mówiło nieprawdę.
+ * Build powstaje tylko wtedy, gdy coś zmieniamy, więc ta data jest uczciwym
+ * przybliżeniem ostatniej aktualizacji treści i nie wymaga pamiętania o niej.
+ */
+const dataBudowy = new Intl.DateTimeFormat('pl-PL', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date())
+
 export default defineConfig({
+  define: { __DATA_BUDOWY__: JSON.stringify(dataBudowy) },
   plugins: [svelte(), daneStrukturalne()],
   test: {
     // Drzewa robocze gita trzymane w .claude/ zawierają własną kopię testów.

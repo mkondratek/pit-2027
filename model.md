@@ -14,13 +14,24 @@ scenariusza **2027 (proponowanego)**.
 | Znacznik | Znaczenie |
 |---|---|
 | `[PEWNE]` | Obowiązujące prawo (2026) albo liczba potwierdzona w oficjalnym komunikacie rządowym |
-| `[ZAPOWIEDŹ]` | Deklaracja polityczna z 19.08.2026 — brak tekstu przepisu, brak projektu ustawy |
+| `[ZAPOWIEDŹ]` | Deklaracja polityczna z 19.08.2026 — brak tekstu przepisu. Od 21.08.2026 dotyczy już tylko tego, czego projekt nie zawiera (np. szacunki MF) |
+| `[PROJEKT]` | Tekst przepisu w projekcie UD458 — jednostka redakcyjna podana przy twierdzeniu. Nie jest to jeszcze obowiązujące prawo |
 | `[USTALONE]` | Rozstrzygnięte w źródle wtórnym o mocy niższej niż przepis — interpretacja indywidualna, objaśnienia MF, konstrukcja formularza. Doprecyzowanie w nawiasie mówi, ile z tego jest ustaleniem, a ile wnioskowaniem (np. `[USTALONE, ale z rozbieżnością orzeczniczą]`) |
 | `[NIEJASNE]` | Brak danych w źródłach; wnioskowanie z konstrukcji ustawy albo po prostu niewiadoma |
 
-> ⚠️ **Nadrzędne zastrzeżenie do całej części 2027**: na dzień 19.08.2026 **nie istnieje projekt ustawy**
-> zmieniającej skalę podatkową. Jest konferencja prasowa premiera i ministra finansów oraz komunikaty
-> na gov.pl. Wszystkie parametry 2027 poniżej to `[ZAPOWIEDŹ]`, nawet jeśli są w komunikacie MF.
+> ⚠️ **Nadrzędne zastrzeżenie do całej części 2027**: to wciąż **nie jest obowiązujące prawo**.
+> Projekt `UD458` (Minister Finansów i Gospodarki) jest na RCL od **21.08.2026**, przeszedł
+> uzgodnienia, konsultacje i Stały Komitet, a **28.09.2026 przyjęła go Rada Ministrów**; do Sejmu
+> na 29.09.2026 jeszcze nie trafił. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>
+>
+> Dokument powstał 19.08.2026, gdy projektu nie było, i wszystko w części 2027 nosiło wtedy
+> `[ZAPOWIEDŹ]`. Twierdzenia mające dziś oparcie w tekście przepisu zostały przeniesione na
+> `[PROJEKT]` z podaniem jednostki redakcyjnej. Tam, gdzie nadal stoi `[ZAPOWIEDŹ]`, źródłem
+> pozostaje wyłącznie komunikat rządowy.
+>
+> **Zapowiedź trafiła w tekst projektu bez odchyleń.** Skala z art. 27 ust. 1 została sprawdzona
+> przeciwko silnikowi w dziesięciu punktach, łącznie z granicami 130 000 i 150 000 zł — zero
+> rozbieżności. Żaden parametr modelu nie wymagał korekty.
 
 ---
 
@@ -38,7 +49,9 @@ Konferencja prasowa **19 sierpnia 2026 r.**, premier **Donald Tusk** i minister 
 
 ## A.2. Proponowana skala podatkowa
 
-`[ZAPOWIEDŹ]` — źródło: gov.pl/web/finanse + gov.pl/web/premier, 19.08.2026
+`[PROJEKT]` — **art. 27 ust. 1** ustawy o PIT w brzmieniu nadanym art. 1 pkt 1 projektu UD458
+(wersja z 24.09.2026, skierowana na Radę Ministrów). Pierwotne źródło zapowiedzi:
+gov.pl/web/finanse + gov.pl/web/premier, 19.08.2026.
 
 ### Skala 2026 (obowiązująca) — `[PEWNE]`
 
@@ -47,13 +60,30 @@ Konferencja prasowa **19 sierpnia 2026 r.**, premier **Donald Tusk** i minister 
 | do 120 000 | 12% minus 3 600 zł |
 | ponad 120 000 | 14 400 zł + 32% nadwyżki ponad 120 000 |
 
-### Skala 2027 (proponowana) — `[ZAPOWIEDŹ]`
+### Skala 2027 (projekt) — `[PROJEKT]`
 
 | Podstawa obliczenia podatku (dochód, zł) | Podatek |
 |---|---|
 | do 130 000 | 12% minus 3 600 zł |
 | ponad 130 000 do 150 000 | 15 600 zł + 24% nadwyżki ponad 130 000, minus 3 600 zł |
 | ponad 150 000 | 20 400 zł + 32% nadwyżki ponad 150 000, minus 3 600 zł |
+
+Tabela w projekcie ma kwotę zmniejszającą wliczoną w kwoty bazowe, więc wygląda inaczej,
+a liczy to samo — warto to wiedzieć przy porównywaniu z tekstem ustawy:
+
+| ponad | do | Podatek wynosi |
+|---|---|---|
+| | 130 000 | 12% minus kwota zmniejszająca podatek 3 600 zł |
+| 130 000 | 150 000 | 12 000 zł + 24% nadwyżki ponad 130 000 zł |
+| 150 000 | | 16 800 zł + 32% nadwyżki ponad 150 000 zł |
+
+(15 600 − 3 600 = 12 000; 20 400 − 3 600 = 16 800 — stąd obie postacie są równoważne.)
+
+> **Warunek zawieszający — `[PROJEKT]`, art. 5 ust. 2.** Nową skalę (art. 27 ust. 1 oraz
+> art. 32 ust. 2 i 3) stosuje się **pod warunkiem** wejścia w życie z dniem 1.01.2027 przepisów
+> o podwyżce CIT (art. 19 ust. 1 pkt 6 i nast. ustawy o CIT) oraz o obniżeniu limitu ryczałtu
+> (art. 6 ust. 4 i 6 ustawy o ryczałcie). Obniżka PIT jest prawnie spięta z podwyżkami — bez
+> nich nie działa. Nie spotkałem tego w żadnym omówieniu prasowym.
 
 Zmiany względem 2026:
 1. Górna granica I przedziału: **120 000 → 130 000 zł** (stawka 12% bez zmian).
@@ -81,10 +111,13 @@ byłoby wewnętrznie spójne.
 
 ## A.4. Danina solidarnościowa
 
-`[ZAPOWIEDŹ]` Stawka **4% → 5%** (wzrost o 1 p.p.), próg **1 000 000 zł dochodu** — bez zmian.
-Źródło: gov.pl/web/finanse i gov.pl/web/premier, 19.08.2026.
+`[PROJEKT]` Stawka **4% → 5%**, próg **1 000 000 zł dochodu** — bez zmian.
+Art. 1 pkt 2 projektu UD458: w art. 30h ust. 1 „wyrazy ,,4 %" zastępuje się wyrazami ,,5 %"".
 
-`[NIEJASNE]` Nie podano, od dochodów którego roku (2027 czy rozliczenie za 2027 płacone w 2028).
+`[PROJEKT]` **Pytanie o rok zostało rozstrzygnięte.** Art. 5 ust. 3 projektu: nową stawkę
+„stosuje się po raz pierwszy do daniny solidarnościowej, której termin zapłaty upływa z dniem
+**2 maja 2028 r.**" — czyli do daniny **za rok podatkowy 2027**. Model od początku zakładał
+właśnie to (`DANINA_STAWKA[2027] = 0.05`); wcześniej było to wnioskowanie, teraz jest przepis.
 
 Konstrukcja samej daniny (podstawa, odliczenia, wspólne rozliczenie, zwolnienia PIT-0) jest
 zweryfikowana i opisana w **B.8** — zapowiedź zmienia w niej wyłącznie stawkę.
@@ -135,13 +168,26 @@ Szacowany wpływ podwyżki CIT: **~8,6 mld zł/rok**. Minister Domański: zmiany
 
 ## A.7. Status legislacyjny — najważniejsze
 
-`[PEWNE]` **Na 19.08.2026 nie ma projektu ustawy wprowadzającego stawkę 24% i progi 130/150 tys. zł.**
-Jest wyłącznie zapowiedź polityczna + komunikaty prasowe MF/KPRM. Brak numeru UD, brak wpisu w RCL,
-brak druku sejmowego dla tej konkretnej zmiany.
+`[PEWNE]` **Jest projekt ustawy: `UD458`**, Minister Finansów i Gospodarki. Kalendarium:
+
+| data | etap |
+|---|---|
+| 19.08.2026 | zapowiedź — konferencja premiera i ministra finansów |
+| 20.08.2026 | wpis do wykazu prac legislacyjnych Rady Ministrów |
+| **21.08.2026** | **publikacja projektu na RCL** |
+| 22–24.09.2026 | zgłoszenia lobbingowe, uzgodnienia, konsultacje publiczne, opiniowanie |
+| 23.09.2026 | Stały Komitet Rady Ministrów |
+| **28.09.2026** | **przyjęcie projektu przez Radę Ministrów** |
+| — | skierowanie do Sejmu: na 29.09.2026 jeszcze nie nastąpiło (RCL: etap bez daty) |
+
+Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>.
+Wersja tekstu, na której oparty jest ten dokument: „Projekt z dnia 24 września 2026 r.",
+skierowana na Radę Ministrów. **Druku sejmowego nadal brak** — to wciąż nie jest prawo.
 
 W obiegu są **trzy różne, mylone ze sobą rzeczy**:
 
-1. **Zapowiedź rządowa z 19.08.2026** (130/150 tys., 24%) — `[ZAPOWIEDŹ]`, brak projektu.
+1. **Projekt rządowy UD458** (130/150 tys., 24%) — `[PROJEKT]`; na RCL od 21.08.2026,
+   przyjęty przez Radę Ministrów 28.09.2026, przed skierowaniem do Sejmu.
    Deklarowane wejście w życie: **1 stycznia 2027 r.**, tj. dochody od 1.01.2027.
    Rząd musi zamknąć legislację w 2026 r., by weszło od 2027.
 
@@ -211,7 +257,7 @@ KWOTA_ZMNIEJSZAJACA_MIES = 300    # = 1/12; PIT-2 pozwala też na 1/24 (150) lub
 # ---- Skala podatkowa ----
 # 2026 [PEWNE]
 PROG_1_2026 = 120_000 ; STAWKA_1 = 0.12 ; STAWKA_TOP = 0.32
-# 2027 [ZAPOWIEDŹ]
+# 2027 [PROJEKT] — art. 27 ust. 1 UD458
 PROG_1_2027 = 130_000 ; PROG_2_2027 = 150_000 ; STAWKA_SREDNIA_2027 = 0.24
 
 # ---- Ulgi PIT-0 (wspólny limit) ----
@@ -230,7 +276,7 @@ MIN_WYNAGRODZENIE_2027 = 4_950    # [NIEJASNE — patrz Otwarte pytania]
 # ---- Danina solidarnościowa (art. 30h; szczegóły w B.8) ----
 DANINA_PROG          = 1_000_000  # [PEWNE] bez zmian w 2027
 DANINA_STAWKA_2026   = 0.04       # [PEWNE]
-DANINA_STAWKA_2027   = 0.05       # [ZAPOWIEDŹ] jedyny parametr, w którym 2027 jest GORSZY
+DANINA_STAWKA_2027   = 0.05       # [PROJEKT] art. 30h; jedyny parametr, w którym 2027 jest GORSZY
 ```
 
 ### Źródła stałych
@@ -335,7 +381,7 @@ def podatek_roczny(dochod, rok):
         else:
             t = 14_400 + (dochod - 120_000) * 0.32
     else:
-        # [ZAPOWIEDŹ] — scenariusz 2027
+        # [PROJEKT] — scenariusz 2027
         if dochod <= 130_000:
             t = dochod * 0.12
         elif dochod <= 150_000:
@@ -690,8 +736,9 @@ danina = max(0, podstawa_daniny − 1_000_000) × STAWKA
 ```
 
 - `STAWKA_2026 = 0.04` `[PEWNE]` — art. 30h ust. 1
-- `STAWKA_2027 = 0.05` `[ZAPOWIEDŹ]` — konferencja prasowa 19.08.2026, brak projektu ustawy
-- Próg **1 000 000 zł** — bez zmian `[ZAPOWIEDŹ potwierdza brak zmiany]`
+- `STAWKA_2027 = 0.05` `[PROJEKT]` — art. 1 pkt 2 UD458 (zmiana art. 30h ust. 1); stosowana
+  po raz pierwszy do daniny płatnej do 2.05.2028, czyli za rok 2027 (art. 5 ust. 3)
+- Próg **1 000 000 zł** — bez zmian `[PROJEKT potwierdza brak zmiany]`
 
 Termin: deklaracja **DSF-1** do 30 kwietnia roku następnego. Danina jest **poza** zaliczkami
 miesięcznymi — nie wchodzi do modelu listy płac, ale w modelu **rocznym** musi być, bo zapłacić
@@ -874,7 +921,7 @@ def netto_roczne(brutto_miesieczne, rok, opcje):
     # ust. 1 pkt 2 — czyli o dokładnie tę odliczalną część, którą policzono
     # wyżej. Płatna poza zaliczkami, do 30 kwietnia — ale zapłacona, więc
     # w modelu ROCZNYM od netto odchodzi.
-    STAWKA_DANINY = 0.04 if rok <= 2026 else 0.05     # [ZAPOWIEDŹ dla 2027]
+    STAWKA_DANINY = 0.04 if rok <= 2026 else 0.05     # [PROJEKT dla 2027]
     danina = round_pln(max(0, podstawa - 1_000_000) * STAWKA_DANINY)
 
     # --- PPK ---
@@ -1153,7 +1200,7 @@ SKALE = {
     2026: {"status": "obowiązująca",
            "progi": [(120_000, 0.12), (None, 0.32)],
            "kwota_zmniejszajaca": 3_600},
-    2027: {"status": "ZAPOWIEDŹ 19.08.2026 — brak projektu ustawy",
+    2027: {"status": "PROJEKT UD458 — przyjęty przez RM 28.09.2026, przed Sejmem",
            "progi": [(130_000, 0.12), (150_000, 0.24), (None, 0.32)],
            "kwota_zmniejszajaca": 3_600},
 }

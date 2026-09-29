@@ -16,13 +16,21 @@ daje nic i kalkulator to wprost pokazuje.
 
 Strona: <https://pit.kondratek.pl>
 
-## To zapowiedź, nie obowiązujące prawo
+## To projekt, nie obowiązujące prawo
 
-W chwili powstania tego repozytorium **nie istniał projekt ustawy** wprowadzającej tę skalę
-— nie było go ani w wykazie prac legislacyjnych, ani na RCL, ani jako druk sejmowy. Są
-wystąpienie premiera i ministra finansów oraz komunikaty prasowe. Kalkulator liczy więc to,
-co *wynikałoby* z zapowiedzi, gdyby weszła w życie w ogłoszonym kształcie, a nie to, co
-obowiązuje. Reforma może się zmienić w trakcie prac albo nie wejść w życie wcale.
+Repozytorium powstało 19.08.2026, gdy projektu ustawy jeszcze nie było i jedynym źródłem
+były komunikaty rządowe. **Projekt pojawił się na RCL 21.08.2026** jako `UD458` (Minister
+Finansów i Gospodarki), przeszedł uzgodnienia, konsultacje i Stały Komitet, a **28.09.2026
+przyjęła go Rada Ministrów**. Stan na 29.09.2026: nieskierowany jeszcze do Sejmu.
+
+Skala w kalkulatorze pochodzi więc dziś z art. 27 ust. 1 projektu, a nie z konferencji
+prasowej — i została z tym tekstem zweryfikowana co do złotówki w punktach granicznych
+130 000 i 150 000 zł. Ale to wciąż **projekt**: może się zmienić w Sejmie albo nie wejść
+w życie. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>
+
+Osobna rzecz warta odnotowania — art. 5 ust. 2 projektu **uzależnia** stosowanie nowej skali
+od tego, czy 1.01.2027 wejdą w życie także podwyżka CIT do 22% i obniżenie limitu ryczałtu
+do 250 tys. euro. Obniżka PIT i podwyżki są spięte prawnie.
 
 To samo zastrzeżenie niesie sama strona — nie jest schowane w dokumentacji.
 

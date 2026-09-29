@@ -9,7 +9,22 @@ import { defineConfig } from 'vite'
  * testową. Tu potrzebny jest jeden moduł Node'a i nic poza nim — style
  * pomijamy, bo arkusz powstaje już w buildzie klienckim.
  */
+/**
+ * Data zbudowania strony, wstrzykiwana przy kompilacji.
+ *
+ * Data wpisana w prozie zestarzałaby się po cichu — a właśnie to przydarzyło się
+ * zdaniu „projektu ustawy nie ma", które przez pięć tygodni mówiło nieprawdę.
+ * Build powstaje tylko wtedy, gdy coś zmieniamy, więc ta data jest uczciwym
+ * przybliżeniem ostatniej aktualizacji treści i nie wymaga pamiętania o niej.
+ */
+const dataBudowy = new Intl.DateTimeFormat('pl-PL', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}).format(new Date())
+
 export default defineConfig({
+  define: { __DATA_BUDOWY__: JSON.stringify(dataBudowy) },
   plugins: [svelte({ compilerOptions: { css: 'external' } })],
   build: {
     ssr: 'src/entry-server.ts',

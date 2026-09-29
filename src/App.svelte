@@ -26,9 +26,9 @@
 <main>
   <header>
     <p class="zastrzezenie">
-      <strong>To zapowiedź, nie obowiązujące prawo.</strong> Rząd ogłosił zmianę 19 sierpnia 2026 r.
-      Projektu ustawy jeszcze nie ma, więc kształt reformy może się zmienić albo może ona nie wejść
-      w życie wcale.
+      <strong>To projekt, nie obowiązujące prawo.</strong> Rada Ministrów przyjęła go
+      28 września 2026 r. Zanim zacznie obowiązywać, musi przejść przez Sejm, Senat i podpis
+      prezydenta — skala może się w pracach zmienić, a ustawa może nie wejść w życie.
     </p>
 
     <h1>Ile zyskasz na zmianie PIT od 2027&nbsp;r.?</h1>
@@ -44,8 +44,8 @@
     <h2>Na czym to się opiera</h2>
 
     <p>
-      Kształt zapowiadanej skali pochodzi z komunikatów rządowych z 19 sierpnia 2026 r., nie
-      z doniesień prasowych:
+      Reformę ogłoszono 19 sierpnia 2026 r. w komunikatach rządowych, nie w doniesieniach
+      prasowych:
     </p>
 
     <ul>
@@ -68,10 +68,28 @@
       </li>
     </ul>
 
+    <!-- Do 21.08.2026 stało tu, że projektu ustawy nie ma. Projekt pojawił się na RCL
+         dzień po uruchomieniu strony, a 28.09 przyjęła go Rada Ministrów — więc zdanie
+         było nieprawdziwe przez pięć tygodni. Status trzyma się teraz konkretnych dat
+         i sygnatury, bo takie zdanie starzeje się widocznie, a nie po cichu. -->
     <p>
-      W chwili publikacji nie istnieje projekt ustawy — nie ma go ani w wykazie prac
-      legislacyjnych, ani na RCL, ani jako druk sejmowy. Dlatego kalkulator pokazuje, co
-      wynikałoby z zapowiedzi, a nie co obowiązuje.
+      Od 21 sierpnia 2026 r. jest projekt ustawy — <strong>UD458</strong>, Ministra Finansów
+      i Gospodarki. Przeszedł uzgodnienia, konsultacje i Stały Komitet, a 28 września 2026 r.
+      przyjęła go Rada Ministrów. Na {__DATA_BUDOWY__} nie był jeszcze skierowany do Sejmu,
+      więc <strong>nadal nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co
+      wynika z projektu. Skala wyżej pochodzi już z jego art. 27 ust. 1, nie z komunikatu
+      prasowego:
+      <a href="https://legislacja.rcl.gov.pl/projekt/12413754">przebieg prac na RCL</a>.
+    </p>
+
+    <!-- Warunkowość z art. 5 ust. 2 nie pojawia się w żadnym omówieniu, które czytałem,
+         a jest sprawdzalna i zmienia sposób czytania całej reformy. Podajemy sam przepis
+         bez oceny — wniosek należy do czytelnika. -->
+    <p>
+      Projekt spina obniżkę z podwyżkami: zgodnie z art. 5 ust. 2 nową skalę
+      <strong>stosuje się pod warunkiem</strong>, że 1 stycznia 2027 r. wejdą w życie także
+      przepisy o podniesieniu CIT do 22% i o obniżeniu limitu ryczałtu do 250 tys. euro.
+      Bez nich obniżka PIT nie działa.
     </p>
 
     <p>
@@ -128,11 +146,12 @@
            co było po prostu nieprawdą i przeczyło własnemu silnikowi: `constants.ts` modeluje
            daninę 4% → 5% i nazywa ją składnikiem *pakietu*. Czytelnik, który chce ocenić tę
            reformę całościowo, potrzebuje wiedzieć, że skala to jej część, a nie całość. -->
-      Zapowiedziany pakiet jest jednak szerszy niż sama skala. Obejmuje też podniesienie CIT
-      z 19% na 22% dla firm o przychodach powyżej 50 mln euro i dla podatkowych grup
-      kapitałowych, przywrócenie limitu 250 tys. euro dla ryczałtu, zmianę ulgi IP Box oraz
-      wzrost daniny solidarnościowej z 4% na 5%. Z tego wszystkiego kalkulator uwzględnia
-      wyłącznie daninę, bo jako jedyna dotyczy osób rozliczających się według skali.
+      Projekt jest jednak szerszy niż sama skala. Obejmuje też podniesienie CIT z 19% na 22%
+      dla firm o przychodach powyżej 50 mln euro oraz dla jednostek grup objętych opodatkowaniem
+      wyrównawczym, obniżenie limitu ryczałtu z 2 mln do 250 tys. euro wraz z nową stawką 17%
+      od nadwyżki ponad 300 tys. euro, a także wzrost daniny solidarnościowej z 4% na 5%.
+      Z tego wszystkiego kalkulator uwzględnia wyłącznie daninę, bo jako jedyna dotyczy osób
+      rozliczających się według skali.
       Do liczenia podatków na B2B, umowie o pracę i zleceniu w ogóle, łącznie z porównaniem
       form opodatkowania, dobrym narzędziem jest
       <a href="https://ladnepodatki.pl">ladnepodatki.pl</a>.
@@ -140,9 +159,10 @@
 
     <h3>Czy to już pewne?</h3>
     <p>
-      Nie. Jest komunikat rządowy z 19 sierpnia 2026 r., nie ma projektu ustawy — kształt skali
-      może się jeszcze zmienić, a reforma może nie wejść w życie wcale. To samo mówi ramka na
-      górze strony, ale pytanie wraca zbyt często, żeby je tu pominąć.
+      Jeszcze nie, ale bliżej niż na początku. Jest projekt ustawy (UD458) i 28 września 2026 r.
+      przyjęła go Rada Ministrów. Przed nim jeszcze Sejm, Senat i podpis prezydenta — skala może
+      się po drodze zmienić, a dopóki ustawa nie zostanie ogłoszona, nie obowiązuje nic. Dodatkowo
+      sam projekt uzależnia obniżkę PIT od wejścia w życie podwyżki CIT i ograniczenia ryczałtu.
     </p>
 
     <h3>Kto to policzył i skąd mam wiedzieć, że dobrze?</h3>
@@ -177,8 +197,10 @@
     </p>
     <Udostepnij />
 
+    <!-- Data stoi przy podpisie, bo to informacja o autorze i jego pracy, a nie
+         o samych wyliczeniach. Bierze się z builda — patrz `__DATA_BUDOWY__`. -->
     <p class="podpis">
-      Autorem strony jest Mikołaj Kondratek — programista, nie doradca podatkowy ·
+      Ostatnia aktualizacja: {__DATA_BUDOWY__} · Autorem strony jest Mikołaj Kondratek — programista, nie doradca podatkowy ·
       <a href="https://www.linkedin.com/in/mkondratek/">LinkedIn</a> ·
       <a href="https://github.com/mkondratek">GitHub</a>
     </p>
