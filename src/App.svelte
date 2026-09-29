@@ -77,9 +77,9 @@
       i Gospodarki. Przeszedł uzgodnienia, konsultacje i Stały Komitet, a 28 września 2026 r.
       przyjęła go Rada Ministrów. Na {__DATA_BUDOWY__} nie był jeszcze skierowany do Sejmu,
       więc <strong>nadal nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co
-      wynika z projektu. Skala wyżej pochodzi już z jego art. 27 ust. 1, nie z komunikatu
-      prasowego:
-      <a href="https://legislacja.rcl.gov.pl/projekt/12413754">przebieg prac na RCL</a>.
+      wynika z projektu. Skala wyżej pochodzi już z jego art. 27 ust. 1, a nie z sierpniowej
+      zapowiedzi — <a href="https://legislacja.rcl.gov.pl/projekt/12413754">przebieg prac
+      na RCL</a>.
     </p>
 
     <!-- Warunkowość z art. 5 ust. 2 nie pojawia się w żadnym omówieniu, które czytałem,
