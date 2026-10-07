@@ -21,8 +21,10 @@ scenariusza **2027 (proponowanego)**.
 
 > ⚠️ **Nadrzędne zastrzeżenie do całej części 2027**: to wciąż **nie jest obowiązujące prawo**.
 > Projekt `UD458` (Minister Finansów i Gospodarki) jest na RCL od **21.08.2026**, przeszedł
-> uzgodnienia, konsultacje i Stały Komitet, a **28.09.2026 przyjęła go Rada Ministrów**; do Sejmu
-> na 29.09.2026 jeszcze nie trafił. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>
+> uzgodnienia, konsultacje i Stały Komitet, **28.09.2026 przyjęła go Rada Ministrów**, a
+> **29.09.2026 wpłynął do Sejmu** jako druk nr 3147 (skierowany do pierwszego czytania na
+> posiedzeniu Sejmu). Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>,
+> druk: <https://www.sejm.gov.pl/Sejm10.nsf/druk.xsp?nr=3147>
 >
 > Dokument powstał 19.08.2026, gdy projektu nie było, i wszystko w części 2027 nosiło wtedy
 > `[ZAPOWIEDŹ]`. Twierdzenia mające dziś oparcie w tekście przepisu zostały przeniesione na
@@ -178,16 +180,21 @@ Szacowany wpływ podwyżki CIT: **~8,6 mld zł/rok**. Minister Domański: zmiany
 | 22–24.09.2026 | zgłoszenia lobbingowe, uzgodnienia, konsultacje publiczne, opiniowanie |
 | 23.09.2026 | Stały Komitet Rady Ministrów |
 | **28.09.2026** | **przyjęcie projektu przez Radę Ministrów** |
-| — | skierowanie do Sejmu: na 29.09.2026 jeszcze nie nastąpiło (RCL: etap bez daty) |
+| **29.09.2026** | **wpłynięcie do Sejmu: druk nr 3147** `[PEWNE]` — API Sejmu (`processes/3147`: „Projekt wpłynął do Sejmu") |
+| 29.09.2026 | skierowanie do pierwszego czytania na posiedzeniu Sejmu `[PEWNE]` — to samo API („Skierowano do I czytania na posiedzeniu Sejmu"; bez skierowania do komisji) |
+| — | samo pierwsze czytanie: API Sejmu nie podawało go w chwili sprawdzenia (7.10.2026); prasa pisze o 6.10.2026 — niepotwierdzone w źródle urzędowym |
 
 Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>.
 Wersja tekstu, na której oparty jest ten dokument: „Projekt z dnia 24 września 2026 r.",
-skierowana na Radę Ministrów. **Druku sejmowego nadal brak** — to wciąż nie jest prawo.
+skierowana na Radę Ministrów. Treść druku nr 3147 (PDF z Sejmu) porównano z tą wersją:
+`[PROJEKT]` skala z art. 1 pkt 1 (art. 27 ust. 1), danina 4% → 5% z art. 1 pkt 2 oraz art. 5 ust. 3
+(po raz pierwszy za 2027 r., termin 2.05.2028), warunek z art. 5 ust. 2 i wejście w życie z art. 7
+(1.01.2027) są w druku **identyczne**. To wciąż nie jest prawo.
 
 W obiegu są **trzy różne, mylone ze sobą rzeczy**:
 
 1. **Projekt rządowy UD458** (130/150 tys., 24%) — `[PROJEKT]`; na RCL od 21.08.2026,
-   przyjęty przez Radę Ministrów 28.09.2026, przed skierowaniem do Sejmu.
+   przyjęty przez Radę Ministrów 28.09.2026, w Sejmie od 29.09.2026 (druk nr 3147).
    Deklarowane wejście w życie: **1 stycznia 2027 r.**, tj. dochody od 1.01.2027.
    Rząd musi zamknąć legislację w 2026 r., by weszło od 2027.
 

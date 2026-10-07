@@ -21,12 +21,15 @@ Strona: <https://pit.kondratek.pl>
 Repozytorium powstało 19.08.2026, gdy projektu ustawy jeszcze nie było i jedynym źródłem
 były komunikaty rządowe. **Projekt pojawił się na RCL 21.08.2026** jako `UD458` (Minister
 Finansów i Gospodarki), przeszedł uzgodnienia, konsultacje i Stały Komitet, a **28.09.2026
-przyjęła go Rada Ministrów**. Stan na 29.09.2026: nieskierowany jeszcze do Sejmu.
+przyjęła go Rada Ministrów**. **29.09.2026 wpłynął do Sejmu** jako druk nr 3147 i został
+skierowany do pierwszego czytania na posiedzeniu Sejmu (API Sejmu, `processes/3147`).
 
 Skala w kalkulatorze pochodzi więc dziś z art. 27 ust. 1 projektu, a nie z konferencji
 prasowej — i została z tym tekstem zweryfikowana co do złotówki w punktach granicznych
 130 000 i 150 000 zł. Ale to wciąż **projekt**: może się zmienić w Sejmie albo nie wejść
-w życie. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>
+w życie. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>, druk sejmowy:
+<https://www.sejm.gov.pl/Sejm10.nsf/druk.xsp?nr=3147>. Tekst druku porównano z wersją RCL
+z 24.09.2026 (skala, danina, art. 5 ust. 2 i 3, art. 7) — bez różnic.
 
 Osobna rzecz warta odnotowania — art. 5 ust. 2 projektu **uzależnia** stosowanie nowej skali
 od tego, czy 1.01.2027 wejdą w życie także podwyżka CIT do 22% i obniżenie limitu ryczałtu
