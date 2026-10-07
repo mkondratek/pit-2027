@@ -71,15 +71,21 @@
     <!-- Do 21.08.2026 stało tu, że projektu ustawy nie ma. Projekt pojawił się na RCL
          dzień po uruchomieniu strony, a 28.09 przyjęła go Rada Ministrów — więc zdanie
          było nieprawdziwe przez pięć tygodni. Status trzyma się teraz konkretnych dat
-         i sygnatury, bo takie zdanie starzeje się widocznie, a nie po cichu. -->
+         i sygnatury, bo takie zdanie starzeje się widocznie, a nie po cichu.
+         Nigdy nie wiążemy go z datą builda: stało tu „na {__DATA_BUDOWY__} nie był
+         jeszcze skierowany do Sejmu", co przy każdym buildzie wystawiałoby nową datę
+         pod twierdzeniem, którego nikt nie sprawdził (a druk wpłynął już 29.09).
+         `__DATA_BUDOWY__` zostaje tylko w stopce. -->
     <p>
       Od 21 sierpnia 2026 r. jest projekt ustawy — <strong>UD458</strong>, Ministra Finansów
-      i Gospodarki. Przeszedł uzgodnienia, konsultacje i Stały Komitet, a 28 września 2026 r.
-      przyjęła go Rada Ministrów. Na {__DATA_BUDOWY__} nie był jeszcze skierowany do Sejmu,
-      więc <strong>nadal nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co
-      wynika z projektu. Skala wyżej pochodzi już z jego art. 27 ust. 1, a nie z sierpniowej
+      i Gospodarki. Przeszedł uzgodnienia, konsultacje i Stały Komitet, 28 września 2026 r.
+      przyjęła go Rada Ministrów, a 29 września wpłynął do Sejmu jako <strong>druk nr 3147</strong>
+      i został skierowany do pierwszego czytania na posiedzeniu Sejmu. Nadal
+      <strong>nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co wynika
+      z projektu. Skala wyżej pochodzi już z jego art. 27 ust. 1, a nie z sierpniowej
       zapowiedzi — <a href="https://legislacja.rcl.gov.pl/projekt/12413754">przebieg prac
-      na RCL</a>.
+      na RCL</a> i <a href="https://www.sejm.gov.pl/Sejm10.nsf/druk.xsp?nr=3147">druk
+      sejmowy</a>.
     </p>
 
     <!-- Warunkowość z art. 5 ust. 2 nie pojawia się w żadnym omówieniu, które czytałem,
