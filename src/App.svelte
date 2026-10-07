@@ -27,8 +27,8 @@
   <header>
     <p class="zastrzezenie">
       <strong>To projekt, nie obowiązujące prawo.</strong> Rada Ministrów przyjęła go
-      28 września 2026 r., a 29 września trafił do Sejmu (druk nr 3147). Zanim zacznie
-      obowiązywać, musi jeszcze przejść przez Sejm, Senat i podpis prezydenta — skala może się
+      28 września 2026 r., a dzień później trafił do Sejmu (druk nr 3147). Do wejścia w życie
+      potrzebuje jeszcze uchwalenia, przejścia przez Senat i podpisu prezydenta — skala może się
       w pracach zmienić, a ustawa może nie wejść w życie.
     </p>
 
@@ -81,7 +81,7 @@
       Od 21 sierpnia 2026 r. jest projekt ustawy — <strong>UD458</strong>, Ministra Finansów
       i Gospodarki. Przeszedł uzgodnienia, konsultacje i Stały Komitet, 28 września 2026 r.
       przyjęła go Rada Ministrów, a 29 września wpłynął do Sejmu jako <strong>druk nr 3147</strong>
-      i został skierowany do pierwszego czytania na posiedzeniu Sejmu. Nadal
+      i został skierowany do pierwszego czytania na posiedzeniu plenarnym. Nadal
       <strong>nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co wynika
       z projektu. Skala wyżej pochodzi już z jego art. 27 ust. 1, a nie z sierpniowej
       zapowiedzi — <a href="https://legislacja.rcl.gov.pl/projekt/12413754">przebieg prac
@@ -168,8 +168,7 @@
     <p>
       Jeszcze nie, ale bliżej niż na początku. Jest projekt ustawy (UD458), 28 września 2026 r.
       przyjęła go Rada Ministrów, a 29 września trafił do Sejmu jako druk nr 3147. Przed nim
-      jeszcze Sejm, Senat i podpis prezydenta — skala może
-      się po drodze zmienić, a dopóki ustawa nie zostanie ogłoszona, nie obowiązuje nic. Dodatkowo
+      jeszcze uchwalenie, Senat i podpis prezydenta — skala może się po drodze zmienić, a dopóki ustawa nie zostanie ogłoszona, nie obowiązuje nic. Dodatkowo
       sam projekt uzależnia obniżkę PIT od wejścia w życie podwyżki CIT i ograniczenia ryczałtu.
     </p>
 
