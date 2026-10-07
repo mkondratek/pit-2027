@@ -46,8 +46,9 @@ export const FAQ: Pytanie[] = [
   {
     pytanie: 'Czy to już pewne?',
     odpowiedz:
-      'Jeszcze nie. Jest projekt ustawy UD458 i 28 września 2026 r. przyjęła go Rada ' +
-      'Ministrów. Przed nim jeszcze Sejm, Senat i podpis prezydenta, a skala może się ' +
+      'Jeszcze nie. Jest projekt ustawy UD458; 28 września 2026 r. przyjęła go Rada ' +
+      'Ministrów, a 29 września trafił do Sejmu (druk nr 3147). Przed nim jeszcze Sejm, ' +
+      'Senat i podpis prezydenta, a skala może się ' +
       'w pracach zmienić. Sam projekt uzależnia przy tym obniżkę PIT od wejścia w życie ' +
       'podwyżki CIT i ograniczenia ryczałtu.',
   },

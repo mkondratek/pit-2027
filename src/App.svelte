@@ -27,8 +27,9 @@
   <header>
     <p class="zastrzezenie">
       <strong>To projekt, nie obowiązujące prawo.</strong> Rada Ministrów przyjęła go
-      28 września 2026 r. Zanim zacznie obowiązywać, musi przejść przez Sejm, Senat i podpis
-      prezydenta — skala może się w pracach zmienić, a ustawa może nie wejść w życie.
+      28 września 2026 r., a 29 września trafił do Sejmu (druk nr 3147). Zanim zacznie
+      obowiązywać, musi jeszcze przejść przez Sejm, Senat i podpis prezydenta — skala może się
+      w pracach zmienić, a ustawa może nie wejść w życie.
     </p>
 
     <h1>Ile zyskasz na zmianie PIT od 2027&nbsp;r.?</h1>
@@ -165,8 +166,9 @@
 
     <h3>Czy to już pewne?</h3>
     <p>
-      Jeszcze nie, ale bliżej niż na początku. Jest projekt ustawy (UD458) i 28 września 2026 r.
-      przyjęła go Rada Ministrów. Przed nim jeszcze Sejm, Senat i podpis prezydenta — skala może
+      Jeszcze nie, ale bliżej niż na początku. Jest projekt ustawy (UD458), 28 września 2026 r.
+      przyjęła go Rada Ministrów, a 29 września trafił do Sejmu jako druk nr 3147. Przed nim
+      jeszcze Sejm, Senat i podpis prezydenta — skala może
       się po drodze zmienić, a dopóki ustawa nie zostanie ogłoszona, nie obowiązuje nic. Dodatkowo
       sam projekt uzależnia obniżkę PIT od wejścia w życie podwyżki CIT i ograniczenia ryczałtu.
     </p>
