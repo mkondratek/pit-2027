@@ -21,8 +21,9 @@ Strona: <https://pit.kondratek.pl>
 Repozytorium powstało 19.08.2026, gdy projektu ustawy jeszcze nie było i jedynym źródłem
 były komunikaty rządowe. **Projekt pojawił się na RCL 21.08.2026** jako `UD458` (Minister
 Finansów i Gospodarki), przeszedł uzgodnienia, konsultacje i Stały Komitet, a **28.09.2026
-przyjęła go Rada Ministrów**. **29.09.2026 wpłynął do Sejmu** jako druk nr 3147 i został
-skierowany do pierwszego czytania na posiedzeniu Sejmu (API Sejmu, `processes/3147`).
+przyjęła go Rada Ministrów**. **29.09.2026 wpłynął do Sejmu** jako druk nr 3147. **6.10.2026** odbyło
+się pierwsze czytanie na posiedzeniu Sejmu, po którym projekt skierowano do Komisji Finansów
+Publicznych (API Sejmu, `processes/3147`).
 
 Skala w kalkulatorze pochodzi więc dziś z art. 27 ust. 1 projektu, a nie z konferencji
 prasowej — i została z tym tekstem zweryfikowana co do złotówki w punktach granicznych
