@@ -22,8 +22,8 @@ scenariusza **2027 (proponowanego)**.
 > ⚠️ **Nadrzędne zastrzeżenie do całej części 2027**: to wciąż **nie jest obowiązujące prawo**.
 > Projekt `UD458` (Minister Finansów i Gospodarki) jest na RCL od **21.08.2026**, przeszedł
 > uzgodnienia, konsultacje i Stały Komitet, **28.09.2026 przyjęła go Rada Ministrów**, a
-> **29.09.2026 wpłynął do Sejmu** jako druk nr 3147 (skierowany do pierwszego czytania na
-> posiedzeniu Sejmu). Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>,
+> **29.09.2026 wpłynął do Sejmu** jako druk nr 3147; **6.10.2026**, po pierwszym czytaniu na
+> posiedzeniu Sejmu, skierowano go do Komisji Finansów Publicznych. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>,
 > druk: <https://www.sejm.gov.pl/Sejm10.nsf/druk.xsp?nr=3147>
 >
 > Dokument powstał 19.08.2026, gdy projektu nie było, i wszystko w części 2027 nosiło wtedy
@@ -125,8 +125,10 @@ Konstrukcja samej daniny (podstawa, odliczenia, wspólne rozliczenie, zwolnienia
 zweryfikowana i opisana w **B.8** — zapowiedź zmienia w niej wyłącznie stawkę.
 
 Osobny, **wcześniejszy** wątek — projekt **UD116** (patrz A.7): rozszerzenie podstawy daniny
-o dochody z **IP Box** (art. 30ca). Wersja z marca 2026 to zawierała; wersja z lipca 2026 —
-według relacji — wycofała się z rozszerzenia. Stan niepewny.
+o dochody z **IP Box** (art. 30ca). Wersja z marca 2026 to zawierała, o lipcowej różnie pisano.
+`[PROJEKT]` Rozstrzyga to druk sejmowy UD116 (nr 3137, z 24.09.2026): art. 1 pkt 14 nadaje
+art. 30h ust. 2 brzmienie obejmujące w pkt 4 dochody z art. 30ca ust. 3 (IP Box), stosowane
+po raz pierwszy do daniny płatnej 2.05.2028. To inny projekt niż UD458 i kalkulator go nie liczy.
 Źródła: <https://www.prawo.pl/podatki/wplywy-z-daniny-solidarnosciowej-co-sie-zmieni-w-2027-roku,1542720.html>,
 <https://www.ey.com/pl_pl/insights/tax/zmiany-cit-pit-w-2027-projekt-ustawy>
 
@@ -182,7 +184,8 @@ Szacowany wpływ podwyżki CIT: **~8,6 mld zł/rok**. Minister Domański: zmiany
 | **28.09.2026** | **przyjęcie projektu przez Radę Ministrów** |
 | **29.09.2026** | **wpłynięcie do Sejmu: druk nr 3147** `[PEWNE]` — API Sejmu (`processes/3147`: „Projekt wpłynął do Sejmu") |
 | 29.09.2026 | skierowanie do pierwszego czytania na posiedzeniu Sejmu `[PEWNE]` — to samo API („Skierowano do I czytania na posiedzeniu Sejmu"; bez skierowania do komisji) |
-| — | samo pierwsze czytanie: API Sejmu nie podawało go w chwili sprawdzenia (7.10.2026); prasa pisze o 6.10.2026 — niepotwierdzone w źródle urzędowym |
+| **6.10.2026** | **pierwsze czytanie** na 66. posiedzeniu Sejmu i skierowanie do Komisji Finansów Publicznych (FPB) `[PEWNE]` — API Sejmu (`processes/3147`, dopisane tam po 7.10) |
+| 20.10.2026 | posiedzenie FPB z rozpatrzeniem druków 3137 (UD116), 3147, 3148 i 3149 — **plan** wg API Sejmu (`committees/FPB/sittings`, stan na 15.10.2026), nie fakt |
 
 Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>.
 Wersja tekstu, na której oparty jest ten dokument: „Projekt z dnia 24 września 2026 r.",
@@ -194,7 +197,8 @@ skierowana na Radę Ministrów. Treść druku nr 3147 (PDF z Sejmu) porównano z
 W obiegu są **trzy różne, mylone ze sobą rzeczy**:
 
 1. **Projekt rządowy UD458** (130/150 tys., 24%) — `[PROJEKT]`; na RCL od 21.08.2026,
-   przyjęty przez Radę Ministrów 28.09.2026, w Sejmie od 29.09.2026 (druk nr 3147).
+   przyjęty przez Radę Ministrów 28.09.2026, w Sejmie od 29.09.2026 (druk nr 3147),
+   po pierwszym czytaniu 6.10.2026 w Komisji Finansów Publicznych.
    Deklarowane wejście w życie: **1 stycznia 2027 r.**, tj. dochody od 1.01.2027.
    Rząd musi zamknąć legislację w 2026 r., by weszło od 2027.
 
@@ -205,8 +209,14 @@ W obiegu są **trzy różne, mylone ze sobą rzeczy**:
    Źródło: <https://www.infor.pl/prawo/nowosci-prawne/7562441,korzystniejszy-pit-dla-lepiej-zarabiajacych-32-podatku-od-dochodow-ponad-140-tys-zl-od-2027-roku-projekt-ustawy-zlozyli-w-sejmie-poslowie-koalicji-rzadowej.html>
 
 3. **Projekt UD116** — „uszczelniający" projekt nowelizacji PIT/CIT/ryczałt, opublikowany na RCL
-   **17.03.2026**, kolejna wersja **lipiec 2026**, wciąż na etapie opiniowania/konsultacji.
-   Wejście: **1.01.2027**. Zawiera: warunek 3 etatowców dla IP Box, zmiany stawek ryczałtu
+   **17.03.2026**, kolejna wersja **lipiec 2026**. `[PEWNE]` Od **24.09.2026** jest w Sejmie jako
+   **druk nr 3137** (API Sejmu: `processes/3137`, `rclNum` RM-0610-158-26 → RCL
+   <https://legislacja.rcl.gov.pl/projekt/12402157>, „Numer z wykazu: UD116"). Komisja Finansów
+   Publicznych ma go rozpatrywać razem z drukiem 3147. Wejście: **1.01.2027** (art. 6 druku).
+   `[PROJEKT]` Druk rozszerza podstawę daniny o dochody z IP Box — art. 1 pkt 14 (nowe brzmienie
+   art. 30h ust. 2, pkt 4), po raz pierwszy dla daniny płatnej 2.05.2028 (art. 4 ust. 1 pkt 4) —
+   i dopuszcza w podstawie daniny straty z lat ubiegłych. Pozostała lista poniżej pochodzi
+   z relacji o wcześniejszych wersjach i nie była sprawdzana z drukiem. Zawiera: warunek 3 etatowców dla IP Box, zmiany stawek ryczałtu
    (15% dla usług bez pracowników > 100 tys. zł), daninę od IP Box, minimalny CIT, ograniczenie
    ulgi mieszkaniowej. **NIE zawiera zmiany skali podatkowej.**
    Źródła: <https://www.ey.com/pl_pl/insights/tax/zmiany-cit-pit-w-2027-projekt-ustawy>,
@@ -784,7 +794,10 @@ ulga termomodernizacyjna. Składka **zdrowotna** też nie — nie ma jej w katal
 odlicza się jej nigdzie.
 
 Straty z lat ubiegłych: `[NIEJASNE]` — organy podatkowe i sądy administracyjne mówią różnie.
-Bez znaczenia dla tego kalkulatora (model nie zna strat).
+Bez znaczenia dla tego kalkulatora (model nie zna strat). `[PROJEKT]` Druk nr 3137 (UD116)
+przesądza to na korzyść podatnika: nowe art. 30h ust. 2 pozwala pomniejszyć dochody
+**wyłącznie** o straty z art. 9 i składki społeczne — katalog zostaje zamknięty, więc dla umowy
+o pracę podstawa daniny liczona przez model się nie zmienia.
 
 W modelu wynagrodzenia oznacza to, że **podstawa daniny = podstawa opodatkowania**: droga od
 przychodu (minus KUP, minus składki społeczne) jest w obu rachunkach ta sama. Nie jest to jednak
@@ -1025,15 +1038,15 @@ Rzeczy, których **nie udało się ustalić** — nie zgadywać w kodzie, wystaw
    porównania jest zbudowana wokół „ile dałaby nowa skala od dochodów 2027"; gdyby okazało się, że
    stawka wchodzi rok wcześniej, porównanie 2026 vs 2027 stałoby się w tym jednym składniku puste
    (obie strony po 5%), a nie błędne.
-5. **Czy danina obejmie IP Box** (art. 30ca) — wersja marcowa UD116 tak, lipcowa podobno nie, a
-   relacje z konferencji 19.08.2026 znów wspominają o rozszerzeniu. Stan nierozstrzygnięty.
-   Dla kalkulatora bez znaczenia: nie liczy dochodów z IP Box.
+5. ~~**Czy danina obejmie IP Box**~~ — **rozstrzygnięte w projekcie** (A.4): druk nr 3137 (UD116)
+   obejmuje nią dochody z art. 30ca ust. 3 od daniny płatnej 2.05.2028. Dla kalkulatora bez
+   znaczenia: nie liczy dochodów z IP Box.
 5a. **Dochody spoza skali w podstawie daniny** — kalkulator zna wyłącznie dochody ze skali, a do
    podstawy wchodzą także art. 30b, 30c i 30f (B.8). Nie jest to niewiadoma prawna, tylko **świadome
    ograniczenie zakresu**: pokazywana danina zaniża i nigdy nie zawyża. Otwarte pozostaje, czy i jak
    powiedzieć to w interfejsie osobom blisko progu — decyzja produktowa, nie modelowa.
 5b. **Straty z lat ubiegłych a podstawa daniny** — organy podatkowe i sądy administracyjne
-   wypowiadają się rozbieżnie. Poza zakresem modelu (nie zna strat), odnotowane, żeby nie zostało
+   wypowiadają się rozbieżnie; druk nr 3137 (UD116) dopuszcza ich odliczenie (B.8). Poza zakresem modelu (nie zna strat), odnotowane, żeby nie zostało
    przeoczone przy ewentualnym rozszerzeniu o działalność gospodarczą.
 6. **Czy zmieni się kwota graniczna dla wspólnego rozliczenia małżonków / rozliczenia z dzieckiem** —
    brak wzmianek, prawdopodobnie bez zmian (mechanizm jest niezależny od progów).
