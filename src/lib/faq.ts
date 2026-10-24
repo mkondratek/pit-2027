@@ -37,21 +37,18 @@ export const FAQ: Pytanie[] = [
     pytanie: 'A co z B2B, podatkiem liniowym i ryczałtem?',
     odpowiedz:
       'Ta strona liczy wyłącznie zmianę skali podatkowej, a ta obejmuje umowę o pracę, ' +
-      'zlecenie i emeryturę. Na podatku liniowym 19% sama skala nie zmienia nic. Projekt ' +
-      'UD458 jest jednak szerszy: obejmuje też CIT z 19% na 22% dla firm o przychodach ponad ' +
-      '50 mln euro, obniżenie limitu ryczałtu z 2 mln do 250 tys. euro wraz ze stawką 17% od ' +
-      'nadwyżki ponad 300 tys. euro oraz wzrost daniny solidarnościowej z 4% na 5%. ' +
+      'zlecenie i emeryturę. Na podatku liniowym 19% sama skala nie zmienia nic. Ustawa ' +
+      'jest jednak szersza: obejmuje też obniżenie limitu ryczałtu ' +
+      'z 2 mln do 250 tys. euro wraz ze stawką 17% od nadwyżki ponad 300 tys. euro oraz wzrost ' +
+      'daniny solidarnościowej z 4% na 5%. ' +
       'Kalkulator uwzględnia z tego tylko daninę.',
   },
   {
     pytanie: 'Czy to już pewne?',
     odpowiedz:
-      'Jeszcze nie. Jest projekt ustawy UD458; 28 września 2026 r. przyjęła go Rada ' +
-      'Ministrów, a 29 września trafił do Sejmu (druk nr 3147), gdzie 6 października po ' +
-      'pierwszym czytaniu skierowano go do Komisji Finansów Publicznych. Przed nim jeszcze uchwalenie, ' +
-      'Senat i podpis prezydenta, a skala może się ' +
-      'w pracach zmienić. Sam projekt uzależnia przy tym obniżkę PIT od wejścia w życie ' +
-      'podwyżki CIT i ograniczenia ryczałtu.',
+      'Jeszcze nie. 22 października 2026 r. Sejm uchwalił ustawę (druk nr 3147). Przed nią ' +
+      'Senat, który może wnieść poprawki, i podpis prezydenta, a dopóki nie zostanie ' +
+      'ogłoszona w Dzienniku Ustaw, nie obowiązuje.',
   },
   {
     pytanie: 'Kto to policzył i skąd mam wiedzieć, że dobrze?',

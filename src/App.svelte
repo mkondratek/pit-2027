@@ -26,11 +26,9 @@
 <main>
   <header>
     <p class="zastrzezenie">
-      <strong>To projekt, nie obowiązujące prawo.</strong> Rada Ministrów przyjęła go
-      28 września 2026 r., a 6 października odbyło się w Sejmie jego pierwsze czytanie (druk
-      nr 3147). Do wejścia w życie
-      potrzebuje jeszcze uchwalenia, przejścia przez Senat i podpisu prezydenta — skala może się
-      w pracach zmienić, a ustawa może nie wejść w życie.
+      <strong>Uchwalona przez Sejm, ale nie obowiązuje.</strong> Posłowie przyjęli ustawę
+      22 października 2026 r. (druk nr 3147). Przed nią Senat, który może wnieść poprawki,
+      i podpis prezydenta — skala może się więc zmienić, a ustawa może nie wejść w życie.
     </p>
 
     <h1>Ile zyskasz na zmianie PIT od 2027&nbsp;r.?</h1>
@@ -79,34 +77,27 @@
          pod twierdzeniem, którego nikt nie sprawdził (a druk wpłynął już 29.09).
          `__DATA_BUDOWY__` zostaje tylko w stopce. -->
     <p>
-      Od 21 sierpnia 2026 r. jest projekt ustawy — <strong>UD458</strong>, Ministra Finansów
-      i Gospodarki. Przeszedł uzgodnienia, konsultacje i Stały Komitet, 28 września 2026 r.
-      przyjęła go Rada Ministrów, a 29 września wpłynął do Sejmu jako <strong>druk nr 3147</strong>.
-      Pierwsze czytanie na posiedzeniu plenarnym odbyło się 6 października, a po nim projekt
-      skierowano do Komisji Finansów Publicznych. Nadal
+      Projekt ustawy — <strong>UD458</strong>, Ministra Finansów i Gospodarki — opublikowano
+      21 sierpnia 2026 r. Rada Ministrów przyjęła go 28 września, następnego dnia wpłynął do
+      Sejmu jako <strong>druk nr 3147</strong>, a 22 października posłowie uchwalili ustawę:
+      240 głosów za, 58 przeciw, 135 wstrzymujących się. Nadal
       <strong>nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co wynika
-      z projektu. Skala wyżej pochodzi już z jego art. 27 ust. 1, a nie z sierpniowej
-      zapowiedzi — <a href="https://legislacja.rcl.gov.pl/projekt/12413754">przebieg prac
-      na RCL</a> i <a href="https://www.sejm.gov.pl/Sejm10.nsf/druk.xsp?nr=3147">druk
-      sejmowy</a>.
+      z uchwalonego tekstu. Skala wyżej pochodzi z art. 27 ust. 1, który przez cały czas prac
+      pozostał bez zmian — przebieg prac
+      <a href="https://legislacja.rcl.gov.pl/projekt/12413754">na RCL</a>
+      i <a href="https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147">w Sejmie</a>.
     </p>
 
-    <!-- Warunkowość z art. 5 ust. 2 nie pojawia się w żadnym omówieniu, które czytałem,
-         a jest sprawdzalna i zmienia sposób czytania całej reformy. Podajemy sam przepis
-         bez oceny — wniosek należy do czytelnika. -->
-    <p>
-      Projekt spina obniżkę z podwyżkami: zgodnie z art. 5 ust. 2 nową skalę
-      <strong>stosuje się pod warunkiem</strong>, że 1 stycznia 2027 r. wejdą w życie także
-      przepisy o podniesieniu CIT do 22% i o obniżeniu limitu ryczałtu do 250 tys. euro.
-      Bez nich obniżka PIT nie działa.
-    </p>
+    <!-- Strona opisuje ustawę w obecnym brzmieniu, nie jej historię. Do 22.10.2026 stał tu
+         akapit o warunku z art. 5 ust. 2 projektu (obniżka PIT spięta z podwyżką CIT); Sejm
+         wykreślił i warunek, i CIT. Historia zmian jest w model.md (A.2, A.7) i README. -->
 
     <p>
       Sam sposób liczenia wynagrodzenia jest zwykłą listą płac: składki 13,71%, zdrowotna 9%,
       koszty uzyskania przychodu 250 zł (albo 300 zł poza miejscowością zakładu pracy), wpłaty PPK
       2% pracownika i 1,5% pracodawcy, kwota zmniejszająca 300 zł miesięcznie, zaokrąglenia
       wg art. 63 §1 Ordynacji podatkowej. Model odtwarza kwoty, które przy tej zapowiedzi
-      opublikowały Bankier i money.pl, a od 21 sierpnia także tabelę z art. 27 ust. 1 projektu
+      opublikowały Bankier i money.pl, a od 21 sierpnia także tabelę z art. 27 ust. 1 ustawy
       — co do złotówki w punktach granicznych 130 000 i 150 000 zł.
     </p>
   </section>
@@ -155,12 +146,10 @@
            co było po prostu nieprawdą i przeczyło własnemu silnikowi: `constants.ts` modeluje
            daninę 4% → 5% i nazywa ją składnikiem *pakietu*. Czytelnik, który chce ocenić tę
            reformę całościowo, potrzebuje wiedzieć, że skala to jej część, a nie całość. -->
-      Projekt jest jednak szerszy niż sama skala. Obejmuje też podniesienie CIT z 19% na 22%
-      dla firm o przychodach powyżej 50 mln euro oraz dla jednostek grup objętych opodatkowaniem
-      wyrównawczym, obniżenie limitu ryczałtu z 2 mln do 250 tys. euro wraz z nową stawką 17%
-      od nadwyżki ponad 300 tys. euro, a także wzrost daniny solidarnościowej z 4% na 5%.
-      Z tego wszystkiego kalkulator uwzględnia wyłącznie daninę, bo jako jedyna dotyczy osób
-      rozliczających się według skali.
+      Ustawa jest jednak szersza niż sama skala. Obejmuje też obniżenie limitu ryczałtu
+      z 2 mln do 250 tys. euro wraz z nową stawką 17% od nadwyżki ponad 300 tys. euro oraz
+      wzrost daniny solidarnościowej z 4% na 5%. Kalkulator uwzględnia z tego wyłącznie daninę,
+      bo jako jedyna dotyczy osób rozliczających się według skali.
       Do liczenia podatków na B2B, umowie o pracę i zleceniu w ogóle, łącznie z porównaniem
       form opodatkowania, dobrym narzędziem jest
       <a href="https://ladnepodatki.pl">ladnepodatki.pl</a>.
@@ -168,11 +157,10 @@
 
     <h3>Czy to już pewne?</h3>
     <p>
-      Jeszcze nie, ale bliżej niż na początku. Jest projekt ustawy (UD458): 28 września 2026 r.
-      przyjęła go Rada Ministrów, następnego dnia trafił do Sejmu jako druk nr 3147, a 6 października,
-      po pierwszym czytaniu, skierowano go do Komisji Finansów Publicznych. Przed nim
-      jeszcze uchwalenie, Senat i podpis prezydenta — skala może się po drodze zmienić, a dopóki ustawa nie zostanie ogłoszona, nie obowiązuje nic. Dodatkowo
-      sam projekt uzależnia obniżkę PIT od wejścia w życie podwyżki CIT i ograniczenia ryczałtu.
+      Jeszcze nie, ale bliżej niż na początku. 22 października 2026 r. Sejm uchwalił ustawę
+      (druk nr 3147). Kolejny etap to Senat, który może wnieść poprawki — wtedy ustawa wraca
+      do posłów — a ostatni to prezydent, który może ją podpisać albo zawetować. Dopóki nie
+      zostanie ogłoszona w Dzienniku Ustaw, nie obowiązuje nic.
     </p>
 
     <h3>Kto to policzył i skąd mam wiedzieć, że dobrze?</h3>
