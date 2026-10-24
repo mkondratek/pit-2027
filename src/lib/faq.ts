@@ -51,6 +51,14 @@ export const FAQ: Pytanie[] = [
       'ogłoszona w Dzienniku Ustaw, nie obowiązuje.',
   },
   {
+    pytanie: 'Od kiedy zobaczę różnicę?',
+    odpowiedz:
+      'Nowa skala dotyczy dochodów od 1 stycznia 2027 r.; za 2026 r. nic się nie zmienia. ' +
+      'Na umowie o pracę różnica pojawi się w wypłatach w 2027 r. od miesiąca, w którym ' +
+      'dochód od początku roku przekroczy 120 000 zł, więc zwykle nie od stycznia. Na umowie ' +
+      'zlecenia cały zysk wyjdzie w zeznaniu za 2027 r., składanym wiosną 2028 r.',
+  },
+  {
     pytanie: 'Kto to policzył i skąd mam wiedzieć, że dobrze?',
     odpowiedz:
       'Stronę napisał Mikołaj Kondratek — programista, nie doradca podatkowy, więc nie trzeba ' +

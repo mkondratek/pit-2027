@@ -163,6 +163,21 @@
       zostanie ogłoszona w Dzienniku Ustaw, nie obowiązuje nic.
     </p>
 
+    <!-- Kwota „netto miesięcznie” to średnia z roku, a na etacie zysk przychodzi
+         dopiero po przekroczeniu 120 000 zł dochodu od początku roku (art. 32 ust. 2
+         w nowym brzmieniu). Przy 15 000 zł brutto: ok. 12 694 zł dochodu miesięcznie,
+         120 000 zł przekroczone w 10. miesiącu. Zlecenie: art. 41 ust. 1, stałe 12%. -->
+    <h3>Od kiedy zobaczę różnicę?</h3>
+    <p>
+      Nowa skala dotyczy dochodów od 1 stycznia 2027 r. — za 2026 r. nic się nie zmienia. Na
+      umowie o pracę różnica przyjdzie w wypłatach w 2027 r., ale nie od stycznia: pracodawca
+      zacznie pobierać mniej podatku dopiero od miesiąca, w którym Twój dochód od początku roku
+      przekroczy 120 000 zł. Im niższa pensja, tym później — przy 15 000 zł brutto mniej więcej
+      od października. Kwota „miesięcznie” w kalkulatorze to średnia z całego roku. Na umowie
+      zlecenia zaliczki się nie zmieniają, a cały zysk wyjdzie w zeznaniu za 2027 r., składanym
+      wiosną 2028 r.
+    </p>
+
     <h3>Kto to policzył i skąd mam wiedzieć, że dobrze?</h3>
     <p>
       Stronę napisał Mikołaj Kondratek — programista, nie doradca podatkowy, więc nie trzeba mu
