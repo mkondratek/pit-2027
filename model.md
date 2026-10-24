@@ -23,8 +23,10 @@ scenariusza **2027 (proponowanego)**.
 > Projekt `UD458` (Minister Finansów i Gospodarki) jest na RCL od **21.08.2026**, przeszedł
 > uzgodnienia, konsultacje i Stały Komitet, **28.09.2026 przyjęła go Rada Ministrów**, a
 > **29.09.2026 wpłynął do Sejmu** jako druk nr 3147; **6.10.2026**, po pierwszym czytaniu na
-> posiedzeniu Sejmu, skierowano go do Komisji Finansów Publicznych. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>,
-> druk: <https://www.sejm.gov.pl/Sejm10.nsf/druk.xsp?nr=3147>
+> posiedzeniu Sejmu, skierowano go do Komisji Finansów Publicznych, a **22.10.2026 Sejm
+> uchwalił ustawę** (szczegóły i zmiany w A.7). Przed nią Senat i prezydent.
+> Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>,
+> <https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147>
 >
 > Dokument powstał 19.08.2026, gdy projektu nie było, i wszystko w części 2027 nosiło wtedy
 > `[ZAPOWIEDŹ]`. Twierdzenia mające dziś oparcie w tekście przepisu zostały przeniesione na
@@ -81,11 +83,21 @@ a liczy to samo — warto to wiedzieć przy porównywaniu z tekstem ustawy:
 
 (15 600 − 3 600 = 12 000; 20 400 − 3 600 = 16 800 — stąd obie postacie są równoważne.)
 
-> **Warunek zawieszający — `[PROJEKT]`, art. 5 ust. 2.** Nową skalę (art. 27 ust. 1 oraz
-> art. 32 ust. 2 i 3) stosuje się **pod warunkiem** wejścia w życie z dniem 1.01.2027 przepisów
-> o podwyżce CIT (art. 19 ust. 1 pkt 6 i nast. ustawy o CIT) oraz o obniżeniu limitu ryczałtu
-> (art. 6 ust. 4 i 6 ustawy o ryczałcie). Obniżka PIT jest prawnie spięta z podwyżkami — bez
-> nich nie działa. Nie spotkałem tego w żadnym omówieniu prasowym.
+> **Warunek zawieszający — wykreślony przez Sejm 22.10.2026.** W projekcie (art. 5 ust. 2)
+> nową skalę (art. 27 ust. 1 oraz art. 32 ust. 2 i 3) stosowało się **pod warunkiem** wejścia
+> w życie z dniem 1.01.2027 przepisów o podwyżce CIT (art. 19 ust. 1 pkt 6 i nast. ustawy
+> o CIT) oraz o obniżeniu limitu ryczałtu (art. 6 ust. 4 i 6 ustawy o ryczałcie).
+> `[PEWNE]` W III czytaniu przyjęto wnioski mniejszości nr 4, 7 i 11 z druku 3225 (220 za,
+> 214 przeciw; API Sejmu `votings/67/39`): skreślają art. 2 (cała zmiana ustawy o CIT), art. 5
+> ust. 2 wraz z odesłaniem w ust. 1 oraz art. 6. Obniżka PIT nie jest już spięta z niczym.
+>
+> **Waloryzacja — dopisana przez Sejm 22.10.2026.** `[PEWNE]` Przyjęto też wnioski mniejszości
+> nr 2 i 10 (217 za, 200 przeciw; `votings/67/37`): nowe art. 27 ust. 1e–1g — kwoty skali
+> i kwoty z art. 32 ust. 2 i 3 „odpowiadające górnym granicom przedziałów" co roku rosną
+> o średnioroczny CPI (gdy > 100), z zaokrągleniem w górę do złotego, obwieszczenie MF do
+> 30 listopada — oraz art. 5a: pierwsza waloryzacja w 2027 r. **na rok 2028**, wskaźnikiem
+> za 2026 r. Na 2027 r. modelu nie zmienia. `[NIEJASNE]` Czy obejmuje także kwotę zmniejszającą
+> 3 600 zł — składnia przepisu pozwala na oba odczytania; do sprawdzenia w tekście ostatecznym.
 
 Zmiany względem 2026:
 1. Górna granica I przedziału: **120 000 → 130 000 zł** (stawka 12% bez zmian).
@@ -158,12 +170,13 @@ Liczby MF `[ZAPOWIEDŹ / szacunek MF]`:
 
 | Element | Stan 2026 | Propozycja 2027 |
 |---|---|---|
-| CIT stawka podstawowa | 19% | **22%** dla podmiotów o przychodach > 50 mln EUR (~200 mln zł) oraz dla PGK |
+| CIT stawka podstawowa | 19% | ~~**22%** dla podmiotów o przychodach > 50 mln EUR (~200 mln zł) oraz dla PGK~~ — **wykreślone przez Sejm 22.10.2026** (A.2) |
 | Danina solidarnościowa | 4% > 1 mln zł | **5%** > 1 mln zł |
 | Limit wejścia na ryczałt | 2 mln EUR | **250 tys. EUR** (powrót do limitu sprzed 2021) |
 | IP Box | 5% PIT | modyfikacja preferencji (patrz UD116) |
 
 Szacowany wpływ podwyżki CIT: **~8,6 mld zł/rok**. Minister Domański: zmiany mają się bilansować.
+(Podwyżkę CIT Sejm wykreślił 22.10.2026 — A.2.)
 Źródło: <https://www.bankier.pl/wiadomosc/Podatkowa-rewolucja-Tuska-Takie-zmiany-czekaja-PIT-9184270.html>
 
 > Sprostowanie do artykułu inFakt (punkt wyjścia zadania): inFakt podaje koszt reformy PIT
@@ -185,20 +198,26 @@ Szacowany wpływ podwyżki CIT: **~8,6 mld zł/rok**. Minister Domański: zmiany
 | **29.09.2026** | **wpłynięcie do Sejmu: druk nr 3147** `[PEWNE]` — API Sejmu (`processes/3147`: „Projekt wpłynął do Sejmu") |
 | 29.09.2026 | skierowanie do pierwszego czytania na posiedzeniu Sejmu `[PEWNE]` — to samo API („Skierowano do I czytania na posiedzeniu Sejmu"; bez skierowania do komisji) |
 | **6.10.2026** | **pierwsze czytanie** na 66. posiedzeniu Sejmu i skierowanie do Komisji Finansów Publicznych (FPB) `[PEWNE]` — API Sejmu (`processes/3147`, dopisane tam po 7.10) |
-| 20.10.2026 | posiedzenie FPB z rozpatrzeniem druków 3137 (UD116), 3147, 3148 i 3149 — **plan** wg API Sejmu (`committees/FPB/sittings`, stan na 15.10.2026), nie fakt |
+| 20.10.2026 | sprawozdanie FPB — **druk nr 3225** (sprawozdawca T. Kostuś); 11 wniosków mniejszości. Skala, danina, art. 5 ust. 2 i 3 bez zmian merytorycznych; zmiany redakcyjne w części CIT `[PEWNE]` — porównanie tekstu druku 3147 z załącznikiem do 3225 |
+| 21.10.2026 | drugie czytanie (67. posiedzenie); wniosek o odrzucenie i poprawki → ponownie do FPB |
+| 22.10.2026 | dodatkowe sprawozdanie — **druk nr 3225-A**: komisja za odrzuceniem wniosku i poprawek PiS (m.in. jeden próg 180 000 zł) |
+| **22.10.2026** | **trzecie czytanie — ustawa uchwalona**: 240 za, 58 przeciw, 135 wstrzymujących się `[PEWNE]` — API Sejmu (`votings/67/42`). Odrzucone: wniosek o odrzucenie (51:335), poprawki 1–3 PiS z progiem 180 000 zł (189:231), wnioski mniejszości 1, 3+9 (skreślenie daniny 5%), 5, 6+8. **Przyjęte: wnioski mniejszości 2+10 (waloryzacja, 217:200) i 4+7+11 (skreślenie CIT i warunku z art. 5 ust. 2, 220:214)** — patrz A.2 |
+| — | tekst uchwalony (`processes/3147` → `textAfter3`, `3147_u3.pdf`) w API zwracał 404 przy sprawdzeniu 24.10.2026; treść odtworzona z załącznika do druku 3225 i przyjętych wniosków mniejszości. Porównać z tekstem przekazanym Senatowi, gdy się pojawi |
 
 Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>.
 Wersja tekstu, na której oparty jest ten dokument: „Projekt z dnia 24 września 2026 r.",
 skierowana na Radę Ministrów. Treść druku nr 3147 (PDF z Sejmu) porównano z tą wersją:
 `[PROJEKT]` skala z art. 1 pkt 1 (art. 27 ust. 1), danina 4% → 5% z art. 1 pkt 2 oraz art. 5 ust. 3
 (po raz pierwszy za 2027 r., termin 2.05.2028), warunek z art. 5 ust. 2 i wejście w życie z art. 7
-(1.01.2027) są w druku **identyczne**. To wciąż nie jest prawo.
+(1.01.2027) są w druku **identyczne**. Skala i danina przeszły też bez zmian przez komisję
+i III czytanie; warunek z art. 5 ust. 2 Sejm wykreślił (A.2). To wciąż nie jest prawo.
 
 W obiegu są **trzy różne, mylone ze sobą rzeczy**:
 
 1. **Projekt rządowy UD458** (130/150 tys., 24%) — `[PROJEKT]`; na RCL od 21.08.2026,
    przyjęty przez Radę Ministrów 28.09.2026, w Sejmie od 29.09.2026 (druk nr 3147),
-   po pierwszym czytaniu 6.10.2026 w Komisji Finansów Publicznych.
+   **uchwalony przez Sejm 22.10.2026** — bez podwyżki CIT i bez warunku z art. 5 ust. 2,
+   z dopisaną waloryzacją progów od 2028 r.
    Deklarowane wejście w życie: **1 stycznia 2027 r.**, tj. dochody od 1.01.2027.
    Rząd musi zamknąć legislację w 2026 r., by weszło od 2027.
 
@@ -1010,7 +1029,7 @@ Założenia: KUP podstawowe 250 zł, PIT-2 złożony, brak PPK, brak ulg, dochó
 - Pełna korzyść od dochodu ≥ 150 000 zł ⇒ brutto ≈ **14 776 zł/mies**.
 - Wzór na brutto z dochodu (KUP 250, poniżej 30-krotności): `brutto_rok = (dochód + 3000) / 0,8629`.
 - **Nikt nie traci** na samej zmianie skali — funkcja podatku 2027 jest ≤ funkcji 2026 dla każdego
-  dochodu. Tracą wyłącznie osoby objęte innymi elementami pakietu (danina 5%, limit ryczałtu, CIT).
+  dochodu. Tracą wyłącznie osoby objęte innymi elementami pakietu (danina 5%, limit ryczałtu; CIT w projekcie, wykreślony przez Sejm 22.10.2026).
 - Ciekawostka: maksymalna korzyść 3 600 zł przypadkowo równa się kwocie zmniejszającej podatek —
   to zbieg okoliczności, nie zależność.
 

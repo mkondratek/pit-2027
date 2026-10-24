@@ -16,25 +16,28 @@ daje nic i kalkulator to wprost pokazuje.
 
 Strona: <https://pit.kondratek.pl>
 
-## To projekt, nie obowiązujące prawo
+## Uchwalona przez Sejm, ale nie obowiązuje
 
 Repozytorium powstało 19.08.2026, gdy projektu ustawy jeszcze nie było i jedynym źródłem
 były komunikaty rządowe. **Projekt pojawił się na RCL 21.08.2026** jako `UD458` (Minister
 Finansów i Gospodarki), przeszedł uzgodnienia, konsultacje i Stały Komitet, a **28.09.2026
-przyjęła go Rada Ministrów**. **29.09.2026 wpłynął do Sejmu** jako druk nr 3147. **6.10.2026** odbyło
-się pierwsze czytanie na posiedzeniu Sejmu, po którym projekt skierowano do Komisji Finansów
-Publicznych (API Sejmu, `processes/3147`).
+przyjęła go Rada Ministrów**. **29.09.2026 wpłynął do Sejmu** jako druk nr 3147, 6.10.2026 przeszedł pierwsze czytanie,
+a **22.10.2026 Sejm go uchwalił** (240 za, 58 przeciw, 135 wstrzymujących się; API Sejmu,
+`processes/3147` i `votings/67`). Przed ustawą Senat i podpis prezydenta.
 
-Skala w kalkulatorze pochodzi więc dziś z art. 27 ust. 1 projektu, a nie z konferencji
-prasowej — i została z tym tekstem zweryfikowana co do złotówki w punktach granicznych
-130 000 i 150 000 zł. Ale to wciąż **projekt**: może się zmienić w Sejmie albo nie wejść
-w życie. Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>, druk sejmowy:
-<https://www.sejm.gov.pl/Sejm10.nsf/druk.xsp?nr=3147>. Tekst druku porównano z wersją RCL
-z 24.09.2026 (skala, danina, art. 5 ust. 2 i 3, art. 7) — bez różnic.
+Skala w kalkulatorze pochodzi z art. 27 ust. 1, a nie z konferencji prasowej — i została
+z tym tekstem zweryfikowana co do złotówki w punktach granicznych 130 000 i 150 000 zł.
+Sejm jej nie zmienił: poprawkę z progiem 180 000 zł odrzucono. Ale to wciąż **nie jest
+obowiązujące prawo**: Senat może wnieść poprawki, prezydent — zawetować. Przebieg prac:
+<https://legislacja.rcl.gov.pl/projekt/12413754>, w Sejmie:
+<https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147>.
 
-Osobna rzecz warta odnotowania — art. 5 ust. 2 projektu **uzależnia** stosowanie nowej skali
-od tego, czy 1.01.2027 wejdą w życie także podwyżka CIT do 22% i obniżenie limitu ryczałtu
-do 250 tys. euro. Obniżka PIT i podwyżki są spięte prawnie.
+W Sejmie zmieniło się to, co wokół skali. Projekt rządowy w art. 5 ust. 2 **uzależniał**
+stosowanie nowej skali od wejścia w życie podwyżki CIT do 22% i obniżenia limitu ryczałtu
+do 250 tys. euro. Przyjęte wnioski mniejszości wykreśliły ten warunek i całą podwyżkę CIT
+(art. 2 i 6 projektu) oraz dopisały coroczną waloryzację kwot skali o inflację, pierwszy raz
+na 2028 r. Obniżenie limitu ryczałtu i danina 5% zostały. Wyliczeń za 2027 r. nic z tego
+nie zmienia.
 
 To samo zastrzeżenie niesie sama strona — nie jest schowane w dokumentacji.
 
