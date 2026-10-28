@@ -27,8 +27,9 @@
   <header>
     <p class="zastrzezenie">
       <strong>Uchwalona przez Sejm, ale nie obowiązuje.</strong> Posłowie przyjęli ustawę
-      22 października 2026 r. (druk nr 3147). Przed nią Senat, który może wnieść poprawki,
-      i podpis prezydenta — skala może się więc zmienić, a ustawa może nie wejść w życie.
+      22 października 2026 r. (druk nr 3147), a 27 października Senat wniósł do niej poprawki.
+      Skali nie zmieniają, ale ustawa wraca jeszcze do posłów, a potem trafi do prezydenta,
+      który może ją podpisać albo zawetować.
     </p>
 
     <h1>Ile zyskasz na zmianie PIT od 2027&nbsp;r.?</h1>
@@ -80,7 +81,11 @@
       Projekt ustawy — <strong>UD458</strong>, Ministra Finansów i Gospodarki — opublikowano
       21 sierpnia 2026 r. Rada Ministrów przyjęła go 28 września, następnego dnia wpłynął do
       Sejmu jako <strong>druk nr 3147</strong>, a 22 października posłowie uchwalili ustawę:
-      240 głosów za, 58 przeciw, 135 wstrzymujących się. Nadal
+      240 głosów za, 58 przeciw, 135 wstrzymujących się. 27 października Senat wprowadził
+      8 poprawek: przywracają podwyżkę CIT do 22% dla największych firm i warunek, że nowa
+      skala obowiązuje tylko razem z nią i z obniżeniem limitu ryczałtu, a skreślają dopisaną
+      przez posłów waloryzację kwot skali o inflację. Każdą z nich posłowie mogą odrzucić
+      bezwzględną większością głosów. Nadal
       <strong>nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co wynika
       z uchwalonego tekstu. Skala wyżej pochodzi z art. 27 ust. 1, który przez cały czas prac
       pozostał bez zmian — przebieg prac
@@ -147,8 +152,7 @@
            daninę 4% → 5% i nazywa ją składnikiem *pakietu*. Czytelnik, który chce ocenić tę
            reformę całościowo, potrzebuje wiedzieć, że skala to jej część, a nie całość. -->
       Ustawa jest jednak szersza niż sama skala. Obejmuje też obniżenie limitu ryczałtu
-      z 2 mln do 250 tys. euro wraz z nową stawką 17% od nadwyżki ponad 300 tys. euro oraz
-      wzrost daniny solidarnościowej z 4% na 5%. Kalkulator uwzględnia z tego wyłącznie daninę,
+      z 2 mln do 250 tys. euro oraz wzrost daniny solidarnościowej z 4% na 5%. Kalkulator uwzględnia z tego wyłącznie daninę,
       bo jako jedyna dotyczy osób rozliczających się według skali.
       Do liczenia podatków na B2B, umowie o pracę i zleceniu w ogóle, łącznie z porównaniem
       form opodatkowania, dobrym narzędziem jest
@@ -158,8 +162,9 @@
     <h3>Czy to już pewne?</h3>
     <p>
       Jeszcze nie, ale bliżej niż na początku. 22 października 2026 r. Sejm uchwalił ustawę
-      (druk nr 3147). Kolejny etap to Senat, który może wnieść poprawki — wtedy ustawa wraca
-      do posłów — a ostatni to prezydent, który może ją podpisać albo zawetować. Dopóki nie
+      (druk nr 3147), a 27 października Senat wniósł do niej poprawki. Ustawa wraca więc do
+      posłów, którzy mogą je odrzucić bezwzględną większością głosów, a ostatnie słowo należy
+      do prezydenta, który może ją podpisać albo zawetować. Dopóki nie
       zostanie ogłoszona w Dzienniku Ustaw, nie obowiązuje nic.
     </p>
 
