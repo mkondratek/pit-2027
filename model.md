@@ -24,7 +24,8 @@ scenariusza **2027 (proponowanego)**.
 > uzgodnienia, konsultacje i Stały Komitet, **28.09.2026 przyjęła go Rada Ministrów**, a
 > **29.09.2026 wpłynął do Sejmu** jako druk nr 3147; **6.10.2026**, po pierwszym czytaniu na
 > posiedzeniu Sejmu, skierowano go do Komisji Finansów Publicznych, a **22.10.2026 Sejm
-> uchwalił ustawę** (szczegóły i zmiany w A.7). Przed nią Senat i prezydent.
+> uchwalił ustawę**, a **27.10.2026 Senat wprowadził 8 poprawek** (szczegóły w A.7). Przed nią
+> głosowanie Sejmu nad poprawkami i prezydent.
 > Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>,
 > <https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147>
 >
@@ -90,6 +91,8 @@ a liczy to samo — warto to wiedzieć przy porównywaniu z tekstem ustawy:
 > `[PEWNE]` W III czytaniu przyjęto wnioski mniejszości nr 4, 7 i 11 z druku 3225 (220 za,
 > 214 przeciw; API Sejmu `votings/67/39`): skreślają art. 2 (cała zmiana ustawy o CIT), art. 5
 > ust. 2 wraz z odesłaniem w ust. 1 oraz art. 6. Obniżka PIT nie jest już spięta z niczym.
+> **Senat 27.10.2026 przywrócił i warunek, i CIT** (A.7) — o ostatecznym brzmieniu zdecyduje
+> głosowanie w Sejmie nad poprawkami Senatu.
 >
 > **Waloryzacja — dopisana przez Sejm 22.10.2026.** `[PEWNE]` Przyjęto też wnioski mniejszości
 > nr 2 i 10 (217 za, 200 przeciw; `votings/67/37`): nowe art. 27 ust. 1e–1g — kwoty skali
@@ -202,7 +205,10 @@ Szacowany wpływ podwyżki CIT: **~8,6 mld zł/rok**. Minister Domański: zmiany
 | 21.10.2026 | drugie czytanie (67. posiedzenie); wniosek o odrzucenie i poprawki → ponownie do FPB |
 | 22.10.2026 | dodatkowe sprawozdanie — **druk nr 3225-A**: komisja za odrzuceniem wniosku i poprawek PiS (m.in. jeden próg 180 000 zł) |
 | **22.10.2026** | **trzecie czytanie — ustawa uchwalona**: 240 za, 58 przeciw, 135 wstrzymujących się `[PEWNE]` — API Sejmu (`votings/67/42`). Odrzucone: wniosek o odrzucenie (51:335), poprawki 1–3 PiS z progiem 180 000 zł (189:231), wnioski mniejszości 1, 3+9 (skreślenie daniny 5%), 5, 6+8. **Przyjęte: wnioski mniejszości 2+10 (waloryzacja, 217:200) i 4+7+11 (skreślenie CIT i warunku z art. 5 ust. 2, 220:214)** — patrz A.2 |
-| — | tekst uchwalony (`processes/3147` → `textAfter3`, `3147_u3.pdf`) w API zwracał 404 przy sprawdzeniu 24.10.2026; treść odtworzona z załącznika do druku 3225 i przyjętych wniosków mniejszości. Porównać z tekstem przekazanym Senatowi, gdy się pojawi |
+| 23.10.2026 | przekazanie do Senatu — **druk senacki nr 883**, termin dla Senatu 22.11.2026. `[PEWNE]` Tekst przekazany Senatowi (`3147_u3.pdf` z API Sejmu, dostępny od ok. 27.10) zgadza się z odtworzonym ze sprawozdania i wniosków mniejszości: art. 27 ust. 1 i danina bez zmian, waloryzacja w art. 27 ust. 1e–1g. Po skreśleniach zmieniła się numeracja: stosowanie od 1.01.2027 — art. 4 ust. 1, danina od 2.05.2028 — art. 4 ust. 2, pierwsza waloryzacja — art. 5, wejście w życie — art. 6; z tytułu zniknęła ustawa o CIT |
+| 26.10.2026 | senacka Komisja Budżetu i Finansów Publicznych: wniosek o 8 poprawek (**druk 883 A**) |
+| **27.10.2026** | **Senat wprowadził 8 poprawek** `[PEWNE]` — senat.gov.pl, 67. posiedzenie Senatu, druki 883 A i 883 Z (przyjęte wnioski 1, 4, 5, 7, 8, 9, 10, 11; poprawka z jednym progiem 180 000 zł nie przeszła). Treść: przywrócenie CIT 22% (nowy art. 1a i 4a, tytuł z ustawą o CIT), przywrócenie warunku (nowy art. 4 ust. 1a: skala tylko przy wejściu w życie 1.01.2027 art. 1a i art. 2 pkt 1), skreślenie waloryzacji (art. 1 pkt 1 lit. b i art. 5), skreślenie stawki ryczałtu 17% ponad 300 tys. euro (art. 2 pkt 2). **Skali i daniny poprawki nie dotykają.** Obniżony limit ryczałtu zostaje |
+| 5–6.11.2026 | najbliższe posiedzenie Sejmu (68.) — **plan** wg API Sejmu (`proceedings`, stan na 28.10.2026); głosowanie nad poprawkami Senatu, odrzucenie każdej wymaga bezwzględnej większości |
 
 Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>.
 Wersja tekstu, na której oparty jest ten dokument: „Projekt z dnia 24 września 2026 r.",

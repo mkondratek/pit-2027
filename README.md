@@ -16,19 +16,19 @@ daje nic i kalkulator to wprost pokazuje.
 
 Strona: <https://pit.kondratek.pl>
 
-## Uchwalona przez Sejm, ale nie obowiązuje
+## Uchwalona przez Sejm, poprawiona przez Senat — nie obowiązuje
 
 Repozytorium powstało 19.08.2026, gdy projektu ustawy jeszcze nie było i jedynym źródłem
 były komunikaty rządowe. **Projekt pojawił się na RCL 21.08.2026** jako `UD458` (Minister
 Finansów i Gospodarki), przeszedł uzgodnienia, konsultacje i Stały Komitet, a **28.09.2026
 przyjęła go Rada Ministrów**. **29.09.2026 wpłynął do Sejmu** jako druk nr 3147, 6.10.2026 przeszedł pierwsze czytanie,
 a **22.10.2026 Sejm go uchwalił** (240 za, 58 przeciw, 135 wstrzymujących się; API Sejmu,
-`processes/3147` i `votings/67`). Przed ustawą Senat i podpis prezydenta.
+`processes/3147` i `votings/67`). 27.10.2026 Senat wniósł poprawki (niżej).
 
 Skala w kalkulatorze pochodzi z art. 27 ust. 1, a nie z konferencji prasowej — i została
 z tym tekstem zweryfikowana co do złotówki w punktach granicznych 130 000 i 150 000 zł.
 Sejm jej nie zmienił: poprawkę z progiem 180 000 zł odrzucono. Ale to wciąż **nie jest
-obowiązujące prawo**: Senat może wnieść poprawki, prezydent — zawetować. Przebieg prac:
+obowiązujące prawo**: Sejm głosuje nad poprawkami Senatu, prezydent może zawetować. Przebieg prac:
 <https://legislacja.rcl.gov.pl/projekt/12413754>, w Sejmie:
 <https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147>.
 
@@ -38,6 +38,10 @@ do 250 tys. euro. Przyjęte wnioski mniejszości wykreśliły ten warunek i cał
 (art. 2 i 6 projektu) oraz dopisały coroczną waloryzację kwot skali o inflację, pierwszy raz
 na 2028 r. Obniżenie limitu ryczałtu i danina 5% zostały. Wyliczeń za 2027 r. nic z tego
 nie zmienia.
+
+**27.10.2026 Senat wprowadził 8 poprawek** (druki senackie 883 A i 883 Z): przywraca CIT 22%
+i warunek, skreśla waloryzację i stawkę ryczałtu 17% ponad 300 tys. euro. Skali i daniny nie
+dotyka. Ustawa wraca do Sejmu, który każdą poprawkę może odrzucić bezwzględną większością.
 
 To samo zastrzeżenie niesie sama strona — nie jest schowane w dokumentacji.
 
