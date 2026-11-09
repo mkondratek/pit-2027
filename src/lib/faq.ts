@@ -39,16 +39,16 @@ export const FAQ: Pytanie[] = [
       'Ta strona liczy wyłącznie zmianę skali podatkowej, a ta obejmuje umowę o pracę, ' +
       'zlecenie i emeryturę. Na podatku liniowym 19% sama skala nie zmienia nic. Ustawa ' +
       'jest jednak szersza: obejmuje też obniżenie limitu ryczałtu ' +
-      'z 2 mln do 250 tys. euro oraz wzrost ' +
+      'z 2 mln do 250 tys. euro, podwyżkę CIT do 22% dla największych firm oraz wzrost ' +
       'daniny solidarnościowej z 4% na 5%. ' +
       'Kalkulator uwzględnia z tego tylko daninę.',
   },
   {
     pytanie: 'Czy to już pewne?',
     odpowiedz:
-      'Jeszcze nie. 22 października 2026 r. Sejm uchwalił ustawę (druk nr 3147), a ' +
-      '27 października Senat wniósł do niej poprawki, które wracają teraz do posłów. Na końcu ' +
-      'ustawę podpisuje albo wetuje prezydent, a dopóki nie zostanie ogłoszona w Dzienniku ' +
+      'Jeszcze nie. Ustawę (druk nr 3293) uchwalił Sejm 5 listopada 2026 r., a Senat przyjął ' +
+      'ją bez poprawek 6 listopada. Prezydent ma 21 dni, by ją podpisać, zawetować albo ' +
+      'skierować do Trybunału Konstytucyjnego. Dopóki nie zostanie ogłoszona w Dzienniku ' +
       'Ustaw, nie obowiązuje.',
   },
   {

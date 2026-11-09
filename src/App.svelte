@@ -26,10 +26,10 @@
 <main>
   <header>
     <p class="zastrzezenie">
-      <strong>Uchwalona przez Sejm, ale nie obowiązuje.</strong> Posłowie przyjęli ustawę
-      22 października 2026 r. (druk nr 3147), a 27 października Senat wniósł do niej poprawki.
-      Skali nie zmieniają, ale ustawa wraca jeszcze do posłów, a potem trafi do prezydenta,
-      który może ją podpisać albo zawetować.
+      <strong>Uchwalona, czeka na prezydenta.</strong> Sejm i Senat przyjęły ustawę (druk
+      nr 3293) 5 i 6 listopada 2026 r. Prezydent ma 21 dni, by ją podpisać, zawetować albo
+      skierować do Trybunału Konstytucyjnego. Dopóki nie zostanie podpisana i ogłoszona,
+      nie obowiązuje.
     </p>
 
     <h1>Ile zyskasz na zmianie PIT od 2027&nbsp;r.?</h1>
@@ -79,23 +79,27 @@
          `__DATA_BUDOWY__` zostaje tylko w stopce. -->
     <p>
       Projekt ustawy — <strong>UD458</strong>, Ministra Finansów i Gospodarki — opublikowano
-      21 sierpnia 2026 r. Rada Ministrów przyjęła go 28 września, następnego dnia wpłynął do
-      Sejmu jako <strong>druk nr 3147</strong>, a 22 października posłowie uchwalili ustawę:
-      240 głosów za, 58 przeciw, 135 wstrzymujących się. 27 października Senat wprowadził
-      8 poprawek: przywracają podwyżkę CIT do 22% dla największych firm i warunek, że nowa
-      skala obowiązuje tylko razem z nią i z obniżeniem limitu ryczałtu, a skreślają dopisaną
-      przez posłów waloryzację kwot skali o inflację. Każdą z nich posłowie mogą odrzucić
-      bezwzględną większością głosów. Nadal
-      <strong>nie jest to obowiązujące prawo</strong> — kalkulator pokazuje, co wynika
-      z uchwalonego tekstu. Skala wyżej pochodzi z art. 27 ust. 1, który przez cały czas prac
-      pozostał bez zmian — przebieg prac
+      21 sierpnia 2026 r. Ustawa, która trafiła do prezydenta, to <strong>druk nr 3293</strong>:
+      rząd złożył go 4 listopada, posłowie uchwalili 5 listopada (236 głosów za, 207 przeciw),
+      a 6 listopada Senat przyjął go bez poprawek. To drugi projekt z tą samą skalą — pierwszą
+      wersję (druk nr 3147) Sejm uchwalił 22 października, a Senat wniósł do niej poprawki,
+      nad którymi jeszcze nie głosowano. Nadal <strong>nie jest to obowiązujące prawo</strong>
+      — kalkulator pokazuje, co wynika z tekstu przekazanego prezydentowi. Skala wyżej pochodzi
+      z art. 27 ust. 1, który nie zmienił się na żadnym etapie prac — przebieg prac
       <a href="https://legislacja.rcl.gov.pl/projekt/12413754">na RCL</a>
-      i <a href="https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147">w Sejmie</a>.
+      i w Sejmie: <a href="https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3293">druk 3293</a>,
+      <a href="https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147">druk 3147</a>.
     </p>
 
-    <!-- Strona opisuje ustawę w obecnym brzmieniu, nie jej historię. Do 22.10.2026 stał tu
-         akapit o warunku z art. 5 ust. 2 projektu (obniżka PIT spięta z podwyżką CIT); Sejm
-         wykreślił i warunek, i CIT. Historia zmian jest w model.md (A.2, A.7) i README. -->
+    <!-- Strona opisuje ustawę w obecnym brzmieniu, nie jej historię. Warunek z art. 5 ust. 2
+         zniknął stąd 22.10.2026, gdy Sejm wykreślił go z druku 3147; wrócił, bo jest w tekście
+         druku 3293 przekazanym prezydentowi (3293_u3.pdf). Historia zmian jest w model.md
+         (A.2, A.7) i README. -->
+    <p>
+      Ustawa wiąże nową skalę z dwiema innymi zmianami: art. 27 ust. 1 stosuje się tylko pod
+      warunkiem, że 1 stycznia 2027 r. wejdą w życie także podwyżka CIT do 22% dla największych
+      firm i obniżenie limitu ryczałtu. Obie są w tej samej ustawie.
+    </p>
 
     <p>
       Sam sposób liczenia wynagrodzenia jest zwykłą listą płac: składki 13,71%, zdrowotna 9%,
@@ -152,7 +156,8 @@
            daninę 4% → 5% i nazywa ją składnikiem *pakietu*. Czytelnik, który chce ocenić tę
            reformę całościowo, potrzebuje wiedzieć, że skala to jej część, a nie całość. -->
       Ustawa jest jednak szersza niż sama skala. Obejmuje też obniżenie limitu ryczałtu
-      z 2 mln do 250 tys. euro oraz wzrost daniny solidarnościowej z 4% na 5%. Kalkulator uwzględnia z tego wyłącznie daninę,
+      z 2 mln do 250 tys. euro, podwyżkę CIT z 19% do 22% dla firm z przychodem ponad 50 mln
+      euro oraz wzrost daniny solidarnościowej z 4% na 5%. Kalkulator uwzględnia z tego wyłącznie daninę,
       bo jako jedyna dotyczy osób rozliczających się według skali.
       Do liczenia podatków na B2B, umowie o pracę i zleceniu w ogóle, łącznie z porównaniem
       form opodatkowania, dobrym narzędziem jest
@@ -161,11 +166,11 @@
 
     <h3>Czy to już pewne?</h3>
     <p>
-      Jeszcze nie, ale bliżej niż na początku. 22 października 2026 r. Sejm uchwalił ustawę
-      (druk nr 3147), a 27 października Senat wniósł do niej poprawki. Ustawa wraca więc do
-      posłów, którzy mogą je odrzucić bezwzględną większością głosów, a ostatnie słowo należy
-      do prezydenta, który może ją podpisać albo zawetować. Dopóki nie
-      zostanie ogłoszona w Dzienniku Ustaw, nie obowiązuje nic.
+      Jeszcze nie, ale został ostatni krok. Ustawę (druk nr 3293) uchwalił Sejm 5 listopada
+      2026 r., a dzień później Senat przyjął ją bez poprawek. Teraz decyduje prezydent: ma
+      21 dni, by ją podpisać, zawetować albo skierować do Trybunału Konstytucyjnego. Weto posłowie
+      mogą odrzucić większością 3/5 głosów. Dopóki ustawa nie zostanie ogłoszona w Dzienniku
+      Ustaw, nie obowiązuje nic.
     </p>
 
     <!-- Kwota „netto miesięcznie” to średnia z roku, a na etacie zysk przychodzi
