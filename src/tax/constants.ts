@@ -138,6 +138,8 @@ export const SKALA: Record<Rok, Prog[]> = {
   ],
   // [PROJEKT] art. 27 ust. 1 w brzmieniu art. 1 pkt 1 projektu UD458 (wersja z 24.09.2026).
   // Bez zmian w sprawozdaniu komisji (druk 3225) i w wersji uchwalonej przez Sejm 22.10.2026.
+  // Identyczna w drugiej ustawie, druk 3293 — w tekście przekazanym prezydentowi 6.11.2026
+  // (3293_u3.pdf, Senat bez poprawek).
   // Sprawdzone przeciwko tabeli ustawowej w punktach granicznych 130 000 i 150 000 zł.
   2027: [
     { do: 130_000, stawka: 0.12 },

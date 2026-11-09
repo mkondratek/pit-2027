@@ -16,7 +16,7 @@ daje nic i kalkulator to wprost pokazuje.
 
 Strona: <https://pit.kondratek.pl>
 
-## Uchwalona przez Sejm, poprawiona przez Senat — nie obowiązuje
+## Uchwalona, czeka na prezydenta — nie obowiązuje
 
 Repozytorium powstało 19.08.2026, gdy projektu ustawy jeszcze nie było i jedynym źródłem
 były komunikaty rządowe. **Projekt pojawił się na RCL 21.08.2026** jako `UD458` (Minister
@@ -28,9 +28,11 @@ a **22.10.2026 Sejm go uchwalił** (240 za, 58 przeciw, 135 wstrzymujących się
 Skala w kalkulatorze pochodzi z art. 27 ust. 1, a nie z konferencji prasowej — i została
 z tym tekstem zweryfikowana co do złotówki w punktach granicznych 130 000 i 150 000 zł.
 Sejm jej nie zmienił: poprawkę z progiem 180 000 zł odrzucono. Ale to wciąż **nie jest
-obowiązujące prawo**: Sejm głosuje nad poprawkami Senatu, prezydent może zawetować. Przebieg prac:
+obowiązujące prawo**: druga ustawa (druk 3293, niżej) czeka na decyzję prezydenta, a poprawki
+Senatu do pierwszej — na Sejm. Przebieg prac:
 <https://legislacja.rcl.gov.pl/projekt/12413754>, w Sejmie:
-<https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147>.
+<https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147> i
+<https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3293>.
 
 W Sejmie zmieniło się to, co wokół skali. Projekt rządowy w art. 5 ust. 2 **uzależniał**
 stosowanie nowej skali od wejścia w życie podwyżki CIT do 22% i obniżenia limitu ryczałtu
@@ -41,7 +43,19 @@ nie zmienia.
 
 **27.10.2026 Senat wprowadził 8 poprawek** (druki senackie 883 A i 883 Z): przywraca CIT 22%
 i warunek, skreśla waloryzację i stawkę ryczałtu 17% ponad 300 tys. euro. Skali i daniny nie
-dotyka. Ustawa wraca do Sejmu, który każdą poprawkę może odrzucić bezwzględną większością.
+dotyka. Ustawa wraca do Sejmu, który każdą poprawkę może odrzucić bezwzględną większością
+(druk sejmowy 3270); na 68. posiedzeniu (5–6.11) jeszcze się nią nie zajął.
+
+**Druga ustawa: druk 3293.** 4.11.2026 rząd złożył nowy projekt o tym samym tytule i treści
+pierwotnego UD458 — ta sama skala, danina 5%, limit ryczałtu 250 tys. euro, CIT 22% i warunek
+(art. 5 ust. 2), bez waloryzacji i bez stawki ryczałtu 17%. **5.11.2026 Sejm uchwalił go w jeden
+dzień** (236 za, 207 przeciw, 0 wstrzymujących się; `votings/68/35`); sprawozdanie komisji
+(druk 3323) nie zmieniło tekstu, a wszystkie poprawki i wnioski mniejszości odrzucono. Ustawa
+trafiła do Senatu (druk senacki 915), który **6.11.2026 przyjął ją bez poprawek**, i tego samego
+dnia do prezydenta (21 dni: podpis, weto albo Trybunał Konstytucyjny). Uzasadnienie nie wyjaśnia,
+po co drugi projekt. Art. 27 ust. 1 w tekście przekazanym prezydentowi (`3293_u3.pdf`) jest
+identyczny jak w pierwszej ustawie, więc wyliczeń to nie zmienia. Strona opisuje teraz druk 3293
+— razem z warunkiem i CIT, bo są w tym tekście.
 
 To samo zastrzeżenie niesie sama strona — nie jest schowane w dokumentacji.
 

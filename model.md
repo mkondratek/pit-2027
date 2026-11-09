@@ -25,9 +25,12 @@ scenariusza **2027 (proponowanego)**.
 > **29.09.2026 wpłynął do Sejmu** jako druk nr 3147; **6.10.2026**, po pierwszym czytaniu na
 > posiedzeniu Sejmu, skierowano go do Komisji Finansów Publicznych, a **22.10.2026 Sejm
 > uchwalił ustawę**, a **27.10.2026 Senat wprowadził 8 poprawek** (szczegóły w A.7). Przed nią
-> głosowanie Sejmu nad poprawkami i prezydent.
+> głosowanie Sejmu nad poprawkami i prezydent. Równolegle **5.11.2026 Sejm uchwalił drugą
+> ustawę, druk nr 3293**, z identycznym art. 27 ust. 1 (oraz CIT i warunkiem, bez waloryzacji);
+> **6.11.2026 Senat przyjął ją bez poprawek i trafiła do prezydenta** (21 dni).
 > Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>,
-> <https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147>
+> <https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3147>,
+> <https://www.sejm.gov.pl/Sejm10.nsf/PrzebiegProc.xsp?nr=3293>
 >
 > Dokument powstał 19.08.2026, gdy projektu nie było, i wszystko w części 2027 nosiło wtedy
 > `[ZAPOWIEDŹ]`. Twierdzenia mające dziś oparcie w tekście przepisu zostały przeniesione na
@@ -208,7 +211,12 @@ Szacowany wpływ podwyżki CIT: **~8,6 mld zł/rok**. Minister Domański: zmiany
 | 23.10.2026 | przekazanie do Senatu — **druk senacki nr 883**, termin dla Senatu 22.11.2026. `[PEWNE]` Tekst przekazany Senatowi (`3147_u3.pdf` z API Sejmu, dostępny od ok. 27.10) zgadza się z odtworzonym ze sprawozdania i wniosków mniejszości: art. 27 ust. 1 i danina bez zmian, waloryzacja w art. 27 ust. 1e–1g. Po skreśleniach zmieniła się numeracja: stosowanie od 1.01.2027 — art. 4 ust. 1, danina od 2.05.2028 — art. 4 ust. 2, pierwsza waloryzacja — art. 5, wejście w życie — art. 6; z tytułu zniknęła ustawa o CIT |
 | 26.10.2026 | senacka Komisja Budżetu i Finansów Publicznych: wniosek o 8 poprawek (**druk 883 A**) |
 | **27.10.2026** | **Senat wprowadził 8 poprawek** `[PEWNE]` — senat.gov.pl, 67. posiedzenie Senatu, druki 883 A i 883 Z (przyjęte wnioski 1, 4, 5, 7, 8, 9, 10, 11; poprawka z jednym progiem 180 000 zł nie przeszła). Treść: przywrócenie CIT 22% (nowy art. 1a i 4a, tytuł z ustawą o CIT), przywrócenie warunku (nowy art. 4 ust. 1a: skala tylko przy wejściu w życie 1.01.2027 art. 1a i art. 2 pkt 1), skreślenie waloryzacji (art. 1 pkt 1 lit. b i art. 5), skreślenie stawki ryczałtu 17% ponad 300 tys. euro (art. 2 pkt 2). **Skali i daniny poprawki nie dotykają.** Obniżony limit ryczałtu zostaje |
-| 5–6.11.2026 | najbliższe posiedzenie Sejmu (68.) — **plan** wg API Sejmu (`proceedings`, stan na 28.10.2026); głosowanie nad poprawkami Senatu, odrzucenie każdej wymaga bezwzględnej większości |
+| 28.10.2026 | uchwała Senatu wpływa do Sejmu jako **druk nr 3270**, skierowanie do FPB `[PEWNE]` — API Sejmu (`processes/3147`, `prints/3270`); tekst uchwały zgodny z opisem wyżej |
+| **4.11.2026** | **drugi rządowy projekt: druk nr 3293** (RM-0610-196-26), ten sam tytuł co pierwotny 3147 `[PEWNE]` — API Sejmu (`processes/3293`, `3293-ustawa.docx`). Treść jak UD458: art. 27 ust. 1 identyczny (130 000 / 150 000, 12/24/32%, kwota zmniejszająca 3 600 zł), danina 5% od 2.05.2028 (art. 5 ust. 3), limit ryczałtu 250 tys. euro, CIT 22% (art. 2, 6), warunek (art. 5 ust. 2: skala tylko przy wejściu w życie 1.01.2027 art. 2 i 3). Bez waloryzacji i bez stawki ryczałtu 17%. Uzasadnienie nie mówi, dlaczego drugi projekt |
+| **5.11.2026** | **druk 3293 uchwalony w jeden dzień** `[PEWNE]` — API Sejmu (`votings/68`): I czytanie, wniosek o odrzucenie 192:216 (`68/8`); posiedzenie FPB nr 354 i sprawozdanie **druk 3323** bez zmian w tekście, 18 wniosków mniejszości; III czytanie bez ponownego kierowania do komisji (231:207, `68/22`); odrzucone poprawki 1–3 (203:238) i wszystkie wnioski mniejszości (m.in. waloryzacja 2+14 i 3+15, skreślenie daniny 5% — 4, skreślenie CIT 6+12+16 i 7+17); **całość 236 za, 207 przeciw, 0 wstrzymujących się (`68/35`)**. Uwaga: głosowania `68/18` i `68/19` (poprawki Senatu przyjęte, nikt nie głosował za odrzuceniem) dotyczą innych ustaw — 3137/UD116 (druki 3271, 3289) i 3148 (druki 3272, 3301), nie 3147 |
+| 5–6.11.2026 | druk 3270 (poprawki Senatu do 3147) **nie był rozpatrywany** na 68. posiedzeniu Sejmu — w porządku tylko jako „ewentualne uchwały Senatu", bez sprawozdania FPB; brak głosowań w `votings/68` (1–97) `[PEWNE]` |
+| **6.11.2026** | **Senat przyjął ustawę z druku 3293 bez poprawek** `[PEWNE]` — senat.gov.pl, 68. posiedzenie Senatu, głosowanie nr 7 trzeciego dnia („Wniosek o przyjęcie ustawy bez poprawek"; druki senackie 914, 915, 915 A, 915 Z); API Sejmu (`processes/3293`: „Stanowisko Senatu: nie wniósł poprawek") |
+| **6.11.2026** | **przekazanie prezydentowi do podpisu** `[PEWNE]` — API Sejmu (`processes/3293`). Tekst `3293_u3.pdf` (ustawa z dnia 5 listopada 2026 r.) zgodny z drukiem 3293: art. 27 ust. 1 bez zmian, art. 5 ust. 2 (warunek), art. 2 (CIT 22%), art. 3 (ryczałt 250 tys. euro), danina 5% od 2.05.2028 (art. 5 ust. 3), wejście w życie 1.01.2027 (art. 7). Termin dla prezydenta: 21 dni od przedstawienia (art. 122 ust. 2 Konstytucji) — przy przedstawieniu 6.11 to **27.11.2026** `[NIEJASNE]` co do dnia doręczenia |
 
 Przebieg prac: <https://legislacja.rcl.gov.pl/projekt/12413754>.
 Wersja tekstu, na której oparty jest ten dokument: „Projekt z dnia 24 września 2026 r.",
